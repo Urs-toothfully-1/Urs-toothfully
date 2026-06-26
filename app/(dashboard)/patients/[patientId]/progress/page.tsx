@@ -1,0 +1,129 @@
+import { Metadata } from "next"
+import { getSession } from "@/lib/auth"
+import { redirect } from "next/navigation"
+import { estimateRepository } from "@/server/repositories/estimate.repository"
+import { ItemStatusButton } from "@/components/estimates/ItemStatusButton"
+import { BRAND_COLORS } from "@/lib/constants"
+import { formatCurrency, formatDate } from "@/lib/utils"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { CheckCircle } from "lucide-react"
+
+export const metadata: Metadata = { title: "Treatment Progress" }
+
+type Props = { params: Promise<{ patientId: string }> }
+
+export default async function TreatmentProgressPage({ params }: Props) {
+  const session = await getSession()
+  if (!session) redirect("/login")
+
+  const { patientId } = await params
+  const estimates = await estimateRepository.findByPatient(patientId)
+
+  const activeEstimates = estimates.filter(
+    (e: { status: string; isDeleted: boolean }) => e.status !== "CANCELLED" && !e.isDeleted
+  )
+
+  const canUpdate = session.role === "ADMIN" || session.role === "DOCTOR"
+
+  // Compute overall stats
+  const allItems = activeEstimates.flatMap((e: any) => e.items ?? [])
+  const completed = allItems.filter((i: any) => i.status === "COMPLETED").length
+  const total = allItems.length
+  const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0
+
+  return (
+    <div className="space-y-4">
+      {/* Progress Overview */}
+      {total > 0 && (
+        <Card className="border-[#CCCCCC] bg-white">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-semibold" style={{ color: BRAND_COLORS.bodyText }}>
+                Overall Progress
+              </p>
+              <p className="text-sm font-bold" style={{ color: BRAND_COLORS.primaryTeal }}>
+                {completed} / {total} completed ({progressPct}%)
+              </p>
+            </div>
+            <div className="w-full rounded-full h-2" style={{ backgroundColor: BRAND_COLORS.lightBackground }}>
+              <div
+                className="h-2 rounded-full transition-all"
+                style={{
+                  width: `${progressPct}%`,
+                  backgroundColor: progressPct === 100 ? BRAND_COLORS.secondaryGreen : BRAND_COLORS.primaryTeal,
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeEstimates.length === 0 ? (
+        <Card className="border-[#CCCCCC] bg-white">
+          <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+            <CheckCircle className="h-10 w-10" style={{ color: BRAND_COLORS.lightBackground }} />
+            <p className="font-medium" style={{ color: BRAND_COLORS.bodyText }}>
+              No active treatment plans
+            </p>
+            <p className="text-sm" style={{ color: BRAND_COLORS.borderDivider }}>
+              Treatment progress will appear here once an estimate is created.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        activeEstimates.map((estimate: any) => (
+          <Card key={estimate.id} className="border-[#CCCCCC] bg-white">
+            <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
+              <CardTitle className="text-sm flex items-center justify-between" style={{ color: BRAND_COLORS.bodyText }}>
+                <span>{estimate.estimateNo}</span>
+                <div className="flex items-center gap-3 text-xs font-normal" style={{ color: BRAND_COLORS.borderDivider }}>
+                  <span>{formatDate(estimate.createdAt)}</span>
+                  <span>Total: {formatCurrency(Number(estimate.total))}</span>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-3">
+              <div className="space-y-2">
+                {(estimate.items ?? []).map((item: any) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between py-2 border-b last:border-0"
+                    style={{ borderColor: BRAND_COLORS.lightBackground }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: BRAND_COLORS.bodyText }}>
+                        {item.treatmentName}
+                        {item.toothNumber && (
+                          <span className="ml-2 text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+                            Tooth #{item.toothNumber}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+                        {item.category} · {item.quantity} × {formatCurrency(Number(item.unitRate))} = {formatCurrency(Number(item.amount))}
+                      </p>
+                    </div>
+                    <div className="ml-3 flex-shrink-0">
+                      {canUpdate ? (
+                        <ItemStatusButton
+                          itemId={item.id}
+                          estimateId={estimate.id}
+                          patientId={patientId}
+                          currentStatus={item.status}
+                        />
+                      ) : (
+                        <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: BRAND_COLORS.lightBackground, color: BRAND_COLORS.borderDivider }}>
+                          {item.status}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  )
+}

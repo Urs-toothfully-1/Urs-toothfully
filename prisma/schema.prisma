@@ -1,0 +1,686 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["omitApi"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  DOCTOR
+  RECEPTIONIST
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum VisitType {
+  CONSULTATION
+  TREATMENT_SESSION
+  FOLLOW_UP
+  EMERGENCY_VISIT
+  REVIEW
+}
+
+enum VisitStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum QueueStatus {
+  WAITING
+  WITH_DOCTOR
+  ESTIMATE_CREATED
+  PAYMENT_PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentType {
+  CONSULTATION
+  TREATMENT
+  ADVANCE
+  ADJUSTMENT
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+  BANK_TRANSFER
+}
+
+enum EstimateStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ItemStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum EntryType {
+  RECEIPT
+  REFUND
+  ADJUSTMENT
+}
+
+enum AccountingStatus {
+  PENDING_REVIEW
+  APPROVED
+  EXPORTED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  EXPORT
+  STATUS_CHANGE
+  CLAIM
+  COMPLETE
+}
+
+enum ExportFormat {
+  CSV
+  EXCEL
+}
+
+enum PrescriptionMode {
+  PRINT_ONLY
+  PARTIAL_DIGITAL
+  FULL_DIGITAL
+}
+
+// ─── MODELS ───────────────────────────────────────────────────
+
+model Branch {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(100)
+  address   String
+  phone     String   @db.VarChar(50)
+  email     String?  @db.VarChar(100)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users                 User[]
+  doctorAvailabilities  DoctorAvailability[]
+  registeredPatients    Patient[]              @relation("RegistrationBranch")
+  visits                PatientVisit[]
+  queueEntries          QueueEntry[]
+  estimates             Estimate[]
+  payments              Payment[]
+  receipts              Receipt[]
+  accountingEntries     AccountingEntry[]
+  exportBatches         ExportBatch[]
+  settings              SystemSetting[]
+  prescriptionTemplates PrescriptionTemplate[]
+}
+
+model User {
+  id                  String   @id @default(uuid())
+  branchId            String
+  branch              Branch   @relation(fields: [branchId], references: [id])
+  name                String   @db.VarChar(100)
+  email               String   @unique @db.VarChar(100)
+  passwordHash        String
+  role                Role
+  doctorRegNo         String?  @db.VarChar(20)
+  doctorQualification String?  @db.VarChar(200)
+  isActive            Boolean  @default(true)
+  loginAttempts       Int      @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  availability          DoctorAvailability[]
+  registeredPatients    Patient[]              @relation("PatientCreatedBy")
+  deletedPatients       Patient[]              @relation("PatientDeletedBy")
+  createdDentalHistory  DentalHistory[]
+  doctorVisits          PatientVisit[]         @relation("VisitDoctor")
+  createdVisits         PatientVisit[]         @relation("VisitCreatedBy")
+  claimedQueue          QueueEntry[]           @relation("QueueDoctor")
+  createdQueue          QueueEntry[]           @relation("QueueCreatedBy")
+  clinicalNotes         ClinicalNote[]
+  prescriptionRecords   PrescriptionRecord[]
+  estimates             Estimate[]
+  deletedEstimates      Estimate[]             @relation("EstimateDeletedBy")
+  itemStatusUpdates     EstimateItem[]         @relation("ItemStatusUpdatedBy")
+  collectedPayments     Payment[]              @relation("CollectedBy")
+  deletedPayments       Payment[]              @relation("PaymentDeletedBy")
+  issuedReceipts        Receipt[]
+  auditLogs             AuditLog[]
+  deletedEntries        AccountingEntry[]      @relation("EntryDeletedBy")
+  exportBatches         ExportBatch[]
+  settings              SystemSetting[]
+  treatmentMaster       TreatmentMaster[]
+  deletedTreatments     TreatmentMaster[]      @relation("TreatmentDeletedBy")
+  treatmentPackages     TreatmentPackage[]
+  generatedDocuments    GeneratedDocument[]
+  mergedRecords         PatientMergeLog[]
+  prescriptionTemplates PrescriptionTemplate[]
+  patientDocuments      PatientDocument[]
+}
+
+model DoctorAvailability {
+  id            String    @id @default(uuid())
+  doctorId      String
+  doctor        User      @relation(fields: [doctorId], references: [id])
+  branchId      String
+  branch        Branch    @relation(fields: [branchId], references: [id])
+  workingDays   String    @db.VarChar(50)
+  startTime     String    @db.VarChar(5)
+  endTime       String    @db.VarChar(5)
+  isActive      Boolean   @default(true)
+  effectiveFrom DateTime  @db.Date
+  effectiveTo   DateTime? @db.Date
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([doctorId, branchId], name: "doctor_branch_availability")
+  @@index([branchId, isActive])
+}
+
+model Patient {
+  id                   String    @id @default(uuid())
+  patientId            String    @unique @db.VarChar(20)
+  registrationBranchId String
+  registrationBranch   Branch    @relation("RegistrationBranch", fields: [registrationBranchId], references: [id])
+  fullName             String    @db.VarChar(200)
+  dateOfBirth          DateTime  @db.Date
+  gender               Gender
+  mobile               String    @db.VarChar(15)
+  email                String?   @db.VarChar(100)
+  address              String?
+  leadSource           String?   @db.VarChar(100)
+  referenceName        String?   @db.VarChar(200)
+  reasonForVisit       String?
+  createdById          String
+  createdBy            User      @relation("PatientCreatedBy", fields: [createdById], references: [id])
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  isDeleted            Boolean   @default(false)
+  deletedAt            DateTime?
+  deletedById          String?
+  deletedBy            User?     @relation("PatientDeletedBy", fields: [deletedById], references: [id])
+  deletionReason       String?
+
+  dentalHistories    DentalHistory[]
+  visits             PatientVisit[]
+  queueEntries       QueueEntry[]
+  clinicalNotes      ClinicalNote[]
+  estimates          Estimate[]
+  payments           Payment[]
+  receipts           Receipt[]
+  accountingEntries  AccountingEntry[]
+  documents          PatientDocument[]
+  generatedDocuments GeneratedDocument[]
+  prescriptions      PrescriptionRecord[]
+  mergeLog           PatientMergeLog?     @relation("PrimaryPatient")
+
+  @@index([mobile])
+  @@index([registrationBranchId, createdAt])
+}
+
+model DentalHistory {
+  id        String  @id @default(uuid())
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+  version   Int     @default(1)
+  isLatest  Boolean @default(true)
+
+  allergies           Boolean @default(false)
+  allergiesDetail     String?
+  diabetes            Boolean @default(false)
+  epilepsy            Boolean @default(false)
+  epilepsyDetail      String?
+  fainting            Boolean @default(false)
+  hepatitis           Boolean @default(false)
+  hepatitisType       String? @db.VarChar(10)
+  hivAids             Boolean @default(false)
+  heartProblems       Boolean @default(false)
+  heartProblemsDetail String?
+  heartSurgery        Boolean @default(false)
+  heartSurgeryDetail  String?
+  bloodPressure       Boolean @default(false)
+  bloodPressureType   String? @db.VarChar(20)
+  kidneyLiver         Boolean @default(false)
+  respiratory         Boolean @default(false)
+  sinus               Boolean @default(false)
+  bleedsEasily        Boolean @default(false)
+  smoker              Boolean @default(false)
+  pregnant            Boolean @default(false)
+  currentMedications  String?
+  otherDisease        String?
+  generalHealthNotes  String?
+
+  dentalReasonForVisit String?
+  previousTreatment    String?
+  lastDentistVisit     String? @db.VarChar(100)
+  lastXRay             String? @db.VarChar(100)
+  foodCatching         Boolean @default(false)
+  gumsBleed            Boolean @default(false)
+  looseTeeth           Boolean @default(false)
+  sensitiveTeeth       Boolean @default(false)
+  grinding             Boolean @default(false)
+  jawPain              Boolean @default(false)
+  snoring              Boolean @default(false)
+  appearanceConcern    Boolean @default(false)
+  seenSpecialist       Boolean @default(false)
+  wisdomTeethRemoved   Boolean @default(false)
+
+  consentGiven Boolean   @default(false)
+  consentDate  DateTime?
+
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([patientId, isLatest])
+}
+
+model PatientVisit {
+  id             String      @id @default(uuid())
+  visitNo        String      @unique @db.VarChar(20)
+  patientId      String
+  patient        Patient     @relation(fields: [patientId], references: [id])
+  branchId       String
+  branch         Branch      @relation(fields: [branchId], references: [id])
+  doctorId       String?
+  doctor         User?       @relation("VisitDoctor", fields: [doctorId], references: [id])
+  visitType      VisitType
+  visitDate      DateTime    @default(now())
+  chiefComplaint String?
+  status         VisitStatus @default(IN_PROGRESS)
+  notes          String?
+  createdById    String
+  createdBy      User        @relation("VisitCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  queueEntry    QueueEntry?
+  clinicalNotes ClinicalNote[]
+  estimates     Estimate[]
+  documents     PatientDocument[]
+  payments      Payment[]
+  prescriptions PrescriptionRecord[]
+
+  @@index([patientId, visitDate])
+  @@index([branchId, visitDate])
+}
+
+model QueueEntry {
+  id          String      @id @default(uuid())
+  visitId     String      @unique
+  visit       PatientVisit @relation(fields: [visitId], references: [id])
+  patientId   String
+  patient     Patient     @relation(fields: [patientId], references: [id])
+  branchId    String
+  branch      Branch      @relation(fields: [branchId], references: [id])
+  doctorId    String?
+  doctor      User?       @relation("QueueDoctor", fields: [doctorId], references: [id])
+  tokenNumber Int
+  status      QueueStatus @default(WAITING)
+  sentAt      DateTime    @default(now())
+  claimedAt   DateTime?
+  calledAt    DateTime?
+  completedAt DateTime?
+  createdById String
+  createdBy   User        @relation("QueueCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime    @default(now())
+
+  @@index([branchId, status, createdAt])
+  @@index([doctorId, status])
+}
+
+model ClinicalNote {
+  id        String       @id @default(uuid())
+  patientId String
+  patient   Patient      @relation(fields: [patientId], references: [id])
+  visitId   String
+  visit     PatientVisit @relation(fields: [visitId], references: [id])
+  doctorId  String
+  doctor    User         @relation(fields: [doctorId], references: [id])
+  noteType  String       @db.VarChar(50) @default("GENERAL")
+  content   String
+  createdAt DateTime     @default(now())
+
+  @@index([patientId, createdAt])
+  @@index([visitId])
+}
+
+model PrescriptionTemplate {
+  id              String           @id @default(uuid())
+  branchId        String?
+  branch          Branch?          @relation(fields: [branchId], references: [id])
+  name            String           @db.VarChar(100)
+  mode            PrescriptionMode @default(PRINT_ONLY)
+  headerImagePath String?
+  footerImagePath String?
+  bodyTemplate    String?
+  isActive        Boolean          @default(true)
+  createdById     String
+  createdBy       User             @relation(fields: [createdById], references: [id])
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  records PrescriptionRecord[]
+}
+
+model PrescriptionRecord {
+  id               String                @id @default(uuid())
+  patientId        String
+  patient          Patient               @relation(fields: [patientId], references: [id])
+  visitId          String
+  visit            PatientVisit          @relation(fields: [visitId], references: [id])
+  doctorId         String
+  doctor           User                  @relation(fields: [doctorId], references: [id])
+  templateId       String?
+  template         PrescriptionTemplate? @relation(fields: [templateId], references: [id])
+  mode             PrescriptionMode      @default(PRINT_ONLY)
+  prescriptionData Json?
+  printedAt        DateTime?
+  createdAt        DateTime              @default(now())
+
+  generatedDocument GeneratedDocument?
+
+  @@index([patientId, createdAt])
+  @@index([visitId])
+}
+
+model TreatmentMaster {
+  id             String    @id @default(uuid())
+  category       String    @db.VarChar(100)
+  name           String    @db.VarChar(200)
+  defaultAmount  Decimal   @db.Decimal(10, 2)
+  isActive       Boolean   @default(true)
+  createdById    String
+  createdBy      User      @relation(fields: [createdById], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  isDeleted      Boolean   @default(false)
+  deletedAt      DateTime?
+  deletedById    String?
+  deletedBy      User?     @relation("TreatmentDeletedBy", fields: [deletedById], references: [id])
+  deletionReason String?
+
+  estimateItems EstimateItem[]
+  packageItems  TreatmentPackageItem[]
+}
+
+model TreatmentPackage {
+  id           String   @id @default(uuid())
+  name         String   @db.VarChar(200)
+  description  String?
+  packagePrice Decimal  @db.Decimal(10, 2)
+  isActive     Boolean  @default(true)
+  createdById  String
+  createdBy    User     @relation(fields: [createdById], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items TreatmentPackageItem[]
+}
+
+model TreatmentPackageItem {
+  id          String           @id @default(uuid())
+  packageId   String
+  package     TreatmentPackage @relation(fields: [packageId], references: [id])
+  treatmentId String
+  treatment   TreatmentMaster  @relation(fields: [treatmentId], references: [id])
+  quantity    Int              @default(1)
+  sortOrder   Int              @default(0)
+}
+
+model Estimate {
+  id              String         @id @default(uuid())
+  estimateNo      String         @unique @db.VarChar(20)
+  patientId       String
+  patient         Patient        @relation(fields: [patientId], references: [id])
+  branchId        String
+  branch          Branch         @relation(fields: [branchId], references: [id])
+  doctorId        String
+  doctor          User           @relation(fields: [doctorId], references: [id])
+  visitId         String
+  visit           PatientVisit   @relation(fields: [visitId], references: [id])
+  subtotal        Decimal        @db.Decimal(10, 2) @default(0)
+  total           Decimal        @db.Decimal(10, 2) @default(0)
+  advanceRequired Decimal        @db.Decimal(10, 2) @default(0)
+  discountPercent Decimal?       @db.Decimal(5, 2)
+  discountAmount  Decimal?       @db.Decimal(10, 2)
+  notes           String?
+  status          EstimateStatus @default(ACTIVE)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  isDeleted       Boolean        @default(false)
+  deletedAt       DateTime?
+  deletedById     String?
+  deletedBy       User?          @relation("EstimateDeletedBy", fields: [deletedById], references: [id])
+  deletionReason  String?
+
+  items              EstimateItem[]
+  payments           Payment[]
+  generatedDocuments GeneratedDocument[]
+
+  @@index([patientId, status])
+  @@index([branchId, createdAt])
+  @@index([visitId])
+}
+
+model EstimateItem {
+  id                String          @id @default(uuid())
+  estimateId        String
+  estimate          Estimate        @relation(fields: [estimateId], references: [id])
+  treatmentId       String?
+  treatment         TreatmentMaster? @relation(fields: [treatmentId], references: [id])
+  treatmentName     String          @db.VarChar(200)
+  category          String          @db.VarChar(100)
+  toothNumber       String?         @db.VarChar(20)
+  quantity          Int             @default(1)
+  unitRate          Decimal         @db.Decimal(10, 2)
+  amount            Decimal         @db.Decimal(10, 2)
+  sortOrder         Int             @default(0)
+  status            ItemStatus      @default(PENDING)
+  statusUpdatedAt   DateTime?
+  statusUpdatedById String?
+  statusUpdatedBy   User?           @relation("ItemStatusUpdatedBy", fields: [statusUpdatedById], references: [id])
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  paymentType    PaymentType
+  estimateId     String?
+  estimate       Estimate?     @relation(fields: [estimateId], references: [id])
+  visitId        String?
+  visit          PatientVisit? @relation(fields: [visitId], references: [id])
+  patientId      String
+  patient        Patient       @relation(fields: [patientId], references: [id])
+  branchId       String
+  branch         Branch        @relation(fields: [branchId], references: [id])
+  amount         Decimal       @db.Decimal(10, 2)
+  mode           PaymentMode
+  transactionRef String?       @db.VarChar(100)
+  notes          String?
+  paymentDate    DateTime      @default(now())
+  collectedById  String
+  collectedBy    User          @relation("CollectedBy", fields: [collectedById], references: [id])
+  createdAt      DateTime      @default(now())
+  isDeleted      Boolean       @default(false)
+  deletedAt      DateTime?
+  deletedById    String?
+  deletedBy      User?         @relation("PaymentDeletedBy", fields: [deletedById], references: [id])
+  deletionReason String?
+
+  receipt         Receipt?
+  accountingEntry AccountingEntry?
+
+  @@index([estimateId])
+  @@index([visitId])
+  @@index([patientId, paymentDate])
+  @@index([branchId, paymentDate])
+}
+
+model Receipt {
+  id         String   @id @default(uuid())
+  receiptNo  String   @unique @db.VarChar(20)
+  paymentId  String   @unique
+  payment    Payment  @relation(fields: [paymentId], references: [id])
+  patientId  String
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  branchId   String
+  branch     Branch   @relation(fields: [branchId], references: [id])
+  issuedById String
+  issuedBy   User     @relation(fields: [issuedById], references: [id])
+  issuedAt   DateTime @default(now())
+
+  generatedDocument GeneratedDocument?
+}
+
+model AccountingEntry {
+  id             String           @id @default(uuid())
+  paymentId      String           @unique
+  payment        Payment          @relation(fields: [paymentId], references: [id])
+  branchId       String
+  branch         Branch           @relation(fields: [branchId], references: [id])
+  patientId      String
+  patient        Patient          @relation(fields: [patientId], references: [id])
+  entryDate      DateTime         @db.Date
+  amount         Decimal          @db.Decimal(10, 2)
+  paymentMode    PaymentMode
+  paymentType    PaymentType
+  entryType      EntryType        @default(RECEIPT)
+  status         AccountingStatus @default(PENDING_REVIEW)
+  exportBatchId  String?
+  exportBatch    ExportBatch?     @relation(fields: [exportBatchId], references: [id])
+  notes          String?
+  isDeleted      Boolean          @default(false)
+  deletedById    String?
+  deletedBy      User?            @relation("EntryDeletedBy", fields: [deletedById], references: [id])
+  deletedAt      DateTime?
+  deletionReason String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([branchId, entryDate, status])
+  @@index([exportBatchId])
+  @@index([paymentType, entryDate])
+}
+
+model GeneratedDocument {
+  id             String               @id @default(uuid())
+  documentType   String               @db.VarChar(50)
+  patientId      String
+  patient        Patient              @relation(fields: [patientId], references: [id])
+  estimateId     String?
+  estimate       Estimate?            @relation(fields: [estimateId], references: [id])
+  receiptId      String?              @unique
+  receipt        Receipt?             @relation(fields: [receiptId], references: [id])
+  prescriptionId String?              @unique
+  prescription   PrescriptionRecord?  @relation(fields: [prescriptionId], references: [id])
+  generatedById  String
+  generatedBy    User                 @relation(fields: [generatedById], references: [id])
+  generatedAt    DateTime             @default(now())
+  filePath       String?
+  fileSize       Int?
+  mimeType       String?              @db.VarChar(50) @default("application/pdf")
+
+  @@index([patientId, documentType, generatedAt])
+  @@index([estimateId])
+}
+
+model AuditLog {
+  id             String      @id @default(uuid())
+  entityType     String      @db.VarChar(50)
+  entityId       String      @db.VarChar(36)
+  action         AuditAction
+  changedById    String
+  changedBy      User        @relation(fields: [changedById], references: [id])
+  changedAt      DateTime    @default(now())
+  previousValues Json?
+  newValues      Json?
+  reason         String?
+  branchId       String?     @db.VarChar(36)
+  ipAddress      String?     @db.VarChar(45)
+
+  @@index([entityType, entityId])
+  @@index([changedById, changedAt])
+  @@index([branchId, changedAt])
+}
+
+model ExportBatch {
+  id           String       @id @default(uuid())
+  batchNo      String       @unique @db.VarChar(20)
+  branchId     String
+  branch       Branch       @relation(fields: [branchId], references: [id])
+  fromDate     DateTime     @db.Date
+  toDate       DateTime     @db.Date
+  exportedById String
+  exportedBy   User         @relation(fields: [exportedById], references: [id])
+  exportedAt   DateTime     @default(now())
+  recordCount  Int          @default(0)
+  format       ExportFormat
+  filePath     String?
+
+  entries AccountingEntry[]
+}
+
+model PatientDocument {
+  id           String        @id @default(uuid())
+  patientId    String
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  visitId      String?
+  visit        PatientVisit? @relation(fields: [visitId], references: [id])
+  documentType String        @db.VarChar(50)
+  fileName     String        @db.VarChar(200)
+  filePath     String
+  fileSize     Int?
+  mimeType     String?       @db.VarChar(100)
+  uploadedById String
+  uploadedBy   User          @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime      @default(now())
+  isDeleted    Boolean       @default(false)
+
+  @@index([patientId])
+}
+
+model PatientMergeLog {
+  id                String   @id @default(uuid())
+  primaryPatientId  String   @unique
+  primaryPatient    Patient  @relation("PrimaryPatient", fields: [primaryPatientId], references: [id])
+  mergedPatientId   String   @db.VarChar(20)
+  mergedPatientName String   @db.VarChar(200)
+  mergedById        String
+  mergedBy          User     @relation(fields: [mergedById], references: [id])
+  mergedAt          DateTime @default(now())
+  notes             String?
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  branchId    String?
+  branch      Branch?  @relation(fields: [branchId], references: [id])
+  key         String   @db.VarChar(100)
+  value       String
+  updatedById String
+  updatedBy   User     @relation(fields: [updatedById], references: [id])
+  updatedAt   DateTime @updatedAt
+
+  @@unique([branchId, key])
+}
