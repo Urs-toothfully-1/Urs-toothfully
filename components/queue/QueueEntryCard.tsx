@@ -3,11 +3,9 @@
 import { useTransition } from "react"
 import Link from "next/link"
 import { QueueStatusBadge } from "@/components/queue/QueueStatusBadge"
-import { BRAND_COLORS } from "@/lib/constants"
 import { VISIT_TYPE_LABELS, getTimeSince } from "@/lib/queue-helpers"
 import { updateQueueStatusAction, claimPatientAction } from "@/actions/queue"
-import { Button } from "@/components/ui/button"
-import { Loader2, Stethoscope, CheckCircle2, CreditCard, XCircle, UserCheck, FilePlus } from "lucide-react"
+import { Loader2, Stethoscope, CheckCircle2, CreditCard, XCircle, UserCheck, FilePlus, Phone } from "lucide-react"
 import { toast } from "sonner"
 import type { QueueStatus } from "@prisma/client"
 import type { Role } from "@/lib/session"
@@ -30,12 +28,23 @@ interface Props {
   currentUserId: string
 }
 
+const TOKEN_COLORS: Record<string, { bg: string; text: string }> = {
+  WAITING: { bg: "#FEF3C7", text: "#92400E" },
+  WITH_DOCTOR: { bg: "#DBEAFE", text: "#1E40AF" },
+  ESTIMATE_CREATED: { bg: "#EDE9FE", text: "#5B21B6" },
+  PAYMENT_PENDING: { bg: "#FFEDD5", text: "#9A3412" },
+  COMPLETED: { bg: "#D1FAE5", text: "#065F46" },
+  CANCELLED: { bg: "#F1F5F9", text: "#64748B" },
+}
+
 export function QueueEntryCard({ entry, role, currentUserId }: Props) {
   const [isPending, startTransition] = useTransition()
 
   const isDoctor = role === "DOCTOR"
   const isReception = role === "RECEPTIONIST" || role === "ADMIN"
   const isMyPatient = entry.doctorId === currentUserId
+  const isActive = !["COMPLETED", "CANCELLED"].includes(entry.status)
+  const tokenColors = TOKEN_COLORS[entry.status] ?? TOKEN_COLORS.WAITING
 
   function handleStatusUpdate(newStatus: string) {
     startTransition(async () => {
@@ -53,20 +62,19 @@ export function QueueEntryCard({ entry, role, currentUserId }: Props) {
     })
   }
 
-  const isActive = !["COMPLETED", "CANCELLED"].includes(entry.status)
-
   return (
     <div
-      className="bg-white rounded-lg border p-4 flex items-start gap-4"
+      className="bg-white rounded-xl border p-4 flex items-start gap-4 transition-all"
       style={{
-        borderColor: isActive ? BRAND_COLORS.lightBackground : "#E5E7EB",
-        opacity: isActive ? 1 : 0.65,
+        borderColor: isActive ? "#E2E8F0" : "#F1F5F9",
+        opacity: isActive ? 1 : 0.6,
+        boxShadow: isActive ? "0 1px 4px rgba(0,0,0,0.04)" : "none",
       }}
     >
-      {/* Token */}
+      {/* Token bubble */}
       <div
-        className="flex-shrink-0 h-12 w-12 rounded-full flex items-center justify-center text-lg font-bold text-white"
-        style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
+        className="flex-shrink-0 h-11 w-11 rounded-xl flex items-center justify-center text-sm font-bold"
+        style={{ backgroundColor: tokenColors.bg, color: tokenColors.text }}
       >
         {entry.tokenNumber}
       </div>
@@ -74,139 +82,113 @@ export function QueueEntryCard({ entry, role, currentUserId }: Props) {
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2 flex-wrap">
-          <div>
-            <Link
-              href={`/patients/${entry.patient.id}`}
-              className="font-semibold text-sm hover:underline"
-              style={{ color: BRAND_COLORS.bodyText }}
-            >
-              {entry.patient.fullName}
-            </Link>
-            <span
-              className="ml-2 text-xs font-mono"
-              style={{ color: BRAND_COLORS.primaryTeal }}
-            >
-              {entry.patient.patientId}
-            </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link
+                href={`/patients/${entry.patient.id}`}
+                className="font-semibold text-sm hover:underline transition-colors"
+                style={{ color: "#0F172A" }}
+              >
+                {entry.patient.fullName}
+              </Link>
+              <span className="text-xs font-mono px-1.5 py-0.5 rounded-md" style={{ backgroundColor: "#F1F5F9", color: "#0891B2" }}>
+                {entry.patient.patientId}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 mt-1">
+              <span className="text-xs font-medium" style={{ color: "#475569" }}>
+                {VISIT_TYPE_LABELS[entry.visit.visitType] ?? entry.visit.visitType}
+              </span>
+              {entry.doctor && (
+                <span className="text-xs" style={{ color: "#64748B" }}>
+                  → {entry.doctor.name}
+                </span>
+              )}
+              <span className="text-xs" style={{ color: "#94A3B8" }}>
+                {getTimeSince(entry.sentAt)}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-1">
+              <Phone className="h-3 w-3" style={{ color: "#94A3B8" }} />
+              <span className="text-xs" style={{ color: "#94A3B8" }}>{entry.patient.mobile}</span>
+            </div>
+            {entry.visit.chiefComplaint && (
+              <p className="text-xs mt-1 truncate italic" style={{ color: "#94A3B8" }}>
+                "{entry.visit.chiefComplaint}"
+              </p>
+            )}
           </div>
           <QueueStatusBadge status={entry.status} />
         </div>
-
-        <div className="flex flex-wrap items-center gap-3 mt-1">
-          <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-            {VISIT_TYPE_LABELS[entry.visit.visitType] ?? entry.visit.visitType}
-          </span>
-          {entry.doctor && (
-            <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-              → {entry.doctor.name}
-            </span>
-          )}
-          <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-            {getTimeSince(entry.sentAt)}
-          </span>
-        </div>
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-            📱 {entry.patient.mobile}
-          </span>
-        </div>
-
-        {entry.visit.chiefComplaint && (
-          <p className="text-xs mt-1 truncate" style={{ color: BRAND_COLORS.borderDivider }}>
-            "{entry.visit.chiefComplaint}"
-          </p>
-        )}
       </div>
 
       {/* Action buttons */}
       {isPending ? (
-        <Loader2 className="h-4 w-4 animate-spin flex-shrink-0 mt-1" style={{ color: BRAND_COLORS.borderDivider }} />
+        <Loader2 className="h-4 w-4 animate-spin flex-shrink-0 mt-1" style={{ color: "#94A3B8" }} />
       ) : (
-        <div className="flex flex-col gap-2 flex-shrink-0">
-          {/* WAITING → Doctor: Start / Claim */}
+        <div className="flex flex-col gap-1.5 flex-shrink-0">
           {entry.status === "WAITING" && isDoctor && !entry.doctorId && (
-            <Button
-              size="sm"
+            <button
               onClick={handleClaim}
-              className="text-xs text-white h-7"
-              style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
+              className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg transition-all"
+              style={{ background: "linear-gradient(135deg,#0891B2,#0EA5E9)", boxShadow: "0 2px 8px rgba(14,165,233,0.3)" }}
             >
-              <UserCheck className="h-3.5 w-3.5 mr-1" />
-              Claim
-            </Button>
+              <UserCheck className="h-3.5 w-3.5" />Claim
+            </button>
           )}
           {entry.status === "WAITING" && isDoctor && isMyPatient && (
-            <Button
-              size="sm"
+            <button
               onClick={() => handleStatusUpdate("WITH_DOCTOR")}
-              className="text-xs text-white h-7"
-              style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
+              className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
+              style={{ background: "linear-gradient(135deg,#0891B2,#0EA5E9)" }}
             >
-              <Stethoscope className="h-3.5 w-3.5 mr-1" />
-              Start
-            </Button>
+              <Stethoscope className="h-3.5 w-3.5" />Start
+            </button>
           )}
-
-          {/* WITH_DOCTOR → Doctor: Create Estimate + Done */}
           {entry.status === "WITH_DOCTOR" && isDoctor && isMyPatient && (
             <>
               <Link
                 href={`/doctor/estimate/new?visitId=${entry.visitId}&patientId=${entry.patient.id}`}
-                className="flex items-center justify-center gap-1 text-xs text-white h-7 px-2 rounded-md font-medium"
-                style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
+                className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
+                style={{ background: "linear-gradient(135deg,#0891B2,#0EA5E9)" }}
               >
-                <FilePlus className="h-3.5 w-3.5" />
-                Estimate
+                <FilePlus className="h-3.5 w-3.5" />Estimate
               </Link>
-              <Button
-                size="sm"
+              <button
                 onClick={() => handleStatusUpdate("ESTIMATE_CREATED")}
-                className="text-xs text-white h-7"
-                style={{ backgroundColor: "#6D28D9" }}
+                className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
+                style={{ backgroundColor: "#7C3AED" }}
               >
-                <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-                Done
-              </Button>
+                <CheckCircle2 className="h-3.5 w-3.5" />Done
+              </button>
             </>
           )}
-
-          {/* ESTIMATE_CREATED → Reception: Collect Payment */}
           {entry.status === "ESTIMATE_CREATED" && isReception && (
             <Link
               href={`/reception/collect-payment?patientId=${entry.patient.id}&visitId=${entry.visitId}`}
-              className="flex items-center justify-center gap-1 text-xs text-white h-7 px-2 rounded-md font-medium"
+              className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
               style={{ backgroundColor: "#C2410C" }}
             >
-              <CreditCard className="h-3.5 w-3.5" />
-              Collect
+              <CreditCard className="h-3.5 w-3.5" />Collect
             </Link>
           )}
-
-          {/* PAYMENT_PENDING → Reception: Complete */}
           {entry.status === "PAYMENT_PENDING" && isReception && (
-            <Button
-              size="sm"
+            <button
               onClick={() => handleStatusUpdate("COMPLETED")}
-              className="text-xs text-white h-7"
-              style={{ backgroundColor: BRAND_COLORS.secondaryGreen }}
+              className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
+              style={{ backgroundColor: "#059669" }}
             >
-              <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-              Complete
-            </Button>
+              <CheckCircle2 className="h-3.5 w-3.5" />Complete
+            </button>
           )}
-
-          {/* Cancel — reception only, active statuses */}
           {isReception && isActive && !["COMPLETED", "CANCELLED"].includes(entry.status) && (
-            <Button
-              size="sm"
-              variant="outline"
+            <button
               onClick={() => handleStatusUpdate("CANCELLED")}
-              className="text-xs h-7 border-[#CCCCCC]"
-              style={{ color: "#EF4444" }}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors hover:bg-red-50"
+              style={{ color: "#EF4444", borderColor: "#FECACA" }}
             >
-              <XCircle className="h-3.5 w-3.5 mr-1" />
-              Cancel
-            </Button>
+              <XCircle className="h-3.5 w-3.5" />Cancel
+            </button>
           )}
         </div>
       )}

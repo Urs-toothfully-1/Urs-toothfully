@@ -9,13 +9,36 @@ export const CLINIC_HOURS = {
 } as const
 
 export const BRAND_COLORS = {
-  primaryTeal: "#4ABCC8",
-  secondaryGreen: "#7DC242",
-  lightBackground: "#EBECEE",
-  borderDivider: "#999999",
-  panelGray: "#CCCCCC",
+  // Primary brand
+  primaryTeal: "#0891B2",
+  primaryTealHover: "#0E7490",
+  primaryTealLight: "#CFFAFE",
+  secondaryGreen: "#059669",
+
+  // App surfaces
+  appBackground: "#F1F5F9",
+  lightBackground: "#F8FAFC",
+  cardBackground: "#FFFFFF",
+
+  // Sidebar (dark)
+  sidebarBg: "#0F172A",
+  sidebarText: "#CBD5E1",
+  sidebarMuted: "#64748B",
+  sidebarActiveBg: "rgba(14,165,233,0.12)",
+  sidebarActiveBorder: "#0EA5E9",
+
+  // Text
+  bodyText: "#0F172A",
+  secondaryText: "#475569",
+  borderDivider: "#64748B",
+
+  // Borders
+  borderLight: "#E2E8F0",
+  borderMedium: "#CBD5E1",
+
+  // Legacy aliases (keep for compatibility)
+  panelGray: "#F1F5F9",
   white: "#FFFFFF",
-  bodyText: "#333333",
 } as const
 
 export const SESSION_DURATION_HOURS = 8

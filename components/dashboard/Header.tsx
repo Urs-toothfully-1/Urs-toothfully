@@ -2,9 +2,8 @@
 
 import { useState, useRef, useEffect, useTransition } from "react"
 import { logoutAction } from "@/actions/auth"
-import { BRAND_COLORS } from "@/lib/constants"
 import type { Role } from "@/lib/session"
-import { LogOut, Loader2 } from "lucide-react"
+import { LogOut, Loader2, ChevronDown, Building2 } from "lucide-react"
 
 interface HeaderProps {
   userName: string
@@ -16,6 +15,12 @@ const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Administrator",
   DOCTOR: "Doctor",
   RECEPTIONIST: "Receptionist",
+}
+
+const ROLE_COLORS: Record<Role, { bg: string; text: string }> = {
+  ADMIN: { bg: "#FEF3C7", text: "#92400E" },
+  DOCTOR: { bg: "#D1FAE5", text: "#065F46" },
+  RECEPTIONIST: { bg: "#DBEAFE", text: "#1E40AF" },
 }
 
 function getInitials(name: string): string {
@@ -31,19 +36,16 @@ export function Header({ userName, role, branchName }: HeaderProps) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const menuRef = useRef<HTMLDivElement>(null)
+  const roleStyle = ROLE_COLORS[role]
 
-  // Close on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false)
     }
     if (open) document.addEventListener("mousedown", handleClick)
     return () => document.removeEventListener("mousedown", handleClick)
   }, [open])
 
-  // Close on Escape
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false)
@@ -52,103 +54,86 @@ export function Header({ userName, role, branchName }: HeaderProps) {
     return () => document.removeEventListener("keydown", handleKey)
   }, [open])
 
-  // Use useTransition so logoutAction (which calls redirect) works correctly
-  // without a form element — avoids accidental re-submission on mobile refresh
   function handleSignOut() {
     setOpen(false)
-    startTransition(async () => {
-      await logoutAction()
-    })
+    startTransition(async () => { await logoutAction() })
   }
 
   return (
-    <header
-      className="h-14 flex items-center justify-between px-6 border-b flex-shrink-0 bg-white print:hidden"
-      style={{ borderColor: BRAND_COLORS.lightBackground }}
-    >
-      {/* Left — branch name */}
+    <header className="h-14 flex items-center justify-between px-6 bg-white border-b border-[#E2E8F0] flex-shrink-0 print:hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+      {/* Left — branch */}
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium" style={{ color: BRAND_COLORS.borderDivider }}>
+        <Building2 className="h-3.5 w-3.5" style={{ color: "#94A3B8" }} />
+        <span className="text-sm font-medium" style={{ color: "#475569" }}>
           {branchName} Branch
         </span>
       </div>
 
       {/* Right — user menu */}
       <div ref={menuRef} className="relative">
-        {/* Trigger button */}
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-gray-50 transition-colors focus:outline-none"
-          aria-label="User menu"
+          className="flex items-center gap-2.5 rounded-xl px-3 py-1.5 transition-colors hover:bg-slate-50 focus:outline-none"
           aria-expanded={open}
           aria-haspopup="menu"
         >
           {/* Avatar */}
           <div
             className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-            style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
+            style={{ background: "linear-gradient(135deg, #0891B2, #0EA5E9)" }}
           >
             {getInitials(userName)}
           </div>
 
-          {/* Name + Role */}
+          {/* Name + role badge */}
           <div className="hidden sm:block text-left">
-            <p className="text-xs font-semibold leading-tight" style={{ color: BRAND_COLORS.bodyText }}>
+            <p className="text-xs font-semibold leading-tight" style={{ color: "#0F172A" }}>
               {userName}
             </p>
-            <p className="text-xs leading-tight" style={{ color: BRAND_COLORS.borderDivider }}>
+            <span
+              className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-tight mt-0.5"
+              style={{ backgroundColor: roleStyle.bg, color: roleStyle.text }}
+            >
               {ROLE_LABELS[role]}
-            </p>
+            </span>
           </div>
 
-          {/* Chevron */}
-          <svg
-            className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`}
-            style={{ color: BRAND_COLORS.borderDivider }}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+          <ChevronDown
+            className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            style={{ color: "#94A3B8" }}
+          />
         </button>
 
-        {/* Dropdown panel */}
+        {/* Dropdown */}
         {open && (
           <div
-            className="absolute right-0 top-full mt-1 w-52 rounded-lg border bg-white shadow-lg z-50 overflow-hidden"
-            style={{ borderColor: BRAND_COLORS.lightBackground }}
+            className="absolute right-0 top-full mt-2 w-56 rounded-xl border bg-white shadow-lg z-50 overflow-hidden"
+            style={{ borderColor: "#E2E8F0", boxShadow: "0 10px 40px rgba(0,0,0,0.12)" }}
             role="menu"
           >
-            {/* User info */}
-            <div
-              className="px-4 py-3 border-b"
-              style={{ borderColor: BRAND_COLORS.lightBackground, backgroundColor: BRAND_COLORS.lightBackground }}
-            >
-              <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>Signed in as</p>
-              <p className="text-sm font-semibold mt-0.5" style={{ color: BRAND_COLORS.bodyText }}>
-                {userName}
-              </p>
-              <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+            {/* User info header */}
+            <div className="px-4 py-3 border-b border-[#F1F5F9]" style={{ backgroundColor: "#F8FAFC" }}>
+              <p className="text-xs font-medium" style={{ color: "#94A3B8" }}>Signed in as</p>
+              <p className="text-sm font-semibold mt-0.5" style={{ color: "#0F172A" }}>{userName}</p>
+              <span
+                className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-1"
+                style={{ backgroundColor: roleStyle.bg, color: roleStyle.text }}
+              >
                 {ROLE_LABELS[role]}
-              </p>
+              </span>
             </div>
 
-            {/* Sign Out — plain button, no form, no accidental submission */}
+            {/* Sign out */}
             <div className="p-1.5" role="none">
               <button
                 type="button"
                 onClick={handleSignOut}
                 disabled={isPending}
-                className="flex w-full items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-red-50 text-red-600 disabled:opacity-60"
+                className="flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-red-50 text-red-600 disabled:opacity-60"
                 role="menuitem"
               >
-                {isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <LogOut className="h-4 w-4" />
-                )}
+                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
                 {isPending ? "Signing out…" : "Sign Out"}
               </button>
             </div>
