@@ -56,14 +56,13 @@ export default async function PrintReceiptPage({ params }: Props) {
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          @page { margin: 10mm; size: A4; }
-          html, body {
-            margin: 0 !important; padding: 0 !important;
-            height: auto !important; overflow: visible !important; background: white !important;
-          }
+          @page { margin: 8mm; size: A4; }
+          html, body { margin: 0 !important; padding: 0 !important; overflow: visible !important; background: white !important; }
           aside, header, nav { display: none !important; }
-          * { overflow: visible !important; height: auto !important; max-height: none !important; }
-          .print-doc { max-width: 100% !important; padding: 0 !important; margin: 0 auto !important; }
+          div, main, section { overflow: visible !important; }
+          .h-screen, main { height: auto !important; }
+          .print-doc { zoom: 0.88; max-width: 100% !important; padding: 0 !important; margin: 0 auto !important; }
+          .print-doc img:first-of-type { max-height: 64px !important; object-fit: contain; object-position: left; }
         }
         body { font-family: Arial, Helvetica, sans-serif; background: white; }
       `}</style>
