@@ -2,7 +2,7 @@ import { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
-import { BRAND_COLORS, APP_NAME, APP_TAGLINE } from "@/lib/constants"
+import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { PrintButtons } from "@/components/print/PrintButtons"
 
@@ -28,12 +28,13 @@ export default async function PrintEstimatePage({ params }: Props) {
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          body { margin: 0; }
+          body { margin: 0; background: white; }
           @page { margin: 10mm; size: A4; }
-          aside, header { display: none !important; }
-          main { padding: 0 !important; background: white !important; }
+          aside, header, nav { display: none !important; }
+          main { padding: 0 !important; background: white !important; overflow: visible !important; }
           .flex.h-screen { display: block !important; }
-          .flex-1.overflow-hidden { display: block !important; width: 100% !important; }
+          .flex-1 { display: block !important; width: 100% !important; overflow: visible !important; }
+          .print-doc { max-width: 100% !important; padding: 0 !important; }
         }
         body { font-family: Arial, Helvetica, sans-serif; background: white; }
       `}</style>
@@ -41,7 +42,7 @@ export default async function PrintEstimatePage({ params }: Props) {
       <PrintButtons />
 
       {/* Printable document */}
-      <div className="max-w-[800px] mx-auto p-6">
+      <div className="print-doc max-w-[800px] mx-auto p-6">
         {/* Header */}
         <div className="mb-6">
           <img src="/Header.jpg" alt="Ur's Toothfully Header" className="w-full" />

@@ -49,12 +49,13 @@ export default async function PrintPrescriptionPage({ params }: Props) {
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          body { margin: 0; }
-          @page { margin: 5mm; size: A5; }
-          aside, header { display: none !important; }
-          main { padding: 0 !important; background: white !important; }
+          body { margin: 0; background: white; }
+          @page { margin: 8mm; size: A4; }
+          aside, header, nav { display: none !important; }
+          main { padding: 0 !important; background: white !important; overflow: visible !important; }
           .flex.h-screen { display: block !important; }
-          .flex-1.overflow-hidden { display: block !important; width: 100% !important; }
+          .flex-1 { display: block !important; width: 100% !important; overflow: visible !important; }
+          .print-doc { max-width: 100% !important; padding: 0 !important; }
         }
         body { font-family: Arial, Helvetica, sans-serif; background: white; }
         .rx-line { border-bottom: 1px solid #CCCCCC; min-height: 28px; }
@@ -63,7 +64,7 @@ export default async function PrintPrescriptionPage({ params }: Props) {
       <PrintButtons />
 
       {/* Prescription document */}
-      <div className="max-w-[500px] mx-auto p-4">
+      <div className="print-doc max-w-[600px] mx-auto p-4">
         {/* Header */}
         <img src="/Header.jpg" alt="Header" className="w-full mb-3" />
 
