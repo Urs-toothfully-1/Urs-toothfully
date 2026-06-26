@@ -28,13 +28,14 @@ export default async function PrintEstimatePage({ params }: Props) {
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          body { margin: 0; background: white; }
           @page { margin: 10mm; size: A4; }
+          html, body {
+            margin: 0 !important; padding: 0 !important;
+            height: auto !important; overflow: visible !important; background: white !important;
+          }
           aside, header, nav { display: none !important; }
-          main { padding: 0 !important; background: white !important; overflow: visible !important; }
-          .flex.h-screen { display: block !important; }
-          .flex-1 { display: block !important; width: 100% !important; overflow: visible !important; }
-          .print-doc { max-width: 100% !important; padding: 0 !important; }
+          * { overflow: visible !important; height: auto !important; max-height: none !important; }
+          .print-doc { max-width: 100% !important; padding: 0 !important; margin: 0 auto !important; }
         }
         body { font-family: Arial, Helvetica, sans-serif; background: white; }
       `}</style>
