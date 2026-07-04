@@ -13,7 +13,9 @@ export interface SessionPayload {
 }
 
 function getJwtSecret(): Uint8Array {
-  const secret = process.env.JWT_SECRET
+  // Trim to stay byte-identical with proxy.ts verification — a stray
+  // trailing newline in the env var must not produce a different key.
+  const secret = process.env.JWT_SECRET?.trim()
   if (!secret) throw new Error("JWT_SECRET environment variable is not set")
   if (secret.length < 32) throw new Error("JWT_SECRET must be at least 32 characters")
   return new TextEncoder().encode(secret)
