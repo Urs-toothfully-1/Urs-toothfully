@@ -510,10 +510,23 @@ model Estimate {
   items              EstimateItem[]
   payments           Payment[]
   generatedDocuments GeneratedDocument[]
+  paymentAgreement   PaymentAgreement?
 
   @@index([patientId, status])
   @@index([branchId, createdAt])
   @@index([visitId])
+}
+
+model PaymentAgreement {
+  id                   String    @id @default(uuid())
+  estimateId           String    @unique
+  estimate             Estimate  @relation(fields: [estimateId], references: [id])
+  stages               Json      // Array of { name: string, amount: number, dueDate: string, received: boolean }
+  clinicRepresentative String?   @db.VarChar(200)
+  termsAccepted        Boolean   @default(false)
+  patientSignedAt      DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }
 
 model EstimateItem {

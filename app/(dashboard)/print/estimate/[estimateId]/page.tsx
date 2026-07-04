@@ -2,8 +2,10 @@ import { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
+import { paymentAgreementService } from "@/server/services/payment-agreement.service"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { PaymentStage, PAYMENT_TERMS } from "@/lib/payment-agreement"
 import { PrintButtons } from "@/components/print/PrintButtons"
 import { ShareActions } from "@/components/share/ShareActions"
 
@@ -19,9 +21,15 @@ export default async function PrintEstimatePage({ params }: Props) {
   const estimate = await estimateRepository.findById(estimateId)
   if (!estimate) notFound()
 
+  const [agreement] = await Promise.all([
+    paymentAgreementService.getOrSuggest(estimateId),
+  ])
+  const agreementStages = (agreement.stages ?? []) as PaymentStage[]
+
   const total = Number(estimate.total)
   const paid = estimate.payments.reduce((s: number, p: { amount: unknown }) => s + Number(p.amount), 0)
   const balance = Math.max(0, total - paid)
+  const received = agreementStages.filter((s) => s.received).reduce((sum, s) => sum + s.amount, 0)
 
   return (
     <>
@@ -241,6 +249,155 @@ export default async function PrintEstimatePage({ params }: Props) {
         {/* Footer */}
         <div className="mt-8">
           <img src="/fotter-1.jpg" alt="Footer" className="w-full" />
+        </div>
+
+        {/* ── PAYMENT AGREEMENT — new page on print ─────────── */}
+        <div style={{ pageBreakBefore: "always", paddingTop: "0" }}>
+          {/* Header repeated */}
+          <div className="mb-4">
+            <img src="/Header.jpg" alt="Ur's Toothfully Header" className="w-full" />
+          </div>
+
+          {/* Agreement title */}
+          <div
+            className="mb-4 pb-3 border-b-2"
+            style={{ borderColor: BRAND_COLORS.primaryTeal }}
+          >
+            <h2 className="text-xl font-bold" style={{ color: BRAND_COLORS.primaryTeal }}>
+              DENTAL TREATMENT PAYMENT AGREEMENT
+            </h2>
+            <div className="grid grid-cols-3 gap-4 mt-2 text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+              <div>
+                <span>Patient: </span>
+                <strong style={{ color: BRAND_COLORS.bodyText }}>{estimate.patient.fullName}</strong>
+              </div>
+              <div>
+                <span>Estimate No: </span>
+                <strong style={{ color: BRAND_COLORS.bodyText }}>{estimate.estimateNo}</strong>
+              </div>
+              <div>
+                <span>Treatment Cost: </span>
+                <strong style={{ color: BRAND_COLORS.primaryTeal }}>{formatCurrency(total)}</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment schedule table */}
+          <table className="w-full text-sm mb-4" style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ backgroundColor: "#1A6B4A", color: "white" }}>
+                {["Payment Stage", "Amount (₹)", "Due Date", "Received"].map((h) => (
+                  <th key={h} className="py-2 px-3 text-left font-semibold" style={{ fontSize: "12px" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {agreementStages.map((stage, idx) => (
+                <tr
+                  key={idx}
+                  style={{
+                    borderBottom: "1px solid #E0E3E5",
+                    backgroundColor: stage.received ? "#EFF9F4" : idx % 2 === 0 ? "white" : "#FAFAFA",
+                  }}
+                >
+                  <td className="py-2.5 px-3" style={{ color: BRAND_COLORS.bodyText }}>{stage.name}</td>
+                  <td className="py-2.5 px-3 font-semibold" style={{ color: BRAND_COLORS.bodyText }}>
+                    ₹{stage.amount.toLocaleString("en-IN")}
+                  </td>
+                  <td className="py-2.5 px-3" style={{ color: BRAND_COLORS.bodyText }}>
+                    {stage.dueDate
+                      ? new Date(stage.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                      : "_____________"}
+                  </td>
+                  <td className="py-2.5 px-3 text-center">
+                    {stage.received
+                      ? <span style={{ color: "#1A6B4A", fontWeight: 700 }}>✓ Received</span>
+                      : <span style={{ color: BRAND_COLORS.borderDivider }}>—</span>
+                    }
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop: "2px solid #1A6B4A" }}>
+                <td className="py-2 px-3 font-bold" style={{ color: BRAND_COLORS.bodyText }}>Total Treatment Cost</td>
+                <td className="py-2 px-3 font-bold" style={{ color: BRAND_COLORS.primaryTeal }}>
+                  ₹{total.toLocaleString("en-IN")}
+                </td>
+                <td />
+                <td />
+              </tr>
+              <tr>
+                <td className="py-1 px-3 font-semibold" style={{ color: BRAND_COLORS.bodyText }}>Total Amount Received</td>
+                <td className="py-1 px-3 font-semibold" style={{ color: "#1A6B4A" }}>
+                  ₹{received.toLocaleString("en-IN")}
+                </td>
+                <td />
+                <td />
+              </tr>
+              <tr>
+                <td className="py-1 px-3 font-bold" style={{ color: "#C2410C" }}>Balance Outstanding</td>
+                <td className="py-1 px-3 font-bold" style={{ color: "#C2410C" }}>
+                  ₹{Math.max(0, total - received).toLocaleString("en-IN")}
+                </td>
+                <td />
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+
+          {/* Terms & Conditions */}
+          <div className="mb-5">
+            <p className="font-bold text-sm mb-2" style={{ color: BRAND_COLORS.bodyText }}>Terms &amp; Conditions</p>
+            <ol className="text-xs space-y-1.5 list-decimal ml-4" style={{ color: BRAND_COLORS.secondaryText }}>
+              {PAYMENT_TERMS.map((t, i) => <li key={i}>{t}</li>)}
+            </ol>
+          </div>
+
+          {/* Patient declaration */}
+          <div
+            className="mb-6 p-3 rounded text-xs"
+            style={{ backgroundColor: BRAND_COLORS.lightBackground, color: BRAND_COLORS.bodyText }}
+          >
+            <strong>Patient Declaration:</strong> I have understood the proposed treatment, estimated cost,
+            payment schedule, and the above terms and conditions. I agree to make payments as per the
+            agreed schedule.
+          </div>
+
+          {/* Signature block */}
+          <div className="grid grid-cols-3 gap-8 text-xs">
+            <div>
+              <div className="border-b border-gray-400 mb-1 h-10" />
+              <p style={{ color: BRAND_COLORS.borderDivider }}>Patient Name</p>
+              <p className="font-semibold mt-0.5" style={{ color: BRAND_COLORS.bodyText }}>
+                {estimate.patient.fullName}
+              </p>
+            </div>
+            <div>
+              <div className="border-b border-gray-400 mb-1 h-10">
+                {agreement.patientSignedAt && (
+                  <p className="text-xs" style={{ color: BRAND_COLORS.bodyText }}>
+                    Date: {new Date(agreement.patientSignedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                  </p>
+                )}
+              </div>
+              <p style={{ color: BRAND_COLORS.borderDivider }}>Patient Signature &amp; Date</p>
+            </div>
+            <div>
+              <div className="border-b border-gray-400 mb-1 h-10" />
+              <p style={{ color: BRAND_COLORS.borderDivider }}>Clinic Representative</p>
+              {agreement.clinicRepresentative && (
+                <p className="font-semibold mt-0.5" style={{ color: BRAND_COLORS.bodyText }}>
+                  {agreement.clinicRepresentative}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="mt-8">
+            <img src="/fotter-1.jpg" alt="Footer" className="w-full" />
+          </div>
         </div>
       </div>
     </>

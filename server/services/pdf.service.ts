@@ -5,13 +5,22 @@ import { prisma } from "@/lib/prisma"
 
 export type DocumentType = "estimate" | "receipt" | "prescription"
 
-// PDFs are written outside public/ so they are only reachable through the
-// auth-checked API route.
-const OUTPUT_DIR = path.join(process.cwd(), "generated-documents")
+// On Vercel the filesystem is read-only outside /tmp. Locally, keep the
+// original path so generated files aren't inside public/.
+const IS_VERCEL = !!process.env.VERCEL
+const OUTPUT_DIR = IS_VERCEL
+  ? "/tmp/generated-documents"
+  : path.join(process.cwd(), "generated-documents")
 
 let browserPromise: Promise<Browser> | null = null
 
 async function getBrowser(): Promise<Browser> {
+  if (IS_VERCEL) {
+    throw new Error(
+      "PDF generation is not available on this deployment. " +
+      "Open the Print page in your browser and use File → Print → Save as PDF."
+    )
+  }
   if (!browserPromise) {
     browserPromise = import("puppeteer").then((puppeteer) =>
       puppeteer.default.launch({

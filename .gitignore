@@ -43,3 +43,6 @@ next-env.d.ts
 
 # generated PDFs (served via authed API route)
 /generated-documents/
+
+.vercel
+.env*

@@ -4,10 +4,13 @@ import Link from "next/link"
 import { getSession } from "@/lib/auth"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { prescriptionService } from "@/server/services/prescription.service"
+import { paymentAgreementService } from "@/server/services/payment-agreement.service"
 import { ItemStatusButton } from "@/components/estimates/ItemStatusButton"
 import { ShareActions } from "@/components/share/ShareActions"
+import { PaymentAgreementCard } from "@/components/estimates/PaymentAgreementCard"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { PaymentStage } from "@/lib/payment-agreement"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChevronRight, ClipboardList, FileText, Printer } from "lucide-react"
 
@@ -22,6 +25,10 @@ export default async function EstimateDetailPage({ params }: Props) {
   const { estimateId } = await params
   const estimate = await estimateRepository.findById(estimateId)
   if (!estimate) notFound()
+
+  const [paymentAgreement] = await Promise.all([
+    paymentAgreementService.getOrSuggest(estimateId),
+  ])
 
   // The prescription is auto-created with the estimate; lazily create it here
   // as a safety net for estimates saved before this feature existed.
@@ -38,7 +45,7 @@ export default async function EstimateDetailPage({ params }: Props) {
   const canUpdateStatus = session.role === "ADMIN" || session.role === "DOCTOR"
 
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
+    <div className="max-w-4xl mx-auto space-y-5">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 text-sm" style={{ color: BRAND_COLORS.borderDivider }}>
         <Link href={`/patients/${estimate.patientId}`} style={{ color: BRAND_COLORS.primaryTeal }} className="hover:underline">
@@ -215,6 +222,18 @@ export default async function EstimateDetailPage({ params }: Props) {
           </div>
         </CardContent>
       </Card>
+      {/* Payment Agreement */}
+      <PaymentAgreementCard
+        estimateId={estimate.id}
+        estimateTotal={total}
+        initialStages={paymentAgreement.stages as PaymentStage[]}
+        initialRep={paymentAgreement.clinicRepresentative}
+        initialTermsAccepted={paymentAgreement.termsAccepted}
+        initialPatientSignedAt={paymentAgreement.patientSignedAt?.toISOString() ?? null}
+        estimateNo={estimate.estimateNo}
+        patientName={estimate.patient.fullName}
+        doctorName={estimate.doctor.name}
+      />
     </div>
   )
 }

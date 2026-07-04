@@ -36,9 +36,12 @@ export async function GET(
     })
   } catch (err) {
     console.error("PDF generation failed:", err)
-    const message = err instanceof Error && err.message.includes("not found")
+    const isUnavailable = err instanceof Error && err.message.startsWith("PDF generation is not available")
+    const message = isUnavailable
       ? err.message
-      : "Failed to generate PDF"
-    return NextResponse.json({ error: message }, { status: 500 })
+      : err instanceof Error && err.message.includes("not found")
+        ? err.message
+        : "Failed to generate PDF"
+    return NextResponse.json({ error: message }, { status: isUnavailable ? 503 : 500 })
   }
 }
