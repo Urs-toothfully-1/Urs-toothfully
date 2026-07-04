@@ -102,6 +102,12 @@ export default async function TreatmentProgressPage({ params }: Props) {
                       <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
                         {item.category} · {item.quantity} × {formatCurrency(Number(item.unitRate))} = {formatCurrency(Number(item.amount))}
                       </p>
+                      {item.statusUpdatedBy && item.status !== "PENDING" && (
+                        <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
+                          {item.status === "COMPLETED" ? "Completed" : "Started"} by {item.statusUpdatedBy.name}
+                          {item.statusUpdatedAt ? ` · ${formatDate(item.statusUpdatedAt)}` : ""}
+                        </p>
+                      )}
                     </div>
                     <div className="ml-3 flex-shrink-0">
                       {canUpdate ? (

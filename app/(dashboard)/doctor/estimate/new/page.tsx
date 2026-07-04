@@ -4,6 +4,7 @@ import Link from "next/link"
 import { requireRole } from "@/lib/auth"
 import { patientRepository } from "@/server/repositories/patient.repository"
 import { visitRepository } from "@/server/repositories/visit.repository"
+import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { treatmentRepository } from "@/server/repositories/treatment.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
 import { EstimateBuilder } from "@/components/estimates/EstimateBuilder"
@@ -19,6 +20,11 @@ export default async function NewEstimatePage({ searchParams }: Props) {
   const { visitId, patientId } = await searchParams
 
   if (!visitId || !patientId) redirect("/doctor")
+
+  // One estimate per visit — if it already exists, open it instead of a
+  // blank builder (clicking "Estimate" twice used to show an empty form).
+  const existing = await estimateRepository.findByVisit(visitId)
+  if (existing) redirect(`/doctor/estimate/${existing.id}`)
 
   const [patient, visit, treatments] = await Promise.all([
     patientRepository.findById(patientId),

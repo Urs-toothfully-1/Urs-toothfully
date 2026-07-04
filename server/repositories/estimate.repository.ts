@@ -18,13 +18,29 @@ export const estimateRepository = {
     })
   },
 
+  async findByVisit(visitId: string) {
+    return prisma.estimate.findFirst({
+      where: { visitId, isDeleted: false },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, estimateNo: true },
+    })
+  },
+
   async findByPatient(patientId: string) {
     return prisma.estimate.findMany({
       where: { patientId, isDeleted: false },
       include: {
         doctor: { select: { id: true, name: true } },
         branch: { select: { id: true, name: true } },
-        items: { select: { id: true, treatmentName: true, amount: true, status: true } },
+        items: {
+          select: {
+            id: true, treatmentName: true, amount: true, status: true,
+            category: true, toothNumber: true, quantity: true, unitRate: true,
+            statusUpdatedAt: true,
+            statusUpdatedBy: { select: { name: true } },
+          },
+          orderBy: { sortOrder: "asc" },
+        },
         payments: {
           where: { isDeleted: false, paymentType: { in: ["ADVANCE", "TREATMENT"] } },
           select: { amount: true },

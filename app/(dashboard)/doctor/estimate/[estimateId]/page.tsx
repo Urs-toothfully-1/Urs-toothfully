@@ -5,8 +5,10 @@ import { getSession } from "@/lib/auth"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { prescriptionService } from "@/server/services/prescription.service"
 import { paymentAgreementService } from "@/server/services/payment-agreement.service"
+import { queueRepository } from "@/server/repositories/queue.repository"
 import { ItemStatusButton } from "@/components/estimates/ItemStatusButton"
 import { ShareActions } from "@/components/share/ShareActions"
+import { CompleteVisitButton } from "@/components/queue/CompleteVisitButton"
 import { PaymentAgreementCard } from "@/components/estimates/PaymentAgreementCard"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
@@ -26,8 +28,9 @@ export default async function EstimateDetailPage({ params }: Props) {
   const estimate = await estimateRepository.findById(estimateId)
   if (!estimate) notFound()
 
-  const [paymentAgreement] = await Promise.all([
+  const [paymentAgreement, queueEntry] = await Promise.all([
     paymentAgreementService.getOrSuggest(estimateId),
+    queueRepository.findByVisit(estimate.visitId),
   ])
 
   // The prescription is auto-created with the estimate; lazily create it here
@@ -234,6 +237,13 @@ export default async function EstimateDetailPage({ params }: Props) {
         patientName={estimate.patient.fullName}
         doctorName={estimate.doctor.name}
       />
+
+      {/* Done — visible while the patient is still with the doctor */}
+      {canUpdateStatus &&
+        queueEntry &&
+        ["WAITING", "WITH_DOCTOR"].includes(queueEntry.status) && (
+          <CompleteVisitButton queueId={queueEntry.id} />
+        )}
     </div>
   )
 }

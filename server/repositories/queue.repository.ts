@@ -43,6 +43,14 @@ export const queueRepository = {
     })
   },
 
+  async findByVisit(visitId: string) {
+    return prisma.queueEntry.findFirst({
+      where: { visitId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, status: true, branchId: true, doctorId: true },
+    })
+  },
+
   async findById(id: string) {
     return prisma.queueEntry.findUnique({
       where: { id },

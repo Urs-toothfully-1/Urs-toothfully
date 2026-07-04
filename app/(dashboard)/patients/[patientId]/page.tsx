@@ -11,7 +11,7 @@ import { AddToQueueDialog } from "@/components/queue/AddToQueueDialog"
 import { queueRepository } from "@/server/repositories/queue.repository"
 import { prisma } from "@/lib/prisma"
 import { BRAND_COLORS } from "@/lib/constants"
-import { formatDate } from "@/lib/utils"
+import { formatDate, formatCurrency } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   MapPin, Phone, Mail, Calendar, Tag, User,
@@ -32,12 +32,22 @@ export default async function PatientOverviewPage({ params }: Props) {
 
   const { patientId } = await params
 
-  const [patient, visits, consultationPayment, recentDocs] = await Promise.all([
+  const [patient, visits, consultationPayment, billingEstimates, recentDocs] = await Promise.all([
     patientRepository.findById(patientId),
     visitRepository.findByPatient(patientId),
     prisma.payment.findFirst({
       where: { patientId, paymentType: "CONSULTATION", isDeleted: false },
       select: { id: true },
+    }),
+    prisma.estimate.findMany({
+      where: { patientId, isDeleted: false, status: "ACTIVE" },
+      select: {
+        total: true,
+        payments: {
+          where: { isDeleted: false, paymentType: { in: ["ADVANCE", "TREATMENT"] } },
+          select: { amount: true },
+        },
+      },
     }),
     Promise.all([
       prisma.estimate.findMany({
@@ -64,6 +74,12 @@ export default async function PatientOverviewPage({ params }: Props) {
   if (!patient) notFound()
 
   const hasPaidConsultation = !!consultationPayment
+  const totalEstimated = billingEstimates.reduce((s, e) => s + Number(e.total), 0)
+  const totalPaid = billingEstimates.reduce(
+    (s, e) => s + e.payments.reduce((ps, p) => ps + Number(p.amount), 0),
+    0
+  )
+  const outstanding = Math.max(0, totalEstimated - totalPaid)
   const [docEstimates, docReceipts, docPrescriptions] = recentDocs
   const documents = [
     ...docEstimates.map((e) => ({
@@ -242,6 +258,24 @@ export default async function PatientOverviewPage({ params }: Props) {
               </ol>
             </CardContent>
           </Card>
+        )}
+
+        {/* Billing summary — shown once the patient has an active estimate */}
+        {billingEstimates.length > 0 && (
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: "Total Estimated", value: formatCurrency(totalEstimated), color: BRAND_COLORS.primaryTeal },
+              { label: "Paid", value: formatCurrency(totalPaid), color: BRAND_COLORS.secondaryGreen },
+              { label: "Outstanding Balance", value: formatCurrency(outstanding), color: outstanding > 0 ? "#C2410C" : BRAND_COLORS.secondaryGreen },
+            ].map((s) => (
+              <Card key={s.label} className="border-[#E0E3E5] bg-white">
+                <CardContent className="p-3 text-center">
+                  <p className="text-xl font-semibold tracking-tight" style={{ color: s.color }}>{s.value}</p>
+                  <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>{s.label}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
 
         {/* Visit summary stats */}
