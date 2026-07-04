@@ -36,6 +36,7 @@ export function ItemStatusButton({ itemId, estimateId, patientId, currentStatus 
     startTransition(async () => {
       const result = await updateItemStatusAction(itemId, estimateId, patientId, next.next)
       if (!result.success) toast.error(result.error ?? "Failed to update")
+      else toast.success("Status updated")
     })
   }
 

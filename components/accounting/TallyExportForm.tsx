@@ -18,7 +18,7 @@ interface Props {
 }
 
 const selectCls =
-  "h-10 w-full rounded-md border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#4ABCC8]"
+  "h-10 w-full rounded-md border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE]"
 
 export function TallyExportForm({ branches, defaultBranchId }: Props) {
   const today = new Date().toISOString().split("T")[0]
@@ -110,7 +110,7 @@ export function TallyExportForm({ branches, defaultBranchId }: Props) {
             type="date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
-            className="h-10 w-full rounded-md border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#4ABCC8]"
+            className="h-10 w-full rounded-md border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE]"
           />
         </div>
 
@@ -124,7 +124,7 @@ export function TallyExportForm({ branches, defaultBranchId }: Props) {
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
             max={today}
-            className="h-10 w-full rounded-md border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#4ABCC8]"
+            className="h-10 w-full rounded-md border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE]"
           />
         </div>
       </div>

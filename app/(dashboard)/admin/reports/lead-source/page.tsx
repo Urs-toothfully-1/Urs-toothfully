@@ -37,24 +37,24 @@ export default async function LeadSourceReportPage({ searchParams }: Props) {
         <Link href="/admin/reports" style={{ color: BRAND_COLORS.primaryTeal }} className="hover:underline">Reports</Link>
         <ChevronRight className="h-3.5 w-3.5" /><span>Lead Sources</span>
       </nav>
-      <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>Lead Source Performance</h1>
+      <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>Lead Source Performance</h1>
 
       <form method="GET" className="flex flex-wrap gap-3 items-end">
         <div className="space-y-1">
           <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>From</label>
           <input type="date" name="from" defaultValue={from}
-            className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm" />
+            className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm" />
         </div>
         <div className="space-y-1">
           <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>To</label>
           <input type="date" name="to" defaultValue={to} max={defaultTo}
-            className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm" />
+            className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm" />
         </div>
         <button type="submit" className="h-9 px-4 rounded text-sm font-medium text-white"
           style={{ backgroundColor: BRAND_COLORS.primaryTeal }}>View</button>
       </form>
 
-      <Card className="border-[#CCCCCC] bg-white">
+      <Card className="border-[#E0E3E5] bg-white">
         <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>Patient Sources</CardTitle>

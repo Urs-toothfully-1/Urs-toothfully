@@ -27,7 +27,7 @@ export function PaymentModeSelect({ defaultValue = "CASH", required }: Props) {
               value={m.value}
               defaultChecked={m.value === defaultValue}
               required={required}
-              className="accent-[#4ABCC8]"
+              className="accent-[#0077BE]"
             />
             <span className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>
               {m.label}

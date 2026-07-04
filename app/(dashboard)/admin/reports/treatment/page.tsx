@@ -36,23 +36,23 @@ export default async function TreatmentRevenueReportPage({ searchParams }: Props
         <Link href="/admin/reports" style={{ color: BRAND_COLORS.primaryTeal }} className="hover:underline">Reports</Link>
         <ChevronRight className="h-3.5 w-3.5" /><span>Treatment Category</span>
       </nav>
-      <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>Treatment Category Revenue</h1>
+      <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>Treatment Category Revenue</h1>
 
       <form method="GET" className="flex flex-wrap gap-3 items-end">
         <div className="space-y-1">
           <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>From</label>
           <input type="date" name="from" defaultValue={from}
-            className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm" />
+            className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm" />
         </div>
         <div className="space-y-1">
           <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>To</label>
           <input type="date" name="to" defaultValue={to} max={defaultTo}
-            className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm" />
+            className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm" />
         </div>
         <div className="space-y-1">
           <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>Branch</label>
           <select name="branch" defaultValue={sp.branch ?? "all"}
-            className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm">
+            className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm">
             <option value="all">All Branches</option>
             {branches.map((b: { id: string; name: string }) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
@@ -61,7 +61,7 @@ export default async function TreatmentRevenueReportPage({ searchParams }: Props
           style={{ backgroundColor: BRAND_COLORS.primaryTeal }}>View</button>
       </form>
 
-      <Card className="border-[#CCCCCC] bg-white overflow-hidden">
+      <Card className="border-[#E0E3E5] bg-white overflow-hidden">
         <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>By Category</CardTitle>

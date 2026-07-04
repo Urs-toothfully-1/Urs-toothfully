@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, Loader2, PlusCircle, CheckCircle2 } from "lucide-react"
 import { BRAND_COLORS } from "@/lib/constants"
-import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
 interface Doctor {
@@ -54,7 +53,7 @@ const VISIT_TYPES = [
 ]
 
 const selectClass =
-  "w-full h-10 rounded-md border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#4ABCC8]"
+  "w-full h-10 rounded-md border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE]"
 
 export function AddToQueueDialog({
   patientId,
@@ -65,16 +64,15 @@ export function AddToQueueDialog({
 }: Props) {
   const [open, setOpen] = useState(false)
   const [state, formAction] = useActionState(addToQueueAction, {} as AddToQueueState)
-  const router = useRouter()
 
   useEffect(() => {
     if (state.success) {
-      setTimeout(() => {
-        setOpen(false)
-        router.push("/reception")
+      const timer = setTimeout(() => {
+        window.location.href = "/reception"
       }, 1200)
+      return () => clearTimeout(timer)
     }
-  }, [state.success, router])
+  }, [state])
 
   return (
     <>
@@ -174,7 +172,7 @@ export function AddToQueueDialog({
                     <Textarea
                       name="chiefComplaint"
                       placeholder="Patient's main complaint (optional)"
-                      className="border-[#CCCCCC] focus-visible:ring-[#4ABCC8] text-sm bg-[#EBECEE] resize-none"
+                      className="border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-[#F2F4F6] resize-none"
                       rows={2}
                     />
                   </div>
@@ -183,7 +181,7 @@ export function AddToQueueDialog({
                     <Button
                       type="button"
                       variant="outline"
-                      className="flex-1 border-[#CCCCCC]"
+                      className="flex-1 border-[#E0E3E5]"
                       onClick={() => setOpen(false)}
                     >
                       Cancel

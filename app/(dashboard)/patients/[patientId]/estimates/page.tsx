@@ -31,7 +31,7 @@ export default async function EstimatesPage({ params }: Props) {
       </div>
 
       {estimates.length === 0 ? (
-        <Card className="border-[#CCCCCC] bg-white">
+        <Card className="border-[#E0E3E5] bg-white">
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-center">
             <FileText className="h-10 w-10" style={{ color: BRAND_COLORS.lightBackground }} />
             <p className="font-medium" style={{ color: BRAND_COLORS.bodyText }}>

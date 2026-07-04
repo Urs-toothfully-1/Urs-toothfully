@@ -29,7 +29,7 @@ export function EstimateSummaryCard({ estimate }: { estimate: Estimate }) {
   const style = STATUS_STYLE[estimate.status] ?? STATUS_STYLE.ACTIVE
 
   return (
-    <Card className="border-[#CCCCCC] bg-white hover:shadow-md transition-shadow">
+    <Card className="border-[#E0E3E5] bg-white hover:shadow-md transition-shadow">
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -63,8 +63,8 @@ export function EstimateSummaryCard({ estimate }: { estimate: Estimate }) {
 
         {/* Items summary */}
         <div className="mt-3 space-y-1">
-          {estimate.items.slice(0, 3).map((item, i) => (
-            <div key={i} className="flex justify-between text-xs">
+          {estimate.items.slice(0, 3).map((item) => (
+            <div key={`${item.treatmentName}-${item.amount}-${item.status}`} className="flex justify-between text-xs">
               <span className="truncate" style={{ color: BRAND_COLORS.borderDivider }}>
                 {item.treatmentName}
               </span>

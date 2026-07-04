@@ -58,7 +58,7 @@ export default async function ReportsIndexPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>Reports</h1>
+        <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>Reports</h1>
         <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
           Business intelligence for clinic management
         </p>
@@ -69,7 +69,7 @@ export default async function ReportsIndexPage() {
           const Icon = report.icon
           return (
             <Link key={report.href} href={report.href}>
-              <Card className="h-full border-[#CCCCCC] hover:shadow-md hover:border-[#4ABCC8] transition-all cursor-pointer">
+              <Card className="h-full border-[#E0E3E5] hover:shadow-md hover:border-[#0077BE] transition-all cursor-pointer">
                 <CardContent className="p-5 flex gap-4">
                   <div className="rounded-xl p-3 flex-shrink-0" style={{ backgroundColor: `${report.color}15` }}>
                     <Icon className="h-6 w-6" style={{ color: report.color }} />

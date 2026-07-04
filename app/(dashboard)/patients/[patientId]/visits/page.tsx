@@ -25,7 +25,7 @@ export default async function VisitHistoryPage({ params }: Props) {
   const visits = await visitRepository.findByPatient(patientId)
 
   return (
-    <Card className="border-[#CCCCCC] bg-white">
+    <Card className="border-[#E0E3E5] bg-white">
       <CardContent className="pt-5">
         {visits.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">

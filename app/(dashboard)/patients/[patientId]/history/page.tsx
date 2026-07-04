@@ -47,7 +47,7 @@ export default async function DentalHistoryPage({ params, searchParams }: Props)
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
       {/* Main content */}
       <div className="lg:col-span-3">
-        <Card className="border-[#CCCCCC] bg-white">
+        <Card className="border-[#E0E3E5] bg-white">
           <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
@@ -125,7 +125,7 @@ export default async function DentalHistoryPage({ params, searchParams }: Props)
 
       {/* Version History sidebar */}
       <div className="lg:col-span-1">
-        <Card className="border-[#CCCCCC] bg-white">
+        <Card className="border-[#E0E3E5] bg-white">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
               <History className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />

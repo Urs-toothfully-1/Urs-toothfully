@@ -17,7 +17,7 @@ export default function NotFound() {
             Go to Reception
           </Link>
           <Link href="/patients"
-            className="px-5 py-2.5 rounded-md text-sm font-medium border border-[#CCCCCC] bg-white"
+            className="px-5 py-2.5 rounded-md text-sm font-medium border border-[#E0E3E5] bg-white"
             style={{ color: BRAND_COLORS.bodyText }}>
             Search Patients
           </Link>

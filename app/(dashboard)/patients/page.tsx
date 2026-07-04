@@ -87,7 +87,7 @@ function PatientCard({ p, badgeLabel, badgeBg, badgeColor }: {
   const age = calculateAge(new Date(p.dateOfBirth))
   return (
     <Link href={`/patients/${p.id}`}>
-      <Card className="border-[#CCCCCC] hover:shadow-md hover:border-[#4ABCC8] transition-all cursor-pointer">
+      <Card className="border-[#E0E3E5] hover:shadow-md hover:border-[#0077BE] transition-all cursor-pointer">
         <CardContent className="flex items-center justify-between p-4">
           <div className="flex items-center gap-4">
             <div
@@ -161,7 +161,7 @@ function StageFilterCards({
             <Card
               className="border-2 transition-all cursor-pointer hover:shadow-md"
               style={{
-                borderColor: isActive ? s.accentColor : "#CCCCCC",
+                borderColor: isActive ? s.accentColor : "#E0E3E5",
                 backgroundColor: isActive ? `${s.accentColor}10` : "white",
               }}
             >
@@ -238,7 +238,7 @@ async function PatientListView({ stage }: { stage: StageKey | null }) {
         const Icon = section.icon
         const patients = buckets[stage]
         return (
-          <Card className="border-[#CCCCCC]">
+          <Card className="border-[#E0E3E5]">
             <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
@@ -253,7 +253,7 @@ async function PatientListView({ stage }: { stage: StageKey | null }) {
                 </CardTitle>
                 <Link
                   href="/patients"
-                  className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#CCCCCC] hover:bg-gray-50"
+                  className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#E0E3E5] hover:bg-gray-50"
                   style={{ color: BRAND_COLORS.borderDivider }}
                 >
                   <X className="h-3 w-3" />
@@ -292,7 +292,7 @@ async function PatientListView({ stage }: { stage: StageKey | null }) {
             const Icon = s.icon
             const patients = buckets[s.key]
             return (
-              <Card key={s.key} className="border-[#CCCCCC]">
+              <Card key={s.key} className="border-[#E0E3E5]">
                 <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
                   <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
                     <Icon className="h-4 w-4" style={{ color: s.accentColor }} />
@@ -394,7 +394,7 @@ export default async function PatientsPage({ searchParams }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>Patients</h1>
+          <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>Patients</h1>
           <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
             {isSearching
               ? "Search results"

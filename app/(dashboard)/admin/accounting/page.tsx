@@ -68,7 +68,7 @@ export default async function AccountingPage({ searchParams }: Props) {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>
+          <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>
             Accounting Ledger
           </h1>
           <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
@@ -92,7 +92,7 @@ export default async function AccountingPage({ searchParams }: Props) {
       {/* Summary by type */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {summary.map((s: { paymentType: string; _sum: { amount: unknown }; _count: number }) => (
-          <Card key={s.paymentType} className="border-[#CCCCCC] bg-white">
+          <Card key={s.paymentType} className="border-[#E0E3E5] bg-white">
             <CardContent className="p-3 text-center">
               <p className="text-lg font-bold" style={{ color: BRAND_COLORS.primaryTeal }}>
                 {formatCurrency(Number(s._sum.amount ?? 0))}
@@ -106,13 +106,13 @@ export default async function AccountingPage({ searchParams }: Props) {
       </div>
 
       {/* Filters */}
-      <Card className="border-[#CCCCCC] bg-white">
+      <Card className="border-[#E0E3E5] bg-white">
         <CardContent className="p-4">
           <form method="GET" action="/admin/accounting" className="flex flex-wrap gap-3 items-end">
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>Branch</label>
               <select name="branch" defaultValue={sp.branch ?? "all"}
-                className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-2 text-sm">
+                className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm">
                 <option value="all">All Branches</option>
                 {branches.map((b: { id: string; name: string }) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
@@ -120,17 +120,17 @@ export default async function AccountingPage({ searchParams }: Props) {
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>From</label>
               <input type="date" name="from" defaultValue={fromDate}
-                className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-2 text-sm" />
+                className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>To</label>
               <input type="date" name="to" defaultValue={toDate}
-                className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-2 text-sm" />
+                className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>Status</label>
               <select name="status" defaultValue={sp.status ?? "all"}
-                className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-2 text-sm">
+                className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm">
                 <option value="all">All Status</option>
                 <option value="PENDING_REVIEW">Pending Review</option>
                 <option value="APPROVED">Approved</option>
@@ -140,7 +140,7 @@ export default async function AccountingPage({ searchParams }: Props) {
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>Type</label>
               <select name="type" defaultValue={sp.type ?? "all"}
-                className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-2 text-sm">
+                className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm">
                 <option value="all">All Types</option>
                 <option value="CONSULTATION">Consultation</option>
                 <option value="TREATMENT">Treatment</option>
@@ -152,7 +152,7 @@ export default async function AccountingPage({ searchParams }: Props) {
               style={{ backgroundColor: BRAND_COLORS.primaryTeal }}>
               Filter
             </button>
-            <Link href="/admin/accounting" className="h-9 px-4 rounded text-sm font-medium flex items-center border border-[#CCCCCC]"
+            <Link href="/admin/accounting" className="h-9 px-4 rounded text-sm font-medium flex items-center border border-[#E0E3E5]"
               style={{ color: BRAND_COLORS.bodyText }}>
               Reset
             </Link>
@@ -161,7 +161,7 @@ export default async function AccountingPage({ searchParams }: Props) {
       </Card>
 
       {/* Table */}
-      <Card className="border-[#CCCCCC] bg-white overflow-hidden">
+      <Card className="border-[#E0E3E5] bg-white overflow-hidden">
         <CardContent className="p-0">
           {entries.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -204,14 +204,14 @@ export default async function AccountingPage({ searchParams }: Props) {
           <div className="flex gap-2">
             {page > 1 && (
               <Link href={buildUrl({ page: String(page - 1) })}
-                className="flex items-center gap-1 px-3 py-1.5 rounded border border-[#CCCCCC] hover:bg-white"
+                className="flex items-center gap-1 px-3 py-1.5 rounded border border-[#E0E3E5] hover:bg-white"
                 style={{ color: BRAND_COLORS.bodyText }}>
                 <ChevronLeft className="h-4 w-4" /> Prev
               </Link>
             )}
             {page < totalPages && (
               <Link href={buildUrl({ page: String(page + 1) })}
-                className="flex items-center gap-1 px-3 py-1.5 rounded border border-[#CCCCCC] hover:bg-white"
+                className="flex items-center gap-1 px-3 py-1.5 rounded border border-[#E0E3E5] hover:bg-white"
                 style={{ color: BRAND_COLORS.bodyText }}>
                 Next <ChevronRight className="h-4 w-4" />
               </Link>

@@ -64,7 +64,7 @@ function EditForm({ doctorId, branchId, existing, onCancel }: EditFormProps) {
           {DAYS.map((day) => (
             <label key={day} className="flex items-center gap-1 cursor-pointer">
               <input type="checkbox" name={`day_${day}`} defaultChecked={existingDays.includes(day)}
-                className="accent-[#4ABCC8]" />
+                className="accent-[#0077BE]" />
               <span className="text-xs" style={{ color: BRAND_COLORS.bodyText }}>{DAY_LABELS[day]}</span>
             </label>
           ))}
@@ -75,24 +75,24 @@ function EditForm({ doctorId, branchId, existing, onCancel }: EditFormProps) {
         <div className="space-y-1">
           <label className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>Start Time</label>
           <Input type="time" name="startTime" defaultValue={existing?.startTime ?? "10:30"}
-            className="h-8 w-28 border-[#CCCCCC] bg-[#EBECEE] text-sm" />
+            className="h-8 w-28 border-[#E0E3E5] bg-[#F2F4F6] text-sm" />
         </div>
         <div className="space-y-1">
           <label className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>End Time</label>
           <Input type="time" name="endTime" defaultValue={existing?.endTime ?? "20:30"}
-            className="h-8 w-28 border-[#CCCCCC] bg-[#EBECEE] text-sm" />
+            className="h-8 w-28 border-[#E0E3E5] bg-[#F2F4F6] text-sm" />
         </div>
         <div className="space-y-1">
           <label className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>Effective From</label>
           <Input type="date" name="effectiveFrom" defaultValue={new Date().toISOString().split("T")[0]}
-            className="h-8 w-36 border-[#CCCCCC] bg-[#EBECEE] text-sm" />
+            className="h-8 w-36 border-[#E0E3E5] bg-[#F2F4F6] text-sm" />
         </div>
       </div>
 
       <div className="flex gap-2">
         <SubmitBtn />
         <Button type="button" variant="outline" size="sm" onClick={onCancel}
-          className="h-8 text-xs border-[#CCCCCC]">Cancel</Button>
+          className="h-8 text-xs border-[#E0E3E5]">Cancel</Button>
       </div>
     </form>
   )
@@ -110,7 +110,7 @@ export function AvailabilityMgmt({ doctors, branches, schedules }: {
   return (
     <div className="space-y-4">
       {doctors.map((doctor) => (
-        <Card key={doctor.id} className="border-[#CCCCCC] bg-white">
+        <Card key={doctor.id} className="border-[#E0E3E5] bg-white">
           <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
             <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
               <CalendarClock className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />

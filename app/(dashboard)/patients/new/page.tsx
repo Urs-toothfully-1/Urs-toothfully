@@ -29,7 +29,7 @@ export default async function NewPatientPage() {
       </nav>
 
       {/* Card */}
-      <div className="bg-white rounded-xl border border-[#CCCCCC] overflow-hidden shadow-sm">
+      <div className="bg-white rounded-xl border border-[#E0E3E5] overflow-hidden shadow-sm">
         {/* Top accent */}
         <div className="h-1.5" style={{ backgroundColor: BRAND_COLORS.primaryTeal }} />
 

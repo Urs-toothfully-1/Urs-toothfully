@@ -20,6 +20,7 @@ export async function createClinicalNoteAction(
   const visitId = formData.get("visitId")?.toString()
   const noteType = formData.get("noteType")?.toString() || "GENERAL"
   const content = formData.get("content")?.toString()?.trim()
+  const toothNumbers = formData.get("toothNumbers")?.toString()?.trim().slice(0, 120) || null
 
   if (!visitId || !content) {
     return { error: "Visit and note content are required." }
@@ -36,6 +37,7 @@ export async function createClinicalNoteAction(
       doctorId: session.userId,
       noteType,
       content,
+      toothNumbers,
     })
 
     revalidatePath(`/patients/${patientId}/notes`)

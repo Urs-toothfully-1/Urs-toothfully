@@ -46,11 +46,10 @@ export async function addToQueueAction(
       session.userId
     )
 
-    revalidatePath("/reception")
-    revalidatePath("/doctor")
     return { success: true, queueId: queueEntry.id }
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Failed to add to queue." }
+    const errMsg = err instanceof Error ? err.message : "Failed to add to queue."
+    return { error: errMsg }
   }
 }
 
@@ -61,11 +60,15 @@ export async function updateQueueStatusAction(
   const session = await getSession()
   if (!session) return { success: false, error: "Unauthorized" }
 
-  // Branch ownership: non-ADMIN may only update entries in their own branch
+  // Ownership: non-ADMIN may update entries in their own branch;
+  // a DOCTOR may also update entries assigned to them at any branch (doctors rotate across branches)
   if (session.role !== "ADMIN") {
     const entry = await queueRepository.findById(queueId)
     if (!entry) return { success: false, error: "Queue entry not found." }
-    if (entry.branchId !== session.branchId) return { success: false, error: "Forbidden." }
+    const isAssignedDoctor = session.role === "DOCTOR" && entry.doctorId === session.userId
+    if (entry.branchId !== session.branchId && !isAssignedDoctor) {
+      return { success: false, error: "Forbidden." }
+    }
   }
 
   try {

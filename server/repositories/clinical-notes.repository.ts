@@ -28,6 +28,7 @@ export const clinicalNotesRepository = {
     doctorId: string
     noteType: string
     content: string
+    toothNumbers?: string | null
   }) {
     return prisma.clinicalNote.create({
       data,

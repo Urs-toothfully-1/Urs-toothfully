@@ -32,13 +32,13 @@ export default async function OutstandingBalancesPage({ searchParams }: Props) {
         <Link href="/admin/reports" style={{ color: BRAND_COLORS.primaryTeal }} className="hover:underline">Reports</Link>
         <ChevronRight className="h-3.5 w-3.5" /><span>Outstanding Balances</span>
       </nav>
-      <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>Outstanding Balances</h1>
+      <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>Outstanding Balances</h1>
 
       <form method="GET" className="flex gap-3 items-end">
         <div className="space-y-1">
           <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>Branch</label>
           <select name="branch" defaultValue={sp.branch ?? "all"}
-            className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm">
+            className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm">
             <option value="all">All Branches</option>
             {branches.map((b: { id: string; name: string }) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
@@ -49,28 +49,28 @@ export default async function OutstandingBalancesPage({ searchParams }: Props) {
 
       {/* Summary */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="border-[#CCCCCC] bg-white">
+        <Card className="border-[#E0E3E5] bg-white">
           <CardContent className="p-4 text-center">
-            <p className="text-xl font-bold" style={{ color: "#E57373" }}>{formatCurrency(totalOutstanding)}</p>
+            <p className="text-2xl font-semibold tracking-tight" style={{ color: "#E57373" }}>{formatCurrency(totalOutstanding)}</p>
             <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>Total Outstanding</p>
           </CardContent>
         </Card>
-        <Card className="border-[#CCCCCC] bg-white">
+        <Card className="border-[#E0E3E5] bg-white">
           <CardContent className="p-4 text-center">
-            <p className="text-xl font-bold" style={{ color: BRAND_COLORS.secondaryGreen }}>{formatCurrency(totalPaid)}</p>
+            <p className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.secondaryGreen }}>{formatCurrency(totalPaid)}</p>
             <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>Already Collected</p>
           </CardContent>
         </Card>
-        <Card className="border-[#CCCCCC] bg-white">
+        <Card className="border-[#E0E3E5] bg-white">
           <CardContent className="p-4 text-center">
-            <p className="text-xl font-bold" style={{ color: BRAND_COLORS.primaryTeal }}>{data.length}</p>
+            <p className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.primaryTeal }}>{data.length}</p>
             <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>Pending Estimates</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Table */}
-      <Card className="border-[#CCCCCC] bg-white overflow-hidden">
+      <Card className="border-[#E0E3E5] bg-white overflow-hidden">
         <CardContent className="p-0">
           {data.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">

@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, Loader2, Plus, Trash2, Save } from "lucide-react"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
+import { ToothSelector } from "@/components/dental/ToothSelector"
 
 interface Treatment {
   id: string
@@ -72,7 +73,7 @@ function newItem(): EstimateItem {
   }
 }
 
-const inputCls = "h-8 border-[#CCCCCC] focus-visible:ring-[#4ABCC8] text-sm bg-white px-2"
+const inputCls = "h-8 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white px-2"
 
 export function EstimateBuilder({
   patientId, visitId, branchId, patientName, visitNo, doctorName,
@@ -81,6 +82,7 @@ export function EstimateBuilder({
   const [state, formAction] = useActionState(createEstimateAction, {} as EstimateFormState)
   const [items, setItems] = useState<EstimateItem[]>([newItem()])
   const [discountPercent, setDiscountPercent] = useState(0)
+  const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({})
   const formRef = useRef<HTMLFormElement>(null)
 
   // Grouped treatments by category
@@ -133,7 +135,7 @@ export function EstimateBuilder({
     setItems((prev) => (prev.length > 1 ? prev.filter((i) => i._key !== key) : prev))
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit() {
     // Inject serialized items into the hidden input before the form submits
     const hidden = formRef.current?.querySelector<HTMLInputElement>('input[name="itemsJson"]')
     if (hidden) hidden.value = JSON.stringify(items)
@@ -144,7 +146,7 @@ export function EstimateBuilder({
       <input type="hidden" name="patientId" value={patientId} />
       <input type="hidden" name="visitId" value={visitId} />
       <input type="hidden" name="branchId" value={branchId} />
-      <input type="hidden" name="itemsJson" value="" />
+      <input type="hidden" name="itemsJson" defaultValue="" />
 
       {state.error && (
         <Alert variant="destructive" className="border-red-200 bg-red-50">
@@ -173,7 +175,7 @@ export function EstimateBuilder({
       </div>
 
       {/* Treatment Items Table */}
-      <div className="overflow-x-auto rounded-lg border border-[#CCCCCC]">
+      <div className="overflow-x-auto rounded-lg border border-[#E0E3E5]">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr style={{ backgroundColor: BRAND_COLORS.lightBackground }}>
@@ -216,7 +218,7 @@ export function EstimateBuilder({
                 {/* Treatment selector + name */}
                 <td className="px-2 py-2 min-w-[260px]">
                   <select
-                    className="w-full h-8 rounded border border-[#CCCCCC] bg-[#EBECEE] px-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4ABCC8] mb-1"
+                    className="w-full h-8 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE] mb-1"
                     value={item.treatmentId}
                     onChange={(e) => handleSelectTreatment(item._key, e.target.value)}
                   >
@@ -242,14 +244,12 @@ export function EstimateBuilder({
                   />
                 </td>
 
-                {/* Tooth # */}
-                <td className="px-2 py-2 w-24">
-                  <Input
+                {/* Tooth # — quadrant picker, single or multiple teeth */}
+                <td className="px-2 py-2 w-32">
+                  <ToothSelector
                     value={item.toothNumber}
-                    onChange={(e) => handleChange(item._key, "toothNumber", e.target.value)}
-                    placeholder="e.g. 46"
-                    className={inputCls}
-                    maxLength={10}
+                    onChange={(v) => handleChange(item._key, "toothNumber", v)}
+                    compact
                   />
                 </td>
 
@@ -258,8 +258,13 @@ export function EstimateBuilder({
                   <Input
                     type="number"
                     min={1}
-                    value={item.quantity}
-                    onChange={(e) => handleChange(item._key, "quantity", parseInt(e.target.value) || 1)}
+                    value={qtyDraft[item._key] ?? item.quantity}
+                    onChange={(e) => setQtyDraft((d) => ({ ...d, [item._key]: e.target.value }))}
+                    onBlur={(e) => {
+                      const n = Math.max(1, parseInt(e.target.value) || 1)
+                      setQtyDraft((d) => { const { [item._key]: _, ...rest } = d; return rest })
+                      handleChange(item._key, "quantity", n)
+                    }}
                     className={`${inputCls} text-center`}
                   />
                 </td>
@@ -323,7 +328,7 @@ export function EstimateBuilder({
           <Textarea
             name="notes"
             placeholder="Optional notes for this estimate"
-            className="border-[#CCCCCC] focus-visible:ring-[#4ABCC8] text-sm bg-[#EBECEE] resize-none"
+            className="border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-[#F2F4F6] resize-none"
             rows={4}
           />
         </div>
@@ -351,7 +356,7 @@ export function EstimateBuilder({
                     step={0.5}
                     value={discountPercent}
                     onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
-                    className="h-6 w-16 border-[#CCCCCC] text-xs text-center px-1 bg-[#EBECEE]"
+                    className="h-6 w-16 border-[#E0E3E5] text-xs text-center px-1 bg-[#F2F4F6]"
                   />
                   <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>%</span>
                 </div>

@@ -12,7 +12,6 @@ export function validatePaymentInput(input: PaymentInput, role: Role): void {
   if (input.amount <= 0) throw new Error("Amount must be greater than zero")
 
   if (input.paymentType === "CONSULTATION") {
-    if (!input.visitId) throw new Error("visitId is required for CONSULTATION payment")
     if (input.estimateId) throw new Error("estimateId must not be set for CONSULTATION payment")
   }
 

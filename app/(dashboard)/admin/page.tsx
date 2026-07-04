@@ -113,7 +113,7 @@ export default async function AdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>Admin Dashboard</h1>
+        <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>Admin Dashboard</h1>
         <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
           All branches · {today.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
         </p>
@@ -125,7 +125,7 @@ export default async function AdminPage() {
           const Icon = kpi.icon
           return (
             <Link key={kpi.label} href={kpi.href}>
-              <Card className="border-[#CCCCCC] bg-white hover:shadow-md transition-shadow cursor-pointer">
+              <Card className="border-[#E0E3E5] bg-white hover:shadow-md transition-shadow cursor-pointer">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
                   <CardTitle className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>
                     {kpi.label}
@@ -135,7 +135,7 @@ export default async function AdminPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="pb-4 px-4">
-                  <p className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>{kpi.value}</p>
+                  <p className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>{kpi.value}</p>
                 </CardContent>
               </Card>
             </Link>
@@ -151,7 +151,7 @@ export default async function AdminPage() {
             const Icon = item.icon
             return (
               <Link key={item.href} href={item.href}>
-                <Card className="h-full border-[#CCCCCC] hover:shadow-md hover:border-[#4ABCC8] transition-all cursor-pointer">
+                <Card className="h-full border-[#E0E3E5] hover:shadow-md hover:border-[#0077BE] transition-all cursor-pointer">
                   <CardContent className="p-3 flex items-start gap-2.5">
                     <div className="rounded-md p-1.5 mt-0.5 flex-shrink-0" style={{ backgroundColor: `${BRAND_COLORS.primaryTeal}15` }}>
                       <Icon className="h-3.5 w-3.5" style={{ color: BRAND_COLORS.primaryTeal }} />

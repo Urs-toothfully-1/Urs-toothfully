@@ -11,6 +11,7 @@ const createNoteSchema = z.object({
   visitId: z.string().min(1),
   noteType: z.enum(NOTE_TYPES).optional().default("GENERAL"),
   content: z.string().min(1).max(5000),
+  toothNumbers: z.string().max(120).optional(),
 })
 
 async function patientBelongsToBranch(patientId: string, branchId: string): Promise<boolean> {
@@ -28,10 +29,11 @@ export async function GET(request: NextRequest) {
     const visitId = request.nextUrl.searchParams.get("visitId")
 
     if (visitId) {
-      // Verify the visit belongs to the session's branch for non-ADMIN
+      // Non-ADMIN: visit must be in the session's branch, unless the caller is the visit's assigned doctor
       if (session.role !== "ADMIN") {
-        const visit = await prisma.patientVisit.findUnique({ where: { id: visitId }, select: { branchId: true } })
-        if (!visit || visit.branchId !== session.branchId) {
+        const visit = await prisma.patientVisit.findUnique({ where: { id: visitId }, select: { branchId: true, doctorId: true } })
+        const isAssignedDoctor = session.role === "DOCTOR" && visit?.doctorId === session.userId
+        if (!visit || (visit.branchId !== session.branchId && !isAssignedDoctor)) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 })
         }
       }
@@ -62,12 +64,13 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors }, { status: 400 })
     }
-    const { patientId, visitId, noteType, content } = parsed.data
+    const { patientId, visitId, noteType, content, toothNumbers } = parsed.data
 
-    // Branch ownership check for non-ADMIN
+    // Non-ADMIN: visit must be in the session's branch, unless the caller is the visit's assigned doctor
     if (session.role !== "ADMIN") {
-      const visit = await prisma.patientVisit.findUnique({ where: { id: visitId }, select: { branchId: true } })
-      if (!visit || visit.branchId !== session.branchId) {
+      const visit = await prisma.patientVisit.findUnique({ where: { id: visitId }, select: { branchId: true, doctorId: true } })
+      const isAssignedDoctor = session.role === "DOCTOR" && visit?.doctorId === session.userId
+      if (!visit || (visit.branchId !== session.branchId && !isAssignedDoctor)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
     }
@@ -78,6 +81,7 @@ export async function POST(request: NextRequest) {
       doctorId: session.userId,
       noteType,
       content,
+      toothNumbers: toothNumbers ?? null,
     })
     return NextResponse.json({ note }, { status: 201 })
   } catch {

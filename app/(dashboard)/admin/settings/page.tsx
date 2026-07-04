@@ -43,7 +43,7 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-5 max-w-2xl">
       <div>
-        <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>System Settings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>System Settings</h1>
         <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
           Global and per-branch configuration
         </p>

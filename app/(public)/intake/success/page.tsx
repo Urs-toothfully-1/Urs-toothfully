@@ -13,7 +13,7 @@ export default async function IntakeSuccessPage({ searchParams }: Props) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4"
       style={{ backgroundColor: BRAND_COLORS.lightBackground }}>
-      <div className="max-w-md w-full bg-white rounded-xl border border-[#CCCCCC] shadow-sm overflow-hidden">
+      <div className="max-w-md w-full bg-white rounded-xl border border-[#E0E3E5] shadow-sm overflow-hidden">
         <div className="h-1.5" style={{ backgroundColor: BRAND_COLORS.secondaryGreen }} />
         <div className="px-6 py-8 text-center space-y-4">
           <CheckCircle2 className="h-14 w-14 mx-auto" style={{ color: BRAND_COLORS.secondaryGreen }} />

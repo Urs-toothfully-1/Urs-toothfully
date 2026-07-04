@@ -1,14 +1,8 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { GeistSans } from "geist/font/sans"
 import "./globals.css"
 import { Toaster } from "@/components/ui/sonner"
 import { APP_NAME, APP_TAGLINE } from "@/lib/constants"
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-})
 
 export const metadata: Metadata = {
   title: {
@@ -25,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full`}>
+    <html lang="en" className={`${GeistSans.variable} h-full`}>
       <body className="min-h-full bg-background font-sans antialiased">
         {children}
         <Toaster richColors position="top-right" />

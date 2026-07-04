@@ -6,7 +6,7 @@ export const estimateRepository = {
     return prisma.estimate.findUnique({
       where: { id, isDeleted: false },
       include: {
-        patient: { select: { id: true, patientId: true, fullName: true } },
+        patient: { select: { id: true, patientId: true, fullName: true, mobile: true, email: true } },
         doctor: { select: { id: true, name: true } },
         branch: { select: { id: true, name: true } },
         items: { orderBy: { sortOrder: "asc" } },

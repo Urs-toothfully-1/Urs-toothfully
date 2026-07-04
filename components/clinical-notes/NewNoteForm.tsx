@@ -1,8 +1,9 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useState } from "react"
 import { useFormStatus } from "react-dom"
 import { createClinicalNoteAction, NoteFormState } from "@/actions/clinical-notes"
+import { ToothSelector } from "@/components/dental/ToothSelector"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
@@ -40,14 +41,16 @@ function SubmitButton() {
 }
 
 const selectClass =
-  "w-full h-9 rounded-md border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#4ABCC8]"
+  "w-full h-9 rounded-md border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE]"
 
 export function NewNoteForm({ patientId, visits }: Props) {
   const boundAction = createClinicalNoteAction.bind(null, patientId)
   const [state, formAction] = useActionState(boundAction, {} as NoteFormState)
+  const [teeth, setTeeth] = useState("")
 
   return (
-    <form action={formAction} className="space-y-3 p-4 bg-white rounded-lg border border-[#CCCCCC]">
+    <form action={formAction} className="space-y-3 p-4 bg-white rounded-lg border border-[#E0E3E5]">
+      <input type="hidden" name="toothNumbers" value={teeth} />
       <h3 className="text-sm font-semibold" style={{ color: BRAND_COLORS.bodyText }}>
         New Clinical Note
       </h3>
@@ -65,7 +68,7 @@ export function NewNoteForm({ patientId, visits }: Props) {
         </Alert>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         {/* Visit */}
         <div className="space-y-1">
           <Label className="text-xs font-medium" style={{ color: BRAND_COLORS.bodyText }}>
@@ -94,6 +97,14 @@ export function NewNoteForm({ patientId, visits }: Props) {
             ))}
           </select>
         </div>
+
+        {/* Tooth / teeth this note refers to */}
+        <div className="space-y-1">
+          <Label className="text-xs font-medium" style={{ color: BRAND_COLORS.bodyText }}>
+            Tooth / Teeth
+          </Label>
+          <ToothSelector value={teeth} onChange={setTeeth} />
+        </div>
       </div>
 
       {/* Content */}
@@ -105,7 +116,7 @@ export function NewNoteForm({ patientId, visits }: Props) {
           name="content"
           required
           placeholder="Enter clinical observations, diagnosis, treatment notes…"
-          className="border-[#CCCCCC] focus-visible:ring-[#4ABCC8] text-sm bg-[#EBECEE] resize-none"
+          className="border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-[#F2F4F6] resize-none"
           rows={4}
         />
       </div>

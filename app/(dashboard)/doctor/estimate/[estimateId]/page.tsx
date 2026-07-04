@@ -3,11 +3,13 @@ import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { getSession } from "@/lib/auth"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
+import { prescriptionService } from "@/server/services/prescription.service"
 import { ItemStatusButton } from "@/components/estimates/ItemStatusButton"
+import { ShareActions } from "@/components/share/ShareActions"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChevronRight, FileText, Printer } from "lucide-react"
+import { ChevronRight, ClipboardList, FileText, Printer } from "lucide-react"
 
 export const metadata: Metadata = { title: "Estimate" }
 
@@ -20,6 +22,15 @@ export default async function EstimateDetailPage({ params }: Props) {
   const { estimateId } = await params
   const estimate = await estimateRepository.findById(estimateId)
   if (!estimate) notFound()
+
+  // The prescription is auto-created with the estimate; lazily create it here
+  // as a safety net for estimates saved before this feature existed.
+  let prescription = await prescriptionService.getByVisit(estimate.visitId)
+  if (!prescription) {
+    prescription = await prescriptionService
+      .createFromEstimate(estimate.id, session.userId)
+      .catch(() => null) as typeof prescription
+  }
 
   const total = Number(estimate.total)
   const paid = estimate.payments.reduce((s: number, p: { amount: unknown }) => s + Number(p.amount), 0)
@@ -42,7 +53,7 @@ export default async function EstimateDetailPage({ params }: Props) {
       </nav>
 
       {/* Estimate Card */}
-      <Card className="border-[#CCCCCC] bg-white overflow-hidden">
+      <Card className="border-[#E0E3E5] bg-white overflow-hidden">
         <div className="h-1.5" style={{ backgroundColor: BRAND_COLORS.primaryTeal }} />
         <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
           <div className="flex items-center justify-between">
@@ -59,15 +70,37 @@ export default async function EstimateDetailPage({ params }: Props) {
                 {estimate.status}
               </span>
             </CardTitle>
-            <Link
-              href={`/print/estimate/${estimate.id}`}
-              target="_blank"
-              className="flex items-center gap-1.5 text-sm font-medium hover:underline"
-              style={{ color: BRAND_COLORS.primaryTeal }}
-            >
-              <Printer className="h-4 w-4" />
-              Print
-            </Link>
+            <div className="flex items-center gap-4">
+              {prescription && (
+                <Link
+                  href={`/doctor/prescription/${prescription.id}`}
+                  className="flex items-center gap-1.5 text-sm font-medium hover:underline"
+                  style={{ color: BRAND_COLORS.primaryTeal }}
+                >
+                  <ClipboardList className="h-4 w-4" />
+                  Prescription
+                </Link>
+              )}
+              <Link
+                href={`/print/estimate/${estimate.id}`}
+                target="_blank"
+                className="flex items-center gap-1.5 text-sm font-medium hover:underline"
+                style={{ color: BRAND_COLORS.primaryTeal }}
+              >
+                <Printer className="h-4 w-4" />
+                Print
+              </Link>
+              <ShareActions
+                type="estimate"
+                id={estimate.id}
+                patientName={estimate.patient.fullName}
+                patientMobile={estimate.patient.mobile}
+                patientEmail={estimate.patient.email}
+                docNo={estimate.estimateNo}
+                branchName={estimate.branch.name}
+                compact
+              />
+            </div>
           </div>
           <div className="flex flex-wrap gap-4 text-xs mt-2" style={{ color: BRAND_COLORS.borderDivider }}>
             <span>Date: {formatDate(estimate.createdAt)}</span>

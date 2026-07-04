@@ -1,9 +1,16 @@
 "use server"
 
 import { redirect } from "next/navigation"
+import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { Gender } from "@prisma/client"
+import { extractDentalHistoryData } from "@/lib/dental-history-form"
+import { dentalHistoryRepository } from "@/server/repositories/dental-history.repository"
+import { verifyTurnstileToken } from "@/lib/turnstile"
+import { checkIntakeRateLimit, recordIntakeAttempt, getClientIp } from "@/lib/rate-limit"
+import { validateMobile } from "@/lib/whatsapp/phone"
+import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
 
 export type IntakeFormState = {
   error?: string
@@ -12,7 +19,7 @@ export type IntakeFormState = {
 }
 
 const schema = z.object({
-  branchId: z.string().uuid("Please select a branch"),
+  branchId: z.string().min(1, "Please select a branch"),
   fullName: z.string().min(2, "Name must be at least 2 characters").max(200),
   dateOfBirth: z.string().min(1, "Date of birth is required"),
   gender: z.enum(["MALE", "FEMALE", "OTHER"], { error: "Please select your gender" }),
@@ -59,6 +66,25 @@ export async function submitIntakeAction(
     leadSource: formData.get("leadSource")?.toString() ?? "",
     reasonForVisit: formData.get("reasonForVisit")?.toString() ?? "",
   }
+  const whatsappConsent = formData.get("whatsappConsent") === "on"
+
+  const hdrs = await headers()
+  const clientIp = getClientIp(hdrs)
+
+  // 1. Cloudflare Turnstile — registration is blocked if verification fails
+  const turnstile = await verifyTurnstileToken(
+    formData.get("cf-turnstile-response")?.toString() ?? null,
+    clientIp || undefined
+  )
+  if (!turnstile.success) {
+    return { error: turnstile.error ?? "Security verification failed. Please try again.", fields: raw }
+  }
+
+  // 2. Per-IP rate limit (3/hour, 20/day)
+  const rateLimit = await checkIntakeRateLimit(clientIp)
+  if (!rateLimit.allowed) {
+    return { error: rateLimit.error, fields: raw }
+  }
 
   const parsed = schema.safeParse(raw)
   if (!parsed.success) {
@@ -67,6 +93,12 @@ export async function submitIntakeAction(
       if (errs) fieldErrors[key] = errs
     }
     return { fieldErrors, fields: raw }
+  }
+
+  // 3. Reject fake/invalid numbers (1111111111, 1234567890, bad country codes…)
+  const phone = validateMobile(parsed.data.mobile)
+  if (!phone.valid) {
+    return { fieldErrors: { mobile: [phone.error ?? "Enter a valid mobile number"] }, fields: raw }
   }
 
   // Check if mobile already registered — do NOT reveal name or patient ID to unauthenticated callers
@@ -103,11 +135,55 @@ export async function submitIntakeAction(
       },
     })
 
+    // WhatsApp consent stored with date/time/IP/version. NOTE: no message is
+    // sent here — messaging only starts after the consultation fee is paid.
+    if (whatsappConsent) {
+      await whatsappService.setConsent(patient.id, true, clientIp || undefined).catch(() => null)
+    }
+
+    await recordIntakeAttempt(clientIp, true)
+
     redirect(
-      `/intake/success?id=${encodeURIComponent(patient.patientId)}&name=${encodeURIComponent(patient.fullName)}`
+      `/intake/dental-history?patientId=${encodeURIComponent(patient.patientId)}&name=${encodeURIComponent(patient.fullName)}`
     )
   } catch (err) {
     if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) throw err
     return { error: "Registration failed. Please try again or visit the front desk.", fields: raw }
+  }
+}
+
+export async function submitIntakeDentalHistoryAction(
+  _prev: IntakeFormState,
+  formData: FormData
+): Promise<IntakeFormState> {
+  const patientId = formData.get("patientId")?.toString() ?? ""
+  const patientName = formData.get("patientName")?.toString() ?? ""
+
+  if (!patientId) return { error: "Invalid session. Please start registration again." }
+
+  const data = extractDentalHistoryData(formData)
+  if (!data.consentGiven) {
+    return { error: "Please read and accept the patient consent declaration to continue." }
+  }
+
+  try {
+    const [patient, creator] = await Promise.all([
+      prisma.patient.findFirst({
+        where: { patientId, isDeleted: false },
+        select: { id: true },
+      }),
+      getIntakeBotUser(),
+    ])
+
+    if (!patient) return { error: "Patient record not found. Please register again." }
+
+    await dentalHistoryRepository.create(patient.id, creator.id, data)
+
+    redirect(
+      `/intake/success?id=${encodeURIComponent(patientId)}&name=${encodeURIComponent(patientName)}`
+    )
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) throw err
+    return { error: "Failed to save your medical history. Please try again." }
   }
 }

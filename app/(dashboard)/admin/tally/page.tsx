@@ -28,7 +28,7 @@ export default async function TallyPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>
+        <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>
           Tally Export
         </h1>
         <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
@@ -37,7 +37,7 @@ export default async function TallyPage() {
       </div>
 
       {/* Export Form */}
-      <Card className="border-[#CCCCCC] bg-white">
+      <Card className="border-[#E0E3E5] bg-white">
         <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
           <CardTitle className="text-base flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
             <FileSpreadsheet className="h-4 w-4" style={{ color: BRAND_COLORS.secondaryGreen }} />
@@ -50,7 +50,7 @@ export default async function TallyPage() {
       </Card>
 
       {/* CSV Format info */}
-      <Card className="border-[#CCCCCC] bg-white">
+      <Card className="border-[#E0E3E5] bg-white">
         <CardContent className="p-4">
           <p className="text-xs font-semibold mb-2" style={{ color: BRAND_COLORS.bodyText }}>
             CSV Columns
@@ -66,7 +66,7 @@ export default async function TallyPage() {
 
       {/* Export History */}
       {exportBatches.length > 0 && (
-        <Card className="border-[#CCCCCC] bg-white">
+        <Card className="border-[#E0E3E5] bg-white">
           <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
             <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
               <History className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />

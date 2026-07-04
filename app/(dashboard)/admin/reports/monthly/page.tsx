@@ -36,28 +36,28 @@ export default async function MonthlyRevenueReportPage({ searchParams }: Props) 
         <Link href="/admin/reports" style={{ color: BRAND_COLORS.primaryTeal }} className="hover:underline">Reports</Link>
         <ChevronRight className="h-3.5 w-3.5" /><span>Monthly Revenue</span>
       </nav>
-      <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>Monthly Revenue Report</h1>
+      <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>Monthly Revenue Report</h1>
 
       {/* Filters */}
       <form method="GET" className="flex flex-wrap gap-3 items-end">
         <div className="space-y-1">
           <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>Year</label>
           <select name="year" defaultValue={year}
-            className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm">
+            className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm">
             {[now.getFullYear(), now.getFullYear() - 1].map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
         <div className="space-y-1">
           <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>Month</label>
           <select name="month" defaultValue={month}
-            className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm">
+            className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm">
             {MONTHS.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
           </select>
         </div>
         <div className="space-y-1">
           <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>Branch</label>
           <select name="branch" defaultValue={sp.branch ?? "all"}
-            className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm">
+            className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm">
             <option value="all">All Branches</option>
             {branches.map((b: { id: string; name: string }) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
@@ -74,9 +74,9 @@ export default async function MonthlyRevenueReportPage({ searchParams }: Props) 
           { label: "Advance", value: data.advanceTotal, color: "#6D28D9" },
           { label: `Total — ${MONTHS[month-1]} ${year}`, value: data.grandTotal, color: BRAND_COLORS.primaryTeal },
         ].map((s) => (
-          <Card key={s.label} className="border-[#CCCCCC] bg-white">
+          <Card key={s.label} className="border-[#E0E3E5] bg-white">
             <CardContent className="p-4 text-center">
-              <p className="text-xl font-bold" style={{ color: s.color }}>{formatCurrency(s.value)}</p>
+              <p className="text-2xl font-semibold tracking-tight" style={{ color: s.color }}>{formatCurrency(s.value)}</p>
               <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>{s.label}</p>
             </CardContent>
           </Card>
@@ -84,7 +84,7 @@ export default async function MonthlyRevenueReportPage({ searchParams }: Props) 
       </div>
 
       {/* Daily breakdown */}
-      <Card className="border-[#CCCCCC] bg-white overflow-hidden">
+      <Card className="border-[#E0E3E5] bg-white overflow-hidden">
         <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
           <CardTitle className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>
             Day-by-Day — {MONTHS[month-1]} {year}

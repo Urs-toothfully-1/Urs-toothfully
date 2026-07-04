@@ -34,7 +34,7 @@ const TOKEN_COLORS: Record<string, { bg: string; text: string }> = {
   ESTIMATE_CREATED: { bg: "#EDE9FE", text: "#5B21B6" },
   PAYMENT_PENDING: { bg: "#FFEDD5", text: "#9A3412" },
   COMPLETED: { bg: "#D1FAE5", text: "#065F46" },
-  CANCELLED: { bg: "#F1F5F9", text: "#64748B" },
+  CANCELLED: { bg: "#F2F4F6", text: "#707882" },
 }
 
 export function QueueEntryCard({ entry, role, currentUserId }: Props) {
@@ -66,7 +66,7 @@ export function QueueEntryCard({ entry, role, currentUserId }: Props) {
     <div
       className="bg-white rounded-xl border p-4 flex items-start gap-4 transition-all"
       style={{
-        borderColor: isActive ? "#E2E8F0" : "#F1F5F9",
+        borderColor: isActive ? "#E0E3E5" : "#F2F4F6",
         opacity: isActive ? 1 : 0.6,
         boxShadow: isActive ? "0 1px 4px rgba(0,0,0,0.04)" : "none",
       }}
@@ -87,33 +87,33 @@ export function QueueEntryCard({ entry, role, currentUserId }: Props) {
               <Link
                 href={`/patients/${entry.patient.id}`}
                 className="font-semibold text-sm hover:underline transition-colors"
-                style={{ color: "#0F172A" }}
+                style={{ color: "#191C1E" }}
               >
                 {entry.patient.fullName}
               </Link>
-              <span className="text-xs font-mono px-1.5 py-0.5 rounded-md" style={{ backgroundColor: "#F1F5F9", color: "#0891B2" }}>
+              <span className="text-xs font-mono px-1.5 py-0.5 rounded-md" style={{ backgroundColor: "#F2F4F6", color: "#005E97" }}>
                 {entry.patient.patientId}
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-3 mt-1">
-              <span className="text-xs font-medium" style={{ color: "#475569" }}>
+              <span className="text-xs font-medium" style={{ color: "#404751" }}>
                 {VISIT_TYPE_LABELS[entry.visit.visitType] ?? entry.visit.visitType}
               </span>
               {entry.doctor && (
-                <span className="text-xs" style={{ color: "#64748B" }}>
+                <span className="text-xs" style={{ color: "#707882" }}>
                   → {entry.doctor.name}
                 </span>
               )}
-              <span className="text-xs" style={{ color: "#94A3B8" }}>
+              <span className="text-xs" style={{ color: "#707882" }}>
                 {getTimeSince(entry.sentAt)}
               </span>
             </div>
             <div className="flex items-center gap-1.5 mt-1">
-              <Phone className="h-3 w-3" style={{ color: "#94A3B8" }} />
-              <span className="text-xs" style={{ color: "#94A3B8" }}>{entry.patient.mobile}</span>
+              <Phone className="h-3 w-3" style={{ color: "#707882" }} />
+              <span className="text-xs" style={{ color: "#707882" }}>{entry.patient.mobile}</span>
             </div>
             {entry.visit.chiefComplaint && (
-              <p className="text-xs mt-1 truncate italic" style={{ color: "#94A3B8" }}>
+              <p className="text-xs mt-1 truncate italic" style={{ color: "#707882" }}>
                 "{entry.visit.chiefComplaint}"
               </p>
             )}
@@ -124,14 +124,14 @@ export function QueueEntryCard({ entry, role, currentUserId }: Props) {
 
       {/* Action buttons */}
       {isPending ? (
-        <Loader2 className="h-4 w-4 animate-spin flex-shrink-0 mt-1" style={{ color: "#94A3B8" }} />
+        <Loader2 className="h-4 w-4 animate-spin flex-shrink-0 mt-1" style={{ color: "#707882" }} />
       ) : (
         <div className="flex flex-col gap-1.5 flex-shrink-0">
           {entry.status === "WAITING" && isDoctor && !entry.doctorId && (
             <button
               onClick={handleClaim}
               className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg transition-all"
-              style={{ background: "linear-gradient(135deg,#0891B2,#0EA5E9)", boxShadow: "0 2px 8px rgba(14,165,233,0.3)" }}
+              style={{ background: "linear-gradient(135deg,#005E97,#0077BE)", boxShadow: "0 2px 8px rgba(14,165,233,0.3)" }}
             >
               <UserCheck className="h-3.5 w-3.5" />Claim
             </button>
@@ -140,7 +140,7 @@ export function QueueEntryCard({ entry, role, currentUserId }: Props) {
             <button
               onClick={() => handleStatusUpdate("WITH_DOCTOR")}
               className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
-              style={{ background: "linear-gradient(135deg,#0891B2,#0EA5E9)" }}
+              style={{ background: "linear-gradient(135deg,#005E97,#0077BE)" }}
             >
               <Stethoscope className="h-3.5 w-3.5" />Start
             </button>
@@ -150,7 +150,7 @@ export function QueueEntryCard({ entry, role, currentUserId }: Props) {
               <Link
                 href={`/doctor/estimate/new?visitId=${entry.visitId}&patientId=${entry.patient.id}`}
                 className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
-                style={{ background: "linear-gradient(135deg,#0891B2,#0EA5E9)" }}
+                style={{ background: "linear-gradient(135deg,#005E97,#0077BE)" }}
               >
                 <FilePlus className="h-3.5 w-3.5" />Estimate
               </Link>
@@ -176,7 +176,7 @@ export function QueueEntryCard({ entry, role, currentUserId }: Props) {
             <button
               onClick={() => handleStatusUpdate("COMPLETED")}
               className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
-              style={{ backgroundColor: "#059669" }}
+              style={{ backgroundColor: "#006B5F" }}
             >
               <CheckCircle2 className="h-3.5 w-3.5" />Complete
             </button>

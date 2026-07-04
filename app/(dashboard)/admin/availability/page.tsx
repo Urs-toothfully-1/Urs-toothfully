@@ -21,7 +21,7 @@ export default async function AvailabilityPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>Doctor Availability</h1>
+        <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>Doctor Availability</h1>
         <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
           Working days and hours per doctor per branch
         </p>

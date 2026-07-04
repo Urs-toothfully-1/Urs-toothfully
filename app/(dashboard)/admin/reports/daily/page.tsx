@@ -40,19 +40,19 @@ export default async function DailyRevenueReportPage({ searchParams }: Props) {
         <ChevronRight className="h-3.5 w-3.5" /><span>Daily Revenue</span>
       </nav>
 
-      <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>Daily Revenue Report</h1>
+      <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>Daily Revenue Report</h1>
 
       {/* Filters */}
       <form method="GET" className="flex flex-wrap gap-3 items-end">
         <div className="space-y-1">
           <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>Date</label>
           <input type="date" name="date" defaultValue={date} max={today}
-            className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm" />
+            className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm" />
         </div>
         <div className="space-y-1">
           <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>Branch</label>
           <select name="branch" defaultValue={sp.branch ?? "all"}
-            className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm">
+            className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm">
             <option value="all">All Branches</option>
             {branches.map((b: { id: string; name: string }) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
@@ -71,9 +71,9 @@ export default async function DailyRevenueReportPage({ searchParams }: Props) {
           { label: "Advance", value: data.advanceTotal, color: "#6D28D9" },
           { label: "Grand Total", value: data.grandTotal, color: BRAND_COLORS.primaryTeal },
         ].map((s) => (
-          <Card key={s.label} className="border-[#CCCCCC] bg-white">
+          <Card key={s.label} className="border-[#E0E3E5] bg-white">
             <CardContent className="p-4 text-center">
-              <p className="text-xl font-bold" style={{ color: s.color }}>{formatCurrency(s.value)}</p>
+              <p className="text-2xl font-semibold tracking-tight" style={{ color: s.color }}>{formatCurrency(s.value)}</p>
               <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>{s.label}</p>
             </CardContent>
           </Card>
@@ -88,7 +88,7 @@ export default async function DailyRevenueReportPage({ searchParams }: Props) {
           { label: "Card", value: data.byCardTotal },
           { label: "Bank Transfer", value: data.byBankTotal },
         ].map((s) => (
-          <Card key={s.label} className="border-[#CCCCCC] bg-white">
+          <Card key={s.label} className="border-[#E0E3E5] bg-white">
             <CardContent className="p-3 text-center">
               <p className="text-lg font-bold" style={{ color: BRAND_COLORS.bodyText }}>{formatCurrency(s.value)}</p>
               <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>{s.label}</p>
@@ -99,7 +99,7 @@ export default async function DailyRevenueReportPage({ searchParams }: Props) {
 
       {/* Breakdown Table */}
       {data.rows.length > 0 ? (
-        <Card className="border-[#CCCCCC] bg-white overflow-hidden">
+        <Card className="border-[#E0E3E5] bg-white overflow-hidden">
           <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
             <CardTitle className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>Breakdown</CardTitle>
           </CardHeader>
@@ -127,7 +127,7 @@ export default async function DailyRevenueReportPage({ searchParams }: Props) {
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-[#CCCCCC] bg-white">
+        <Card className="border-[#E0E3E5] bg-white">
           <CardContent className="flex items-center justify-center py-12">
             <p className="text-sm" style={{ color: BRAND_COLORS.borderDivider }}>No revenue recorded for {date}</p>
           </CardContent>

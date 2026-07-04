@@ -4,7 +4,8 @@ import { queueRepository } from "@/server/repositories/queue.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
 import { QueueEntryCard } from "@/components/queue/QueueEntryCard"
 import { BRAND_COLORS } from "@/lib/constants"
-import { Stethoscope, RefreshCw, Users } from "lucide-react"
+import { Stethoscope, Users } from "lucide-react"
+import { RefreshButton } from "@/components/shared/RefreshButton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export const metadata: Metadata = { title: "Doctor Queue" }
@@ -34,7 +35,7 @@ export default async function DoctorPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>
+          <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>
             My Patients
           </h1>
           <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
@@ -42,16 +43,7 @@ export default async function DoctorPage() {
             {today.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
           </p>
         </div>
-        <form action="/doctor">
-          <button
-            type="submit"
-            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border border-[#CCCCCC] hover:bg-white transition-colors"
-            style={{ color: BRAND_COLORS.borderDivider }}
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
-          </button>
-        </form>
+        <RefreshButton />
       </div>
 
       {/* Stats */}
@@ -61,7 +53,7 @@ export default async function DoctorPage() {
           { label: "Seen Today", value: completed.length, color: BRAND_COLORS.secondaryGreen },
           { label: "Total Today", value: myQueue.length, color: BRAND_COLORS.borderDivider },
         ].map((s) => (
-          <Card key={s.label} className="border-[#CCCCCC]">
+          <Card key={s.label} className="border-[#E0E3E5]">
             <CardContent className="p-3 text-center">
               <p className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</p>
               <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>{s.label}</p>
@@ -72,7 +64,7 @@ export default async function DoctorPage() {
 
       {/* Unclaimed patients (NEXT_AVAILABLE mode) */}
       {isNextAvailable && unclaimedQueue.length > 0 && (
-        <Card className="border-[#4ABCC8]">
+        <Card className="border-[#0077BE]">
           <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
             <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.primaryTeal }}>
               <Users className="h-4 w-4" />
@@ -93,7 +85,7 @@ export default async function DoctorPage() {
       )}
 
       {/* My Queue */}
-      <Card className="border-[#CCCCCC]">
+      <Card className="border-[#E0E3E5]">
         <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
           <CardTitle className="text-base flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
             <Stethoscope className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />

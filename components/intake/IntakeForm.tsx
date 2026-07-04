@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react"
 import { useFormStatus } from "react-dom"
 import { submitIntakeAction, IntakeFormState } from "@/actions/intake"
+import { TurnstileWidget } from "@/components/intake/TurnstileWidget"
 import { BRAND_COLORS } from "@/lib/constants"
 import { AlertCircle, Loader2, Send } from "lucide-react"
 
@@ -35,7 +36,7 @@ function SubmitBtn() {
   )
 }
 
-const inputCls = "w-full h-11 rounded-lg border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#4ABCC8]"
+const inputCls = "w-full h-11 rounded-lg border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE]"
 const labelCls = "block text-sm font-medium mb-1.5"
 
 const LEAD_SOURCES = ["Walk-in", "Referral", "Online Search", "Google", "Social Media", "Friend / Family", "Other"]
@@ -139,7 +140,7 @@ export function IntakeForm({ branches }: Props) {
         <textarea name="address" defaultValue={f.address ?? ""}
           placeholder="Your home address"
           rows={2}
-          className="w-full rounded-lg border border-[#CCCCCC] bg-[#EBECEE] px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4ABCC8] resize-none" />
+          className="w-full rounded-lg border border-[#E0E3E5] bg-[#F2F4F6] px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE] resize-none" />
       </div>
 
       {/* How did you find us */}
@@ -173,14 +174,32 @@ export function IntakeForm({ branches }: Props) {
         <textarea name="reasonForVisit" defaultValue={f.reasonForVisit ?? ""}
           placeholder="Describe your dental concern or what treatment you're looking for"
           rows={3}
-          className="w-full rounded-lg border border-[#CCCCCC] bg-[#EBECEE] px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4ABCC8] resize-none" />
+          className="w-full rounded-lg border border-[#E0E3E5] bg-[#F2F4F6] px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE] resize-none" />
       </div>
+
+      {/* WhatsApp consent */}
+      <label className="flex items-start gap-2.5 p-3 rounded-lg border border-[#E0E3E5] bg-white cursor-pointer">
+        <input
+          type="checkbox"
+          name="whatsappConsent"
+          defaultChecked={f.whatsappConsent === "on"}
+          className="mt-0.5 h-4 w-4 accent-[#005E97]"
+        />
+        <span className="text-sm" style={{ color: BRAND_COLORS.secondaryText }}>
+          <strong style={{ color: BRAND_COLORS.bodyText }}>Receive WhatsApp Updates</strong>
+          <br />
+          I agree to receive appointment reminders, receipts and treatment updates from
+          Ur&apos;s Toothfully on WhatsApp.
+        </span>
+      </label>
 
       {/* Privacy note */}
       <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
         🔒 Your information is stored securely and used only for your dental care at {" "}
         <strong>Ur&apos;s Toothfully</strong>. We do not share your data with third parties.
       </p>
+
+      <TurnstileWidget />
 
       <SubmitBtn />
     </form>

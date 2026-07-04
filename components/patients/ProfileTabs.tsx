@@ -31,7 +31,7 @@ export function ProfileTabs({ patientId }: Props) {
     >
       {TABS.map((tab) => {
         const href = `${base}${tab.href}`
-        const isActive = tab.href === "" ? pathname === base : pathname.startsWith(href)
+        const isActive = tab.href === "" ? pathname === base : pathname === href || pathname.startsWith(href + "/")
 
         return (
           <Link

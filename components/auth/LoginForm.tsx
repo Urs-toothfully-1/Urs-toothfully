@@ -14,8 +14,8 @@ function SubmitButton() {
       className="w-full h-11 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all"
       style={{
         background: pending
-          ? "#94A3B8"
-          : "linear-gradient(135deg, #0891B2, #0EA5E9)",
+          ? "#707882"
+          : "linear-gradient(135deg, #005E97, #0077BE)",
         boxShadow: pending ? "none" : "0 4px 14px rgba(14,165,233,0.35)",
       }}
     >
@@ -30,8 +30,8 @@ function SubmitButton() {
 
 const initialState: LoginState = {}
 
-const inputCls = "w-full h-11 rounded-xl border text-sm pl-10 pr-4 transition-all outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
-const inputStyle = { backgroundColor: "#F8FAFC", borderColor: "#E2E8F0", color: "#0F172A" }
+const inputCls = "w-full h-11 rounded-xl border text-sm pl-10 pr-4 transition-all outline-none focus:ring-2 focus:ring-[#0077BE]/30 focus:border-[#0077BE]"
+const inputStyle = { backgroundColor: "#F7F9FB", borderColor: "#E0E3E5", color: "#191C1E" }
 
 export function LoginForm() {
   const [state, formAction] = useActionState(loginAction, initialState)
@@ -55,7 +55,7 @@ export function LoginForm() {
           Email Address
         </label>
         <div className="relative">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#94A3B8" }} />
+          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#707882" }} />
           <input
             id="email"
             name="email"
@@ -76,7 +76,7 @@ export function LoginForm() {
           Password
         </label>
         <div className="relative">
-          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#94A3B8" }} />
+          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#707882" }} />
           <input
             id="password"
             name="password"
@@ -94,8 +94,8 @@ export function LoginForm() {
             aria-label={showPassword ? "Hide password" : "Show password"}
           >
             {showPassword
-              ? <EyeOff className="h-4 w-4" style={{ color: "#94A3B8" }} />
-              : <Eye className="h-4 w-4" style={{ color: "#94A3B8" }} />
+              ? <EyeOff className="h-4 w-4" style={{ color: "#707882" }} />
+              : <Eye className="h-4 w-4" style={{ color: "#707882" }} />
             }
           </button>
         </div>

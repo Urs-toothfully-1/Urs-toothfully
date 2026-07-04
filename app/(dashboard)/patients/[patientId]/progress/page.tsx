@@ -35,7 +35,7 @@ export default async function TreatmentProgressPage({ params }: Props) {
     <div className="space-y-4">
       {/* Progress Overview */}
       {total > 0 && (
-        <Card className="border-[#CCCCCC] bg-white">
+        <Card className="border-[#E0E3E5] bg-white">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-semibold" style={{ color: BRAND_COLORS.bodyText }}>
@@ -59,7 +59,7 @@ export default async function TreatmentProgressPage({ params }: Props) {
       )}
 
       {activeEstimates.length === 0 ? (
-        <Card className="border-[#CCCCCC] bg-white">
+        <Card className="border-[#E0E3E5] bg-white">
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-center">
             <CheckCircle className="h-10 w-10" style={{ color: BRAND_COLORS.lightBackground }} />
             <p className="font-medium" style={{ color: BRAND_COLORS.bodyText }}>
@@ -72,7 +72,7 @@ export default async function TreatmentProgressPage({ params }: Props) {
         </Card>
       ) : (
         activeEstimates.map((estimate: any) => (
-          <Card key={estimate.id} className="border-[#CCCCCC] bg-white">
+          <Card key={estimate.id} className="border-[#E0E3E5] bg-white">
             <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
               <CardTitle className="text-sm flex items-center justify-between" style={{ color: BRAND_COLORS.bodyText }}>
                 <span>{estimate.estimateNo}</span>
@@ -95,7 +95,7 @@ export default async function TreatmentProgressPage({ params }: Props) {
                         {item.treatmentName}
                         {item.toothNumber && (
                           <span className="ml-2 text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-                            Tooth #{item.toothNumber}
+                            {item.toothNumber.includes(",") ? "Teeth" : "Tooth"} #{item.toothNumber.split(",").join(", ")}
                           </span>
                         )}
                       </p>

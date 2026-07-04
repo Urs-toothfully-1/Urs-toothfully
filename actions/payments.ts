@@ -28,7 +28,7 @@ export async function collectConsultationFeeAction(
   const transactionRef = formData.get("transactionRef")?.toString() || undefined
   const notes = formData.get("notes")?.toString() || undefined
 
-  if (!visitId || !patientId || !amountStr || !mode) {
+  if (!patientId || !amountStr || !mode) {
     return { error: "Missing required fields." }
   }
 

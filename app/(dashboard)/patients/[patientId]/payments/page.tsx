@@ -41,7 +41,7 @@ export default async function PaymentsPage({ params }: Props) {
           { label: "Treatment Paid", value: treatment, color: BRAND_COLORS.secondaryGreen },
           { label: "Total Collected", value: total, color: BRAND_COLORS.primaryTeal },
         ].map((s) => (
-          <Card key={s.label} className="border-[#CCCCCC] bg-white">
+          <Card key={s.label} className="border-[#E0E3E5] bg-white">
             <CardContent className="p-3 text-center">
               <p className="text-lg font-bold" style={{ color: s.color }}>
                 {formatCurrency(s.value)}
@@ -69,7 +69,7 @@ export default async function PaymentsPage({ params }: Props) {
       )}
 
       {/* Payment History */}
-      <Card className="border-[#CCCCCC] bg-white">
+      <Card className="border-[#E0E3E5] bg-white">
         <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
           <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
             <CreditCard className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />

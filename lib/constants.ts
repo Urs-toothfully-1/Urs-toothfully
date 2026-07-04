@@ -8,43 +8,45 @@ export const CLINIC_HOURS = {
   closed: "Thursday: Day Off",
 } as const
 
+// Stitch design system palette (see stitch_screens/) — key names kept for
+// compatibility: "primaryTeal" now carries the Stitch primary blue.
 export const BRAND_COLORS = {
   // Primary brand
-  primaryTeal: "#0891B2",
-  primaryTealHover: "#0E7490",
-  primaryTealLight: "#CFFAFE",
-  secondaryGreen: "#059669",
+  primaryTeal: "#005E97",
+  primaryTealHover: "#004A79",
+  primaryTealLight: "#CFE5FF",
+  secondaryGreen: "#006B5F",
 
   // App surfaces
-  appBackground: "#F1F5F9",
-  lightBackground: "#F8FAFC",
+  appBackground: "#F7F9FB",
+  lightBackground: "#F2F4F6",
   cardBackground: "#FFFFFF",
 
-  // Sidebar (dark)
-  sidebarBg: "#0F172A",
-  sidebarText: "#CBD5E1",
-  sidebarMuted: "#64748B",
-  sidebarActiveBg: "rgba(14,165,233,0.12)",
-  sidebarActiveBorder: "#0EA5E9",
+  // Sidebar (light, Stitch style)
+  sidebarBg: "#FFFFFF",
+  sidebarText: "#404751",
+  sidebarMuted: "#707882",
+  sidebarActiveBg: "rgba(0,94,151,0.10)",
+  sidebarActiveBorder: "#005E97",
 
   // Text
-  bodyText: "#0F172A",
-  secondaryText: "#475569",
-  borderDivider: "#64748B",
+  bodyText: "#191C1E",
+  secondaryText: "#404751",
+  borderDivider: "#707882",
 
   // Borders
-  borderLight: "#E2E8F0",
-  borderMedium: "#CBD5E1",
+  borderLight: "#E0E3E5",
+  borderMedium: "#C0C7D2",
 
   // Legacy aliases (keep for compatibility)
-  panelGray: "#F1F5F9",
+  panelGray: "#ECEEF0",
   white: "#FFFFFF",
 } as const
 
 export const SESSION_DURATION_HOURS = 8
 export const BCRYPT_COST_FACTOR = 12
 export const DEFAULT_ADVANCE_PERCENT = 20
-export const DEFAULT_CONSULTATION_FEE = 500
+export const DEFAULT_CONSULTATION_FEE = 1000
 
 export const LOGIN_MAX_ATTEMPTS = 5
 export const LOGIN_LOCKOUT_MINUTES = 15

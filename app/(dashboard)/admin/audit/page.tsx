@@ -73,7 +73,7 @@ export default async function AuditLogPage({ searchParams }: Props) {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>
+          <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>
             Audit Log
           </h1>
           <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
@@ -83,13 +83,13 @@ export default async function AuditLogPage({ searchParams }: Props) {
       </div>
 
       {/* Filters */}
-      <Card className="border-[#CCCCCC] bg-white">
+      <Card className="border-[#E0E3E5] bg-white">
         <CardContent className="p-4">
           <form method="GET" action="/admin/audit" className="flex flex-wrap gap-3 items-end">
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>Entity</label>
               <select name="entityType" defaultValue={sp.entityType ?? ""}
-                className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-2 text-sm">
+                className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm">
                 <option value="">All Entities</option>
                 {entityTypes.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -97,7 +97,7 @@ export default async function AuditLogPage({ searchParams }: Props) {
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>Action</label>
               <select name="action" defaultValue={sp.action ?? ""}
-                className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-2 text-sm">
+                className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm">
                 <option value="">All Actions</option>
                 {["CREATE","UPDATE","DELETE","APPROVE","EXPORT","STATUS_CHANGE","CLAIM","COMPLETE"].map((a) => (
                   <option key={a} value={a}>{a}</option>
@@ -107,7 +107,7 @@ export default async function AuditLogPage({ searchParams }: Props) {
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>User</label>
               <select name="userId" defaultValue={sp.userId ?? ""}
-                className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-2 text-sm">
+                className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm">
                 <option value="">All Users</option>
                 {users.map((u: { id: string; name: string; role: string }) => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
               </select>
@@ -115,19 +115,19 @@ export default async function AuditLogPage({ searchParams }: Props) {
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>From</label>
               <input type="date" name="from" defaultValue={sp.from ?? ""}
-                className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-2 text-sm" />
+                className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>To</label>
               <input type="date" name="to" defaultValue={sp.to ?? ""} max={today}
-                className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-2 text-sm" />
+                className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm" />
             </div>
             <button type="submit" className="h-9 px-4 rounded text-sm font-medium text-white"
               style={{ backgroundColor: BRAND_COLORS.primaryTeal }}>
               Filter
             </button>
             <Link href="/admin/audit"
-              className="h-9 px-4 rounded text-sm font-medium flex items-center border border-[#CCCCCC]"
+              className="h-9 px-4 rounded text-sm font-medium flex items-center border border-[#E0E3E5]"
               style={{ color: BRAND_COLORS.bodyText }}>
               Reset
             </Link>
@@ -136,7 +136,7 @@ export default async function AuditLogPage({ searchParams }: Props) {
       </Card>
 
       {/* Audit log table */}
-      <Card className="border-[#CCCCCC] bg-white overflow-hidden">
+      <Card className="border-[#E0E3E5] bg-white overflow-hidden">
         <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
           <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
             <Shield className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
@@ -222,14 +222,14 @@ export default async function AuditLogPage({ searchParams }: Props) {
           <div className="flex gap-2">
             {page > 1 && (
               <Link href={buildUrl({ page: String(page - 1) })}
-                className="flex items-center gap-1 px-3 py-1.5 rounded border border-[#CCCCCC]"
+                className="flex items-center gap-1 px-3 py-1.5 rounded border border-[#E0E3E5]"
                 style={{ color: BRAND_COLORS.bodyText }}>
                 <ChevronLeft className="h-4 w-4" /> Prev
               </Link>
             )}
             {page < totalPages && (
               <Link href={buildUrl({ page: String(page + 1) })}
-                className="flex items-center gap-1 px-3 py-1.5 rounded border border-[#CCCCCC]"
+                className="flex items-center gap-1 px-3 py-1.5 rounded border border-[#E0E3E5]"
                 style={{ color: BRAND_COLORS.bodyText }}>
                 Next <ChevronRight className="h-4 w-4" />
               </Link>

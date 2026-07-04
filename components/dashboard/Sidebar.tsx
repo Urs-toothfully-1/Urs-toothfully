@@ -3,11 +3,12 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { BRAND_COLORS } from "@/lib/constants"
 import type { Role } from "@/lib/session"
 import {
-  LayoutDashboard, Users, ClipboardList, CreditCard,
+  LayoutDashboard, Users, ClipboardList,
   BookOpen, BarChart2, Stethoscope, Settings, UserCog,
-  CalendarClock, Shield, FileSpreadsheet,
+  CalendarClock, Shield, FileSpreadsheet, UserPlus, MessageCircle,
 } from "lucide-react"
 
 interface NavItem {
@@ -29,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Treatments", href: "/admin/treatments", icon: ClipboardList, roles: ["ADMIN"] },
   { label: "Availability", href: "/admin/availability", icon: CalendarClock, roles: ["ADMIN"] },
   { label: "Users", href: "/admin/users", icon: UserCog, roles: ["ADMIN"] },
+  { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle, roles: ["ADMIN", "RECEPTIONIST"], matchPrefix: true },
   { label: "Tally Export", href: "/admin/tally", icon: FileSpreadsheet, roles: ["ADMIN"] },
   { label: "Audit Log", href: "/admin/audit", icon: Shield, roles: ["ADMIN"] },
   { label: "Settings", href: "/admin/settings", icon: Settings, roles: ["ADMIN"] },
@@ -42,8 +44,8 @@ const ROLE_LABELS: Record<Role, string> = {
 
 const ROLE_COLORS: Record<Role, string> = {
   ADMIN: "#F59E0B",
-  DOCTOR: "#34D399",
-  RECEPTIONIST: "#60A5FA",
+  DOCTOR: "#006B5F",
+  RECEPTIONIST: "#005E97",
 }
 
 interface SidebarProps {
@@ -54,21 +56,29 @@ interface SidebarProps {
 export function Sidebar({ role, branchName }: SidebarProps) {
   const pathname = usePathname()
   const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role))
+  const canRegister = role === "ADMIN" || role === "RECEPTIONIST"
 
   return (
-    <aside className="w-60 flex-shrink-0 flex flex-col h-full print:hidden" style={{ backgroundColor: "#0F172A" }}>
+    <aside
+      className="w-60 flex-shrink-0 flex flex-col h-full print:hidden border-r"
+      style={{ backgroundColor: BRAND_COLORS.sidebarBg, borderColor: BRAND_COLORS.borderLight }}
+    >
       {/* Brand */}
-      <div className="px-5 py-5 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+      <div className="px-5 py-5 border-b" style={{ borderColor: BRAND_COLORS.borderLight }}>
         <div className="flex items-center gap-3">
           <div
             className="h-9 w-9 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #0891B2, #0EA5E9)" }}
+            style={{ background: "linear-gradient(135deg, #005E97, #0077BE)" }}
           >
-            T
+            UT
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-white leading-tight truncate">Ur's Toothfully</p>
-            <p className="text-xs truncate mt-0.5" style={{ color: "#64748B" }}>{branchName} Branch</p>
+            <p className="text-sm font-bold leading-tight truncate" style={{ color: BRAND_COLORS.primaryTeal }}>
+              Ur&apos;s Toothfully
+            </p>
+            <p className="text-xs truncate mt-0.5" style={{ color: BRAND_COLORS.sidebarMuted }}>
+              {branchName} Branch
+            </p>
           </div>
         </div>
       </div>
@@ -89,30 +99,27 @@ export function Sidebar({ role, branchName }: SidebarProps) {
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group relative",
-                    isActive
-                      ? "text-white"
-                      : "hover:text-white"
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group relative"
                   )}
                   style={
                     isActive
                       ? {
-                          backgroundColor: "rgba(14,165,233,0.15)",
-                          color: "#E0F2FE",
-                          boxShadow: "inset 3px 0 0 #0EA5E9",
+                          backgroundColor: BRAND_COLORS.sidebarActiveBg,
+                          color: BRAND_COLORS.primaryTeal,
+                          fontWeight: 600,
                         }
-                      : { color: "#94A3B8" }
+                      : { color: BRAND_COLORS.sidebarText }
                   }
                   onMouseEnter={(e) => {
                     if (!isActive) {
-                      e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"
-                      e.currentTarget.style.color = "#E2E8F0"
+                      e.currentTarget.style.backgroundColor = BRAND_COLORS.lightBackground
+                      e.currentTarget.style.color = BRAND_COLORS.bodyText
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!isActive) {
                       e.currentTarget.style.backgroundColor = ""
-                      e.currentTarget.style.color = "#94A3B8"
+                      e.currentTarget.style.color = BRAND_COLORS.sidebarText
                     }
                   }}
                 >
@@ -125,14 +132,30 @@ export function Sidebar({ role, branchName }: SidebarProps) {
         </ul>
       </nav>
 
+      {/* New Patient shortcut (Stitch: primary action pinned at the bottom) */}
+      {canRegister && (
+        <div className="px-3 pb-3">
+          <Link
+            href="/patients/new"
+            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
+            style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = BRAND_COLORS.primaryTealHover }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = BRAND_COLORS.primaryTeal }}
+          >
+            <UserPlus className="h-4 w-4" />
+            New Patient
+          </Link>
+        </div>
+      )}
+
       {/* Role badge */}
-      <div className="px-4 py-4 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+      <div className="px-4 py-4 border-t" style={{ borderColor: BRAND_COLORS.borderLight }}>
         <div className="flex items-center gap-2.5">
           <div
             className="h-2 w-2 rounded-full flex-shrink-0"
             style={{ backgroundColor: ROLE_COLORS[role] }}
           />
-          <span className="text-xs font-medium" style={{ color: "#64748B" }}>
+          <span className="text-xs font-medium" style={{ color: BRAND_COLORS.sidebarMuted }}>
             {ROLE_LABELS[role]}
           </span>
         </div>

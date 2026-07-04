@@ -4,7 +4,8 @@ import { requireRole } from "@/lib/auth"
 import { queueRepository } from "@/server/repositories/queue.repository"
 import { QueueEntryCard } from "@/components/queue/QueueEntryCard"
 import { BRAND_COLORS } from "@/lib/constants"
-import { UserPlus, Search, CreditCard, ClipboardList, RefreshCw, Clock, Stethoscope, DollarSign, CheckCircle2 } from "lucide-react"
+import { UserPlus, Search, CreditCard, ClipboardList, Clock, Stethoscope, DollarSign, CheckCircle2 } from "lucide-react"
+import { RefreshButton } from "@/components/shared/RefreshButton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export const metadata: Metadata = { title: "Reception" }
@@ -79,23 +80,14 @@ export default async function ReceptionPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>
-            Reception
+          <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>
+            Live Queue
           </h1>
           <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
-            {todayDate}
+            {todayDate} · Manage patient flow
           </p>
         </div>
-        <form action="/reception">
-          <button
-            type="submit"
-            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border border-[#CCCCCC] hover:bg-white transition-colors"
-            style={{ color: BRAND_COLORS.borderDivider }}
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
-          </button>
-        </form>
+        <RefreshButton />
       </div>
 
       {/* Quick Actions */}
@@ -104,7 +96,7 @@ export default async function ReceptionPage() {
           const Icon = a.icon
           return (
             <Link key={a.label} href={a.href}>
-              <Card className="border-[#CCCCCC] hover:shadow-md transition-shadow cursor-pointer">
+              <Card className="border-[#E0E3E5] hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="flex items-center gap-3 p-3">
                   <div className="rounded-full p-2" style={{ backgroundColor: `${a.color}1A` }}>
                     <Icon className="h-4 w-4" style={{ color: a.color }} />
@@ -127,7 +119,7 @@ export default async function ReceptionPage() {
           { label: "Payment Due", value: paymentDue.length, color: "#C2410C", bg: "#FFEDD5" },
           { label: "Completed", value: completed.length, color: "#065F46", bg: "#D1FAE5" },
         ].map((s) => (
-          <Card key={s.label} className="border-[#CCCCCC]">
+          <Card key={s.label} className="border-[#E0E3E5]">
             <CardContent className="p-3 text-center">
               <p className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</p>
               <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>{s.label}</p>
@@ -138,7 +130,7 @@ export default async function ReceptionPage() {
 
       {/* Sectioned Queue */}
       {allEntries.length === 0 ? (
-        <Card className="border-[#CCCCCC]">
+        <Card className="border-[#E0E3E5]">
           <CardContent className="pt-4">
             <div className="text-center py-12">
               <ClipboardList className="h-10 w-10 mx-auto mb-3" style={{ color: BRAND_COLORS.lightBackground }} />
@@ -160,7 +152,7 @@ export default async function ReceptionPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-[#CCCCCC]">
+        <Card className="border-[#E0E3E5]">
           <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
             <CardTitle className="text-base flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
               <ClipboardList className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />

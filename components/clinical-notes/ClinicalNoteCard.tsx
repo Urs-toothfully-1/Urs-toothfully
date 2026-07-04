@@ -6,6 +6,7 @@ interface Note {
   id: string
   noteType: string
   content: string
+  toothNumbers?: string | null
   createdAt: Date | string
   doctor: { id: string; name: string }
   visit?: { id: string; visitNo: string; visitDate: Date | string } | null
@@ -38,6 +39,16 @@ export function ClinicalNoteCard({ note }: { note: Note }) {
           <span className="text-xs font-medium" style={{ color: BRAND_COLORS.bodyText }}>
             {note.doctor.name}
           </span>
+          {note.toothNumbers &&
+            note.toothNumbers.split(",").map((t) => (
+              <span
+                key={t}
+                className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: "rgba(0,94,151,0.10)", color: BRAND_COLORS.primaryTeal }}
+              >
+                🦷 {t.trim()}
+              </span>
+            ))}
         </div>
         <div className="text-right flex-shrink-0">
           <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>

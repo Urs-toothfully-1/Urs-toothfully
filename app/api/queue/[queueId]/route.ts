@@ -35,11 +35,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Forbidden: role cannot set this status" }, { status: 403 })
     }
 
-    // Branch ownership guard — non-ADMIN may only update entries in their branch
+    // Ownership guard — non-ADMIN may update entries in their branch;
+    // a DOCTOR may also update entries assigned to them at any branch (doctors rotate across branches)
     if (session.role !== "ADMIN") {
       const existing = await queueRepository.findById(queueId)
       if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
-      if (existing.branchId !== session.branchId) {
+      const isAssignedDoctor = session.role === "DOCTOR" && existing.doctorId === session.userId
+      if (existing.branchId !== session.branchId && !isAssignedDoctor) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
     }

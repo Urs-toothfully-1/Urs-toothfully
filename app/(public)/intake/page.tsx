@@ -31,7 +31,7 @@ export default async function IntakePage() {
 
       {/* Form */}
       <main className="max-w-2xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-xl border border-[#CCCCCC] shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-[#E0E3E5] shadow-sm overflow-hidden">
           <div className="h-1.5" style={{ backgroundColor: BRAND_COLORS.primaryTeal }} />
           <div className="px-6 py-6">
             <h2 className="text-xl font-bold mb-1" style={{ color: BRAND_COLORS.bodyText }}>
@@ -48,7 +48,7 @@ export default async function IntakePage() {
         {/* Branch info */}
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
           {(branches as { id: string; name: string; address: string; phone: string }[]).map((b) => (
-            <div key={b.id} className="bg-white rounded-lg border border-[#CCCCCC] p-3 text-sm">
+            <div key={b.id} className="bg-white rounded-lg border border-[#E0E3E5] p-3 text-sm">
               <p className="font-semibold" style={{ color: BRAND_COLORS.primaryTeal }}>{b.name} Branch</p>
               <p className="mt-1 text-xs" style={{ color: BRAND_COLORS.borderDivider }}>{b.address}</p>
               <p className="mt-0.5 text-xs" style={{ color: BRAND_COLORS.borderDivider }}>{b.phone}</p>

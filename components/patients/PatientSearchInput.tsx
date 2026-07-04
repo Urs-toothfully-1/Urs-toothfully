@@ -50,7 +50,7 @@ export function PatientSearchInput({
         defaultValue={defaultValue}
         onChange={(e) => handleSearch(e.target.value)}
         placeholder={placeholder}
-        className="pl-10 h-11 border-[#CCCCCC] focus-visible:ring-[#4ABCC8] text-sm bg-white"
+        className="pl-10 h-11 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white"
         autoFocus
       />
     </div>

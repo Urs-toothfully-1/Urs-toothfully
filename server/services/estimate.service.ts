@@ -8,7 +8,7 @@ export const estimateItemSchema = z.object({
   treatmentId: z.string().uuid().optional(),
   treatmentName: z.string().min(1).max(200),
   category: z.string().min(1).max(100),
-  toothNumber: z.string().max(20).optional(),
+  toothNumber: z.string().max(120).optional(),
   quantity: z.number().int().positive().default(1),
   unitRate: z.number().positive(),
   sortOrder: z.number().int().default(0),
@@ -89,6 +89,16 @@ export const estimateService = {
       newValues: { estimateNo, total, itemCount: items.length },
       branchId: input.branchId,
     })
+
+    // Auto-create the visit prescription from this estimate (patient details,
+    // dental-history alerts, treatments without prices). Non-fatal: the doctor
+    // page lazily creates it too if this fails.
+    try {
+      const { prescriptionService } = await import("@/server/services/prescription.service")
+      await prescriptionService.createFromEstimate(estimate.id, doctorId)
+    } catch (err) {
+      console.error("Auto-prescription creation failed:", err)
+    }
 
     return estimate
   },

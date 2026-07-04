@@ -83,6 +83,12 @@ export const queueService = {
 
     const entry = await queueRepository.updateStatus(queueId, status as any, extras)
 
+    // Keep the visit's own status in sync — otherwise it stays IN_PROGRESS
+    // forever and old visits keep surfacing in payment/queue screens.
+    if (status === "COMPLETED" || status === "CANCELLED") {
+      await visitRepository.updateStatus(entry.visitId, status).catch(() => {})
+    }
+
     await createAuditLog({
       entityType: "QueueEntry",
       entityId: queueId,

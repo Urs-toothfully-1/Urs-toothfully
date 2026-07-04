@@ -60,11 +60,14 @@ export function Header({ userName, role, branchName }: HeaderProps) {
   }
 
   return (
-    <header className="h-14 flex items-center justify-between px-6 bg-white border-b border-[#E2E8F0] flex-shrink-0 print:hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-      {/* Left — branch */}
-      <div className="flex items-center gap-2">
-        <Building2 className="h-3.5 w-3.5" style={{ color: "#94A3B8" }} />
-        <span className="text-sm font-medium" style={{ color: "#475569" }}>
+    <header className="h-14 flex items-center justify-between px-6 bg-white border-b border-[#E0E3E5] flex-shrink-0 print:hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+      {/* Left — branch chip (Stitch style) */}
+      <div
+        className="flex items-center gap-2 rounded-lg border px-3 py-1.5"
+        style={{ borderColor: "#E0E3E5", backgroundColor: "#F7F9FB" }}
+      >
+        <Building2 className="h-3.5 w-3.5" style={{ color: "#005E97" }} />
+        <span className="text-sm font-medium" style={{ color: "#404751" }}>
           {branchName} Branch
         </span>
       </div>
@@ -81,14 +84,14 @@ export function Header({ userName, role, branchName }: HeaderProps) {
           {/* Avatar */}
           <div
             className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #0891B2, #0EA5E9)" }}
+            style={{ background: "linear-gradient(135deg, #005E97, #0077BE)" }}
           >
             {getInitials(userName)}
           </div>
 
           {/* Name + role badge */}
           <div className="hidden sm:block text-left">
-            <p className="text-xs font-semibold leading-tight" style={{ color: "#0F172A" }}>
+            <p className="text-xs font-semibold leading-tight" style={{ color: "#191C1E" }}>
               {userName}
             </p>
             <span
@@ -101,7 +104,7 @@ export function Header({ userName, role, branchName }: HeaderProps) {
 
           <ChevronDown
             className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-            style={{ color: "#94A3B8" }}
+            style={{ color: "#707882" }}
           />
         </button>
 
@@ -109,13 +112,13 @@ export function Header({ userName, role, branchName }: HeaderProps) {
         {open && (
           <div
             className="absolute right-0 top-full mt-2 w-56 rounded-xl border bg-white shadow-lg z-50 overflow-hidden"
-            style={{ borderColor: "#E2E8F0", boxShadow: "0 10px 40px rgba(0,0,0,0.12)" }}
+            style={{ borderColor: "#E0E3E5", boxShadow: "0 10px 40px rgba(0,0,0,0.12)" }}
             role="menu"
           >
             {/* User info header */}
-            <div className="px-4 py-3 border-b border-[#F1F5F9]" style={{ backgroundColor: "#F8FAFC" }}>
-              <p className="text-xs font-medium" style={{ color: "#94A3B8" }}>Signed in as</p>
-              <p className="text-sm font-semibold mt-0.5" style={{ color: "#0F172A" }}>{userName}</p>
+            <div className="px-4 py-3 border-b border-[#F2F4F6]" style={{ backgroundColor: "#F7F9FB" }}>
+              <p className="text-xs font-medium" style={{ color: "#707882" }}>Signed in as</p>
+              <p className="text-sm font-semibold mt-0.5" style={{ color: "#191C1E" }}>{userName}</p>
               <span
                 className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-1"
                 style={{ backgroundColor: roleStyle.bg, color: roleStyle.text }}

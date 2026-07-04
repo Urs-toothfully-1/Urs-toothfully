@@ -43,9 +43,10 @@ export const SESSION_COOKIE_NAME = "toothfully_session"
 
 export const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  // "lax" (not "strict") so the cookie is sent when switching browser tabs
-  // and on mobile browsers where strict drops the cookie during navigation
+  // Only mark Secure when explicitly deployed over HTTPS.
+  // NODE_ENV=production is true even on a local LAN (npm run start),
+  // and mobile browsers refuse to send Secure cookies over plain HTTP.
+  secure: process.env.SECURE_COOKIES === "true",
   sameSite: "lax" as const,
   path: "/",
   maxAge: SESSION_DURATION_HOURS * 60 * 60,

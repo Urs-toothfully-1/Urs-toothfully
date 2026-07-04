@@ -31,7 +31,7 @@ function SubmitBtn() {
   )
 }
 
-const selectCls = "h-10 w-full rounded-md border border-[#CCCCCC] bg-[#EBECEE] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#4ABCC8]"
+const selectCls = "h-10 w-full rounded-md border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE]"
 
 export function UsersMgmt({ users, branches, currentUserId }: { users: User[]; branches: Branch[]; currentUserId: string }) {
   const [showForm, setShowForm] = useState(false)
@@ -65,7 +65,7 @@ export function UsersMgmt({ users, branches, currentUserId }: { users: User[]; b
   return (
     <div className="space-y-5">
       {/* Add User Form */}
-      <Card className="border-[#CCCCCC] bg-white">
+      <Card className="border-[#E0E3E5] bg-white">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
@@ -73,7 +73,7 @@ export function UsersMgmt({ users, branches, currentUserId }: { users: User[]; b
               {showForm ? "New Staff Account" : "Staff Accounts"}
             </CardTitle>
             <Button variant="outline" size="sm" onClick={() => setShowForm((v) => !v)}
-              className="h-8 text-xs border-[#CCCCCC]">
+              className="h-8 text-xs border-[#E0E3E5]">
               {showForm ? "Cancel" : <><Plus className="h-3.5 w-3.5 mr-1" />Add User</>}
             </Button>
           </div>
@@ -87,15 +87,15 @@ export function UsersMgmt({ users, branches, currentUserId }: { users: User[]; b
             <form action={formAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>Full Name *</Label>
-                <Input name="name" required placeholder="Dr. / Mr. / Ms." className="h-10 border-[#CCCCCC] bg-[#EBECEE] text-sm" />
+                <Input name="name" required placeholder="Dr. / Mr. / Ms." className="h-10 border-[#E0E3E5] bg-[#F2F4F6] text-sm" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>Email *</Label>
-                <Input name="email" type="email" required className="h-10 border-[#CCCCCC] bg-[#EBECEE] text-sm" />
+                <Input name="email" type="email" required className="h-10 border-[#E0E3E5] bg-[#F2F4F6] text-sm" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>Password *</Label>
-                <Input name="password" type="password" required minLength={8} className="h-10 border-[#CCCCCC] bg-[#EBECEE] text-sm" />
+                <Input name="password" type="password" required minLength={8} className="h-10 border-[#E0E3E5] bg-[#F2F4F6] text-sm" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>Role *</Label>
@@ -115,11 +115,11 @@ export function UsersMgmt({ users, branches, currentUserId }: { users: User[]; b
                 <>
                   <div className="space-y-1.5">
                     <Label className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>Registration No.</Label>
-                    <Input name="doctorRegNo" placeholder="e.g. 3079A" className="h-10 border-[#CCCCCC] bg-[#EBECEE] text-sm" />
+                    <Input name="doctorRegNo" placeholder="e.g. 3079A" className="h-10 border-[#E0E3E5] bg-[#F2F4F6] text-sm" />
                   </div>
                   <div className="md:col-span-2 space-y-1.5">
                     <Label className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>Qualification</Label>
-                    <Input name="doctorQualification" placeholder="e.g. BDS, MDS" className="h-10 border-[#CCCCCC] bg-[#EBECEE] text-sm" />
+                    <Input name="doctorQualification" placeholder="e.g. BDS, MDS" className="h-10 border-[#E0E3E5] bg-[#F2F4F6] text-sm" />
                   </div>
                 </>
               )}
@@ -137,7 +137,7 @@ export function UsersMgmt({ users, branches, currentUserId }: { users: User[]; b
         if (roleUsers.length === 0) return null
         const style = ROLE_STYLE[roleKey]
         return (
-          <Card key={roleKey} className="border-[#CCCCCC] bg-white overflow-hidden">
+          <Card key={roleKey} className="border-[#E0E3E5] bg-white overflow-hidden">
             <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
               <CardTitle className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>
                 <span className="px-2 py-0.5 rounded text-xs font-bold mr-2" style={{ backgroundColor: style.bg, color: style.color }}>

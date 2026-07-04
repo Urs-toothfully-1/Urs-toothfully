@@ -20,15 +20,20 @@ export default async function NewEstimatePage({ searchParams }: Props) {
 
   if (!visitId || !patientId) redirect("/doctor")
 
-  const [patient, visit, treatments, advPct, allowDisc] = await Promise.all([
+  const [patient, visit, treatments] = await Promise.all([
     patientRepository.findById(patientId),
     visitRepository.findById(visitId),
     treatmentRepository.findAll(),
-    settingsRepository.get("advance_percent", session.branchId),
-    settingsRepository.get("allow_discount", session.branchId),
   ])
 
   if (!patient || !visit) notFound()
+
+  // Settings + estimate branch follow the VISIT's branch (where the patient is
+  // being treated), not the doctor's home branch — doctors rotate across branches.
+  const [advPct, allowDisc] = await Promise.all([
+    settingsRepository.get("advance_percent", visit.branchId),
+    settingsRepository.get("allow_discount", visit.branchId),
+  ])
 
   const advancePercent = parseFloat(advPct ?? "20")
   const allowDiscount = (allowDisc ?? "true") === "true"
@@ -53,7 +58,7 @@ export default async function NewEstimatePage({ searchParams }: Props) {
       </nav>
 
       {/* Card */}
-      <div className="bg-white rounded-xl border border-[#CCCCCC] shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-[#E0E3E5] shadow-sm overflow-hidden">
         <div className="h-1.5" style={{ backgroundColor: BRAND_COLORS.primaryTeal }} />
         <div className="px-6 py-5">
           <h1 className="text-xl font-bold mb-1" style={{ color: BRAND_COLORS.bodyText }}>
@@ -66,7 +71,7 @@ export default async function NewEstimatePage({ searchParams }: Props) {
           <EstimateBuilder
             patientId={patientId}
             visitId={visitId}
-            branchId={session.branchId}
+            branchId={visit.branchId}
             patientName={patient.fullName}
             visitNo={visit.visitNo}
             doctorName={session.name}

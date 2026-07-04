@@ -14,8 +14,8 @@ import { formatCurrency } from "@/lib/utils"
 import Link from "next/link"
 
 interface Props {
-  visitId: string
-  visitNo: string
+  visitId?: string
+  visitNo?: string
   patientId: string
   branchId: string
   defaultFee: number
@@ -40,6 +40,7 @@ function SubmitBtn() {
 }
 
 export function ConsultationFeeForm({ visitId, visitNo, patientId, branchId, defaultFee }: Props) {
+  const isPreQueue = !visitId
   const [state, formAction] = useActionState(collectConsultationFeeAction, {} as PaymentFormState)
 
   if (state.success && state.receiptId) {
@@ -65,11 +66,11 @@ export function ConsultationFeeForm({ visitId, visitNo, patientId, branchId, def
             Print Receipt
           </Link>
           <Link
-            href="/reception"
-            className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border border-[#CCCCCC]"
+            href={isPreQueue ? `/patients/${patientId}` : "/reception"}
+            className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border border-[#E0E3E5]"
             style={{ color: BRAND_COLORS.bodyText }}
           >
-            Back to Queue
+            {isPreQueue ? "Add to Queue →" : "Go to Queue"}
           </Link>
         </div>
       </div>
@@ -78,7 +79,7 @@ export function ConsultationFeeForm({ visitId, visitNo, patientId, branchId, def
 
   return (
     <form action={formAction} className="space-y-5">
-      <input type="hidden" name="visitId" value={visitId} />
+      {visitId && <input type="hidden" name="visitId" value={visitId} />}
       <input type="hidden" name="patientId" value={patientId} />
       <input type="hidden" name="branchId" value={branchId} />
 
@@ -89,13 +90,21 @@ export function ConsultationFeeForm({ visitId, visitNo, patientId, branchId, def
         </Alert>
       )}
 
-      {/* Visit context */}
+      {/* Context label */}
       <div
         className="rounded-lg p-3 text-sm"
         style={{ backgroundColor: BRAND_COLORS.lightBackground }}
       >
-        <span style={{ color: BRAND_COLORS.borderDivider }}>Visit: </span>
-        <strong style={{ color: BRAND_COLORS.bodyText }}>{visitNo}</strong>
+        {visitId ? (
+          <>
+            <span style={{ color: BRAND_COLORS.borderDivider }}>Visit: </span>
+            <strong style={{ color: BRAND_COLORS.bodyText }}>{visitNo}</strong>
+          </>
+        ) : (
+          <span style={{ color: BRAND_COLORS.borderDivider }}>
+            Pre-queue — fee collected before adding patient to the doctor queue.
+          </span>
+        )}
         <span className="ml-3 text-xs px-2 py-0.5 rounded" style={{ backgroundColor: `${BRAND_COLORS.primaryTeal}15`, color: BRAND_COLORS.primaryTeal }}>
           Consultation
         </span>
@@ -120,7 +129,7 @@ export function ConsultationFeeForm({ visitId, visitNo, patientId, branchId, def
             step={0.01}
             defaultValue={defaultFee}
             required
-            className="pl-7 h-11 border-[#CCCCCC] focus-visible:ring-[#4ABCC8] text-lg font-semibold bg-[#EBECEE]"
+            className="pl-7 h-11 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-lg font-semibold bg-[#F2F4F6]"
             style={{ color: BRAND_COLORS.primaryTeal }}
           />
         </div>
@@ -139,7 +148,7 @@ export function ConsultationFeeForm({ visitId, visitNo, patientId, branchId, def
         <Input
           name="transactionRef"
           placeholder="Ref number (for UPI / Card)"
-          className="h-10 border-[#CCCCCC] focus-visible:ring-[#4ABCC8] text-sm bg-[#EBECEE]"
+          className="h-10 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-[#F2F4F6]"
         />
       </div>
 

@@ -5,6 +5,7 @@ import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { PrintButtons } from "@/components/print/PrintButtons"
+import { ShareActions } from "@/components/share/ShareActions"
 
 export const metadata: Metadata = { title: "Print Estimate" }
 
@@ -41,6 +42,18 @@ export default async function PrintEstimatePage({ params }: Props) {
       `}</style>
 
       <PrintButtons />
+
+      <div className="no-print fixed top-4 left-4 z-50">
+        <ShareActions
+          type="estimate"
+          id={estimate.id}
+          patientName={estimate.patient.fullName}
+          patientMobile={estimate.patient.mobile}
+          patientEmail={estimate.patient.email}
+          docNo={estimate.estimateNo}
+          branchName={estimate.branch.name}
+        />
+      </div>
 
       {/* Printable document */}
       <div className="print-doc max-w-[800px] mx-auto p-6">

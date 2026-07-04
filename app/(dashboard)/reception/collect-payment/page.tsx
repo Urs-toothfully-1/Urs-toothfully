@@ -7,6 +7,7 @@ import { visitRepository } from "@/server/repositories/visit.repository"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { paymentRepository } from "@/server/repositories/payment.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
+import { prisma } from "@/lib/prisma"
 import { ConsultationFeeForm } from "@/components/payments/ConsultationFeeForm"
 import { TreatmentPaymentForm } from "@/components/payments/TreatmentPaymentForm"
 import { BRAND_COLORS } from "@/lib/constants"
@@ -30,13 +31,17 @@ export default async function CollectPaymentPage({ searchParams }: Props) {
   const patient = await patientRepository.findById(patientId)
   if (!patient) notFound()
 
-  const [consultationFee, estimates, visits] = await Promise.all([
+  const [consultationFee, estimates, visits, existingConsultationPayment] = await Promise.all([
     settingsRepository.get("consultation_fee", session.branchId),
     estimateRepository.findActiveByPatient(patientId),
     visitRepository.findByPatient(patientId),
+    prisma.payment.findFirst({
+      where: { patientId, paymentType: "CONSULTATION", isDeleted: false },
+      select: { id: true },
+    }),
   ])
 
-  const defaultFee = parseFloat(consultationFee ?? "500")
+  const defaultFee = parseFloat(consultationFee ?? "1000")
 
   // Calculate outstanding balance per estimate
   const estimatesWithBalance = await Promise.all(
@@ -70,8 +75,12 @@ export default async function CollectPaymentPage({ searchParams }: Props) {
     ? activeEstimates.find((e) => e.id === estimateId)
     : undefined
 
-  // Decide which section to show based on URL params
-  const showConsultation = !!preselectedVisit
+  // Show consultation fee form if:
+  // (a) there is an active visit (mid-visit collection), OR
+  // (b) fee has never been paid (pre-queue — new patient flow)
+  const hasPaidConsultation = !!existingConsultationPayment
+  const showPreQueueConsultation = !hasPaidConsultation && !preselectedVisit
+  const showConsultation = !!preselectedVisit || showPreQueueConsultation
   const showTreatment = activeEstimates.length > 0
 
   return (
@@ -105,7 +114,7 @@ export default async function CollectPaymentPage({ searchParams }: Props) {
 
       {/* Consultation Fee section */}
       {showConsultation && (
-        <Card className="border-[#CCCCCC] bg-white">
+        <Card className="border-[#E0E3E5] bg-white">
           <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
             <CardTitle className="text-base flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
               <Receipt className="h-4 w-4" style={{ color: "#1D4ED8" }} />
@@ -114,8 +123,8 @@ export default async function CollectPaymentPage({ searchParams }: Props) {
           </CardHeader>
           <CardContent className="pt-5">
             <ConsultationFeeForm
-              visitId={preselectedVisit.id}
-              visitNo={preselectedVisit.visitNo}
+              visitId={preselectedVisit?.id}
+              visitNo={preselectedVisit?.visitNo}
               patientId={patientId}
               branchId={session.branchId}
               defaultFee={defaultFee}
@@ -126,7 +135,7 @@ export default async function CollectPaymentPage({ searchParams }: Props) {
 
       {/* Treatment / Advance section */}
       {showTreatment && (
-        <Card className="border-[#CCCCCC] bg-white">
+        <Card className="border-[#E0E3E5] bg-white">
           <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
             <CardTitle className="text-base flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
               <CreditCard className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
@@ -145,12 +154,12 @@ export default async function CollectPaymentPage({ searchParams }: Props) {
 
       {/* No payment options */}
       {!showConsultation && !showTreatment && (
-        <Card className="border-[#CCCCCC] bg-white">
+        <Card className="border-[#E0E3E5] bg-white">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center gap-3">
             <CreditCard className="h-10 w-10" style={{ color: BRAND_COLORS.lightBackground }} />
             <p className="font-medium" style={{ color: BRAND_COLORS.bodyText }}>No pending payments</p>
             <p className="text-sm" style={{ color: BRAND_COLORS.borderDivider }}>
-              Add the patient to the queue first, or ensure an estimate with outstanding balance exists.
+              Consultation fee is already collected and there are no outstanding treatment balances.
             </p>
             <Link href={`/patients/${patientId}`} className="text-sm font-medium" style={{ color: BRAND_COLORS.primaryTeal }}>
               Go to Patient Profile →

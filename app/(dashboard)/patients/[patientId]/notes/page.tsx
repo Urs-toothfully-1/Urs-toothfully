@@ -20,7 +20,7 @@ export default async function ClinicalNotesPage({ params }: Props) {
   // Only Doctors and Admins can see clinical notes
   if (session.role === "RECEPTIONIST") {
     return (
-      <Card className="border-[#CCCCCC] bg-white">
+      <Card className="border-[#E0E3E5] bg-white">
         <CardContent className="flex flex-col items-center justify-center py-20 text-center gap-3">
           <Lock className="h-10 w-10" style={{ color: BRAND_COLORS.lightBackground }} />
           <p className="font-medium" style={{ color: BRAND_COLORS.bodyText }}>Access Restricted</p>
@@ -61,7 +61,7 @@ export default async function ClinicalNotesPage({ params }: Props) {
       )}
 
       {/* Notes List */}
-      <Card className="border-[#CCCCCC] bg-white">
+      <Card className="border-[#E0E3E5] bg-white">
         <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
           <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
             <FileText className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />

@@ -3,12 +3,16 @@ import { jwtVerify } from "jose"
 import { SESSION_COOKIE_NAME, type Role, type SessionPayload } from "@/lib/session"
 import { ROUTES } from "@/lib/constants"
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/intake"]
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/intake", "/api/whatsapp/webhook"]
 
 const ROLE_PATHS: Record<string, Role[]> = {
   "/admin": ["ADMIN"],
   "/reception": ["RECEPTIONIST", "ADMIN"],
+  "/doctor/estimate": ["DOCTOR", "ADMIN", "RECEPTIONIST"],
+  "/doctor/prescription": ["DOCTOR", "ADMIN", "RECEPTIONIST"],
   "/doctor": ["DOCTOR", "ADMIN"],
+  "/whatsapp/settings": ["ADMIN"],
+  "/whatsapp": ["ADMIN", "RECEPTIONIST"],
 }
 
 async function verifyToken(token: string): Promise<SessionPayload | null> {
@@ -54,10 +58,13 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
-  // Role-based path guard
+  // Role-based path guard — first matching prefix wins (most specific listed first)
   for (const [path, allowedRoles] of Object.entries(ROLE_PATHS)) {
-    if (pathname.startsWith(path) && !allowedRoles.includes(payload.role)) {
-      return NextResponse.redirect(new URL(getDefaultRoute(payload.role), request.url))
+    if (pathname.startsWith(path)) {
+      if (!allowedRoles.includes(payload.role)) {
+        return NextResponse.redirect(new URL(getDefaultRoute(payload.role), request.url))
+      }
+      break
     }
   }
 

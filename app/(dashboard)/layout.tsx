@@ -38,7 +38,7 @@ export default async function DashboardLayout({
           role={session.role}
           branchName={branchName}
         />
-        <main className="flex-1 overflow-y-auto p-6" style={{ backgroundColor: "#F1F5F9" }}>
+        <main className="flex-1 overflow-y-auto p-6" style={{ backgroundColor: "#F2F4F6" }}>
           {children}
         </main>
       </div>

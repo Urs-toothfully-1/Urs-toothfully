@@ -48,7 +48,7 @@ function SettingRow({ settingKey, value, branchId }: { settingKey: SettingKey; v
           <select
             value={val}
             onChange={(e) => setVal(e.target.value)}
-            className="h-9 rounded border border-[#CCCCCC] bg-[#EBECEE] px-2 text-sm"
+            className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm"
           >
             {(settingKey.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
@@ -57,7 +57,7 @@ function SettingRow({ settingKey, value, branchId }: { settingKey: SettingKey; v
             type={settingKey.type === "number" ? "number" : "text"}
             value={val}
             onChange={(e) => setVal(e.target.value)}
-            className="h-9 w-36 border-[#CCCCCC] bg-[#EBECEE] text-sm"
+            className="h-9 w-36 border-[#E0E3E5] bg-[#F2F4F6] text-sm"
           />
         )}
         <button
@@ -78,7 +78,7 @@ export function SettingsMgmt({ globalSettings, globalKeys, branchSettings, branc
   return (
     <div className="space-y-5">
       {/* Global Settings */}
-      <Card className="border-[#CCCCCC] bg-white">
+      <Card className="border-[#E0E3E5] bg-white">
         <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
           <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
             <Globe className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
@@ -94,7 +94,7 @@ export function SettingsMgmt({ globalSettings, globalKeys, branchSettings, branc
 
       {/* Per-branch Settings */}
       {branches.map((branch) => (
-        <Card key={branch.id} className="border-[#CCCCCC] bg-white">
+        <Card key={branch.id} className="border-[#E0E3E5] bg-white">
           <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
             <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
               <Building2 className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />

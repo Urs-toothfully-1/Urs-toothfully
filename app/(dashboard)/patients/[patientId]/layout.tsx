@@ -48,7 +48,7 @@ export default async function PatientProfileLayout({ children, params }: Props) 
       </nav>
 
       {/* Profile Header Card */}
-      <div className="bg-white rounded-xl border border-[#CCCCCC] overflow-hidden shadow-sm">
+      <div className="bg-white rounded-xl border border-[#E0E3E5] overflow-hidden shadow-sm">
         {/* Top teal bar */}
         <div className="h-1.5" style={{ backgroundColor: BRAND_COLORS.primaryTeal }} />
 
@@ -66,7 +66,7 @@ export default async function PatientProfileLayout({ children, params }: Props) 
 
               <div>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <h1 className="text-xl font-bold" style={{ color: BRAND_COLORS.bodyText }}>
+                  <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>
                     {patient.fullName}
                   </h1>
                   <span

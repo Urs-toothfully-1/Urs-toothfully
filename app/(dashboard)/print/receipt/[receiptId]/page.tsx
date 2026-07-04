@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { BRAND_COLORS } from "@/lib/constants"
 import { PrintButtons } from "@/components/print/PrintButtons"
+import { ShareActions } from "@/components/share/ShareActions"
 import { formatCurrency, formatDate } from "@/lib/utils"
 
 export const metadata: Metadata = { title: "Print Receipt" }
@@ -33,7 +34,7 @@ export default async function PrintReceiptPage({ params }: Props) {
   const receipt = await prisma.receipt.findUnique({
     where: { id: receiptId },
     include: {
-      patient: { select: { patientId: true, fullName: true, mobile: true } },
+      patient: { select: { patientId: true, fullName: true, mobile: true, email: true } },
       branch: { select: { name: true, address: true, phone: true } },
       issuedBy: { select: { name: true } },
       payment: {
@@ -69,6 +70,18 @@ export default async function PrintReceiptPage({ params }: Props) {
       `}</style>
 
       <PrintButtons />
+
+      <div className="no-print fixed top-4 left-4 z-50">
+        <ShareActions
+          type="receipt"
+          id={receipt.id}
+          patientName={receipt.patient.fullName}
+          patientMobile={receipt.patient.mobile}
+          patientEmail={receipt.patient.email}
+          docNo={receipt.receiptNo}
+          branchName={receipt.branch.name}
+        />
+      </div>
 
       {/* Receipt document */}
       <div className="print-doc max-w-[600px] mx-auto p-6">

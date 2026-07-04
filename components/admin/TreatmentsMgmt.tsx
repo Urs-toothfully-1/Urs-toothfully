@@ -44,12 +44,12 @@ function AddTreatmentForm({ category, onSuccess }: { category: string; onSuccess
       <div className="flex-1 space-y-1">
         <label className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>Treatment Name</label>
         <Input name="name" placeholder="e.g. Root Canal (Molar)" required
-          className="h-8 text-sm border-[#CCCCCC] bg-[#EBECEE]" />
+          className="h-8 text-sm border-[#E0E3E5] bg-[#F2F4F6]" />
       </div>
       <div className="w-28 space-y-1">
         <label className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>Default Amount ₹</label>
         <Input name="defaultAmount" type="number" min={1} step={0.01} placeholder="0"
-          className="h-8 text-sm border-[#CCCCCC] bg-[#EBECEE]" required />
+          className="h-8 text-sm border-[#E0E3E5] bg-[#F2F4F6]" required />
       </div>
       <AddBtn />
       {state.error && <p className="text-xs text-red-500">{state.error}</p>}
@@ -88,7 +88,7 @@ export function TreatmentsMgmt({ grouped, categories }: Props) {
         const isOpen = openCategories.has(cat)
 
         return (
-          <Card key={cat} className="border-[#CCCCCC] bg-white overflow-hidden">
+          <Card key={cat} className="border-[#E0E3E5] bg-white overflow-hidden">
             {/* Use div instead of button to avoid button-in-button hydration error */}
             <div
               role="button"

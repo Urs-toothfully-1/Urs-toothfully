@@ -3,12 +3,13 @@ import { Decimal } from "@prisma/client/runtime/library"
 import { paymentRepository } from "@/server/repositories/payment.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
 import { createAuditLog } from "@/lib/audit"
+import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
 export const createPaymentSchema = z.discriminatedUnion("paymentType", [
   z.object({
     paymentType: z.literal("CONSULTATION"),
-    visitId: z.string().uuid(),
+    visitId: z.string().uuid().optional(),
     estimateId: z.undefined().optional(),
     patientId: z.string().uuid(),
     branchId: z.string().uuid(),
@@ -93,6 +94,37 @@ export const paymentService = {
       branchId: input.branchId,
     })
 
+    // Treatment/advance payment collected after the doctor is done → the visit is
+    // over, so auto-complete the queue entry (otherwise it stays stuck at
+    // ESTIMATE_CREATED and blocks re-queueing the patient). Consultation payments
+    // happen mid-visit (WAITING/WITH_DOCTOR) and are deliberately excluded.
+    if (input.paymentType === "TREATMENT" || input.paymentType === "ADVANCE") {
+      try {
+        const visitId =
+          input.visitId ??
+          (await prisma.estimate.findUnique({ where: { id: input.estimateId }, select: { visitId: true } }))?.visitId
+        if (visitId) {
+          const entry = await prisma.queueEntry.findUnique({ where: { visitId }, select: { id: true, status: true } })
+          if (entry && (entry.status === "ESTIMATE_CREATED" || entry.status === "PAYMENT_PENDING")) {
+            const { queueService } = await import("@/server/services/queue.service")
+            await queueService.updateStatus(entry.id, "COMPLETED", collectedById)
+          }
+        }
+      } catch {
+        // non-fatal — reception can still complete/cancel the entry manually
+      }
+    }
+
+    // WhatsApp trigger — the ONLY automatic entry point into messaging.
+    // Fires only after a real payment (consultation gate), never on
+    // registration/intake. Non-fatal: messaging must never block payments.
+    try {
+      const { whatsappService } = await import("@/server/services/whatsapp/whatsapp.service")
+      await whatsappService.onPaymentCollected(payment.id)
+    } catch {
+      // queue/logs surface delivery problems — payment flow is unaffected
+    }
+
     return { payment, receipt }
   },
 
@@ -114,6 +146,6 @@ export const paymentService = {
 
   async getConsultationFee(branchId: string): Promise<number> {
     const fee = await settingsRepository.get("consultation_fee", branchId)
-    return fee ? parseFloat(fee) : 500
+    return fee ? parseFloat(fee) : 1000
   },
 }

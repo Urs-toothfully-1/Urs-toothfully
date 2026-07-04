@@ -36,7 +36,7 @@ export default function DashboardError({
         </button>
         <a
           href="/reception"
-          className="px-4 py-2 rounded-md text-sm font-medium border border-[#CCCCCC]"
+          className="px-4 py-2 rounded-md text-sm font-medium border border-[#E0E3E5]"
           style={{ color: BRAND_COLORS.bodyText }}
         >
           Go to Reception
