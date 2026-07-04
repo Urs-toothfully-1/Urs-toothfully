@@ -7,7 +7,7 @@ import { z } from "zod"
 
 export const createPatientSchema = z.object({
   registrationBranchId: z.string().min(1),
-  fullName: z.string().min(2).max(200),
+  fullName: z.string().min(2).max(200).regex(/^[^<>]+$/, "Name contains invalid characters"),
   dateOfBirth: z.string().date(),
   gender: z.enum(["MALE", "FEMALE", "OTHER"]),
   mobile: z.string().min(10).max(15).regex(/^\d+$/, "Mobile must be digits only"),

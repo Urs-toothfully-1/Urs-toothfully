@@ -20,7 +20,7 @@ export type IntakeFormState = {
 
 const schema = z.object({
   branchId: z.string().min(1, "Please select a branch"),
-  fullName: z.string().min(2, "Name must be at least 2 characters").max(200),
+  fullName: z.string().min(2, "Name must be at least 2 characters").max(200).regex(/^[^<>]+$/, "Name contains invalid characters"),
   dateOfBirth: z.string().min(1, "Date of birth is required"),
   gender: z.enum(["MALE", "FEMALE", "OTHER"], { error: "Please select your gender" }),
   mobile: z.string().min(10, "Enter a valid 10-digit mobile number").max(15).regex(/^\d+$/,"Mobile must be digits only"),

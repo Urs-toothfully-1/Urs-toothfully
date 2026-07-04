@@ -19,6 +19,26 @@ const nextConfig: NextConfig = {
   env: {
     JWT_SECRET: process.env.JWT_SECRET ?? "",
   },
+  // Security headers applied to every response. HSTS is already added by
+  // Vercel; these cover clickjacking, MIME-sniffing, referrer leakage and
+  // browser feature access for a patient-data app.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-DNS-Prefetch-Control", value: "off" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+          },
+        ],
+      },
+    ]
+  },
 }
 
 export default nextConfig

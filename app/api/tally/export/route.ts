@@ -6,8 +6,14 @@ import { generateExportBatchNo } from "@/lib/id-generator"
 import { createAuditLog } from "@/lib/audit"
 
 function escapeCsv(value: string | number | null | undefined): string {
-  const str = String(value ?? "")
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+  let str = String(value ?? "")
+  // Formula-injection guard: a cell starting with = + - @ (or a leading
+  // tab/CR) is treated as a formula by Excel/Sheets. Patient names come from
+  // the public intake form, so neutralise them with a leading apostrophe.
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = "'" + str
+  }
+  if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
     return `"${str.replace(/"/g, '""')}"`
   }
   return str
