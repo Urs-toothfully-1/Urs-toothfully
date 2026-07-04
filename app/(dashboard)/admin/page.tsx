@@ -33,9 +33,13 @@ async function getAdminKPIs(branchId: string) {
       _sum: { amount: true },
     }),
 
-    // In queue right now (this branch)
+    // In queue right now (this branch, today only — old entries are stale)
     prisma.queueEntry.count({
-      where: { branchId, status: { in: ["WAITING", "WITH_DOCTOR", "ESTIMATE_CREATED"] } },
+      where: {
+        branchId,
+        status: { in: ["WAITING", "WITH_DOCTOR", "ESTIMATE_CREATED"] },
+        createdAt: { gte: todayStart, lte: todayEnd },
+      },
     }),
 
     // Outstanding balances (all active estimates)
