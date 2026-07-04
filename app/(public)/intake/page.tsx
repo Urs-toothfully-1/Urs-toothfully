@@ -3,6 +3,8 @@ import { IntakeForm } from "@/components/intake/IntakeForm"
 import { APP_NAME, APP_TAGLINE, BRAND_COLORS, CLINIC_HOURS } from "@/lib/constants"
 import { prisma } from "@/lib/prisma"
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: `Patient Registration — ${APP_NAME}`,
   description: "Register as a new patient at Ur's Toothfully. Fill in your details before your visit.",
