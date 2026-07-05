@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth"
 import { paymentService } from "@/server/services/payment.service"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { validatePaymentInput } from "@/lib/payment-guard"
+import type { PaymentMode } from "@prisma/client"
 
 export type PaymentFormState = {
   success?: boolean
@@ -49,7 +50,7 @@ export async function collectConsultationFeeAction(
         patientId,
         branchId,
         amount,
-        mode: mode as any,
+        mode: mode as PaymentMode,
         transactionRef,
         notes,
       },
@@ -114,7 +115,7 @@ export async function collectTreatmentPaymentAction(
         patientId,
         branchId,
         amount,
-        mode: mode as any,
+        mode: mode as PaymentMode,
         transactionRef,
         notes,
       },

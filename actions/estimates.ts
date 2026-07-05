@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { requireRole } from "@/lib/auth"
 import { estimateService } from "@/server/services/estimate.service"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
+import type { ItemStatus } from "@prisma/client"
 
 export type EstimateFormState = {
   error?: string
@@ -29,7 +30,15 @@ export async function createEstimateAction(
     return { error: "Missing required fields." }
   }
 
-  let items: any[]
+  interface RawEstimateItem {
+    treatmentId?: string
+    treatmentName?: string
+    category?: string
+    toothNumber?: string
+    quantity?: string | number
+    unitRate?: string | number
+  }
+  let items: RawEstimateItem[]
   try {
     items = JSON.parse(itemsJson)
   } catch {
@@ -55,11 +64,11 @@ export async function createEstimateAction(
         notes: notes || undefined,
         items: items.map((item, idx) => ({
           treatmentId: item.treatmentId || undefined,
-          treatmentName: item.treatmentName.trim(),
+          treatmentName: (item.treatmentName ?? "").trim(),
           category: item.category || "OTHER",
           toothNumber: item.toothNumber || undefined,
-          quantity: parseInt(item.quantity),
-          unitRate: parseFloat(item.unitRate),
+          quantity: parseInt(String(item.quantity), 10),
+          unitRate: parseFloat(String(item.unitRate)),
           sortOrder: idx,
         })),
       },
@@ -85,7 +94,7 @@ export async function updateItemStatusAction(
   if (!session) return { success: false, error: "Unauthorized" }
 
   try {
-    await estimateService.updateItemStatus(itemId, status as any, session.userId)
+    await estimateService.updateItemStatus(itemId, status as ItemStatus, session.userId)
     revalidatePath(`/patients/${patientId}/progress`)
     revalidatePath(`/patients/${patientId}/estimates`)
     revalidatePath(`/doctor/estimate/${estimateId}`)

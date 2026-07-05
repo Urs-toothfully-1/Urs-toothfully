@@ -28,6 +28,7 @@ export const WHATSAPP_TRIGGERS = {
   IMPLANT_REVIEW: "IMPLANT_REVIEW",
   RCT_REVIEW: "RCT_REVIEW",
   THANK_YOU: "THANK_YOU",
+  DAILY_SUMMARY: "DAILY_SUMMARY",
 } as const
 
 export type WhatsAppTriggerKey = (typeof WHATSAPP_TRIGGERS)[keyof typeof WHATSAPP_TRIGGERS]
@@ -202,6 +203,14 @@ export const DEFAULT_UTILITY_TEMPLATES: DefaultTemplateDef[] = [
     triggerKey: WHATSAPP_TRIGGERS.THANK_YOU,
     variables: ["Patient Name"],
     body: "Thank you, {{1}}, for trusting Ur's Toothfully with your smile! We're always here for your dental care. Mon–Sat 10:30 AM–8:30 PM, Sun 10 AM–2:30 PM (Thu off) · 7890008331.",
+    footerText: FOOTER,
+  },
+  {
+    name: "daily_summary",
+    displayName: "Daily Summary (Admin)",
+    triggerKey: WHATSAPP_TRIGGERS.DAILY_SUMMARY,
+    variables: ["Date", "Patients Today", "Revenue Today", "Payments Count", "Outstanding Total"],
+    body: "Ur's Toothfully — Daily Summary for {{1}}\nPatients seen: {{2}}\nRevenue collected: ₹{{3}} ({{4}} payments)\nTotal outstanding: ₹{{5}}",
     footerText: FOOTER,
   },
 ]

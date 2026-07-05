@@ -22,6 +22,7 @@ export function PatientSearchInput({
 
   const handleSearch = useDebouncedCallback((term: string) => {
     const params = new URLSearchParams(searchParams.toString())
+    params.delete("page") // new search always starts at page 1
     if (term.trim().length >= 2) {
       params.set("q", term.trim())
     } else {

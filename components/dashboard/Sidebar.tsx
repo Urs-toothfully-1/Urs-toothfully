@@ -8,7 +8,7 @@ import type { Role } from "@/lib/session"
 import {
   LayoutDashboard, Users, ClipboardList,
   BookOpen, BarChart2, Stethoscope, Settings, UserCog,
-  CalendarClock, Shield, FileSpreadsheet, UserPlus, MessageCircle,
+  CalendarClock, CalendarDays, Shield, FileSpreadsheet, UserPlus, MessageCircle,
 } from "lucide-react"
 
 interface NavItem {
@@ -24,6 +24,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Reception", href: "/reception", icon: LayoutDashboard, roles: ["RECEPTIONIST"] },
   { label: "My Queue", href: "/doctor", icon: Stethoscope, roles: ["DOCTOR"] },
   { label: "Patients", href: "/patients", icon: Users, roles: ["ADMIN", "DOCTOR", "RECEPTIONIST"] },
+  { label: "Appointments", href: "/appointments", icon: CalendarDays, roles: ["ADMIN", "DOCTOR", "RECEPTIONIST"] },
   { label: "Queue", href: "/reception", icon: ClipboardList, roles: ["ADMIN"] },
   { label: "Accounting", href: "/admin/accounting", icon: BookOpen, roles: ["ADMIN"] },
   { label: "Reports", href: "/admin/reports", icon: BarChart2, roles: ["ADMIN"], matchPrefix: true },
@@ -51,16 +52,23 @@ const ROLE_COLORS: Record<Role, string> = {
 interface SidebarProps {
   role: Role
   branchName: string
+  /** "desktop" (default) hides below md; "drawer" fills the mobile slide-over */
+  variant?: "desktop" | "drawer"
+  /** Called after a nav link is clicked — used by the mobile drawer to close itself */
+  onNavigate?: () => void
 }
 
-export function Sidebar({ role, branchName }: SidebarProps) {
+export function Sidebar({ role, branchName, variant = "desktop", onNavigate }: SidebarProps) {
   const pathname = usePathname()
   const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role))
   const canRegister = role === "ADMIN" || role === "RECEPTIONIST"
 
   return (
     <aside
-      className="w-60 flex-shrink-0 flex flex-col h-full print:hidden border-r"
+      className={cn(
+        "flex-shrink-0 flex-col h-full print:hidden",
+        variant === "desktop" ? "w-60 border-r hidden md:flex" : "w-full flex"
+      )}
       style={{ backgroundColor: BRAND_COLORS.sidebarBg, borderColor: BRAND_COLORS.borderLight }}
     >
       {/* Brand */}
@@ -98,6 +106,7 @@ export function Sidebar({ role, branchName }: SidebarProps) {
               <li key={item.href + item.label}>
                 <Link
                   href={item.href}
+                  onClick={onNavigate}
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group relative"
                   )}
@@ -137,6 +146,7 @@ export function Sidebar({ role, branchName }: SidebarProps) {
         <div className="px-3 pb-3">
           <Link
             href="/patients/new"
+            onClick={onNavigate}
             className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
             style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
             onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = BRAND_COLORS.primaryTealHover }}

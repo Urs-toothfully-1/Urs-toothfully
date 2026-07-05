@@ -1,6 +1,14 @@
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
+  // Keep the headless-Chromium stack out of the server bundle — loaded from
+  // node_modules at runtime (required for @sparticuz/chromium binaries).
+  serverExternalPackages: ["puppeteer-core", "@sparticuz/chromium"],
+  // File tracing misses chromium's brotli-packed binaries — include them
+  // explicitly so the PDF function has them at /var/task/node_modules/...
+  outputFileTracingIncludes: {
+    "/api/documents/**": ["./node_modules/@sparticuz/chromium/bin/**"],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "4mb",

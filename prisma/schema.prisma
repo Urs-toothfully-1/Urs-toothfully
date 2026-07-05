@@ -134,6 +134,13 @@ enum WhatsAppMessageStatus {
   CANCELLED
 }
 
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
 // ─── MODELS ───────────────────────────────────────────────────
 
 model Branch {
@@ -158,6 +165,7 @@ model Branch {
   settings              SystemSetting[]
   prescriptionTemplates PrescriptionTemplate[]
   whatsappMessages      WhatsAppMessage[]
+  appointments          Appointment[]
 }
 
 model User {
@@ -206,6 +214,8 @@ model User {
   whatsappSettings      WhatsAppSettings[]     @relation("WhatsAppSettingsUpdatedBy")
   whatsappTemplates     WhatsAppTemplate[]     @relation("WhatsAppTemplateCreatedBy")
   whatsappMessages      WhatsAppMessage[]      @relation("WhatsAppMessageCreatedBy")
+  doctorAppointments    Appointment[]          @relation("AppointmentDoctor")
+  createdAppointments   Appointment[]          @relation("AppointmentCreatedBy")
 }
 
 model DoctorAvailability {
@@ -265,6 +275,7 @@ model Patient {
   mergeLog           PatientMergeLog?     @relation("PrimaryPatient")
   whatsappMessages   WhatsAppMessage[]
   whatsappConsent    WhatsAppConsent?
+  appointments       Appointment[]
 
   @@index([mobile])
   @@index([registrationBranchId, createdAt])
@@ -736,6 +747,8 @@ model WhatsAppSettings {
   businessVerificationStatus String?   @db.VarChar(50)
   lastSyncAt                 DateTime?
   // Admin controls
+  dailyDigestEnabled         Boolean   @default(false)
+  dailyDigestPhone           String?   @db.VarChar(20)
   sendingEnabled             Boolean   @default(true)
   queuePaused                Boolean   @default(false)
   messageRateLimit           Int       @default(20) // messages per minute
@@ -857,4 +870,33 @@ model SystemSetting {
   updatedAt   DateTime @updatedAt
 
   @@unique([branchId, key])
+}
+
+// ─── APPOINTMENTS ─────────────────────────────────────────────
+
+model Appointment {
+  id                 String            @id @default(uuid())
+  patientId          String
+  patient            Patient           @relation(fields: [patientId], references: [id])
+  doctorId           String
+  doctor             User              @relation("AppointmentDoctor", fields: [doctorId], references: [id])
+  branchId           String
+  branch             Branch            @relation(fields: [branchId], references: [id])
+  scheduledAt        DateTime
+  durationMins       Int               @default(30)
+  reason             String?           @db.VarChar(300)
+  status             AppointmentStatus @default(SCHEDULED)
+  notes              String?           @db.VarChar(500)
+  reminderSentAt     DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?           @db.VarChar(300)
+  createdById        String
+  createdBy          User              @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([branchId, scheduledAt])
+  @@index([doctorId, scheduledAt])
+  @@index([patientId, scheduledAt])
+  @@index([status, scheduledAt])
 }

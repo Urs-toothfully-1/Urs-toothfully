@@ -28,6 +28,8 @@ const settingsSchema = z.object({
   messageRateLimit: z.coerce.number().int().min(1).max(600).optional(),
   dailySendingLimit: z.coerce.number().int().min(1).max(100000).optional(),
   maxRetryCount: z.coerce.number().int().min(0).max(10).optional(),
+  dailyDigestEnabled: z.boolean().optional(),
+  dailyDigestPhone: z.string().max(20).optional(),
 })
 
 export async function saveWhatsAppSettingsAction(input: z.infer<typeof settingsSchema>): Promise<WhatsAppActionState> {

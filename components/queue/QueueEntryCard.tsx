@@ -114,7 +114,7 @@ export function QueueEntryCard({ entry, role, currentUserId }: Props) {
             </div>
             {entry.visit.chiefComplaint && (
               <p className="text-xs mt-1 truncate italic" style={{ color: "#707882" }}>
-                "{entry.visit.chiefComplaint}"
+                &ldquo;{entry.visit.chiefComplaint}&rdquo;
               </p>
             )}
           </div>

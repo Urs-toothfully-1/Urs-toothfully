@@ -48,7 +48,8 @@ export const SESSION_COOKIE_OPTIONS = {
   // Only mark Secure when explicitly deployed over HTTPS.
   // NODE_ENV=production is true even on a local LAN (npm run start),
   // and mobile browsers refuse to send Secure cookies over plain HTTP.
-  secure: process.env.SECURE_COOKIES === "true",
+  // Vercel deployments are always HTTPS, so force Secure there.
+  secure: process.env.SECURE_COOKIES === "true" || !!process.env.VERCEL,
   sameSite: "lax" as const,
   path: "/",
   maxAge: SESSION_DURATION_HOURS * 60 * 60,

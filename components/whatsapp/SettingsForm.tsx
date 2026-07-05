@@ -31,6 +31,8 @@ interface SettingsShape {
   messageRateLimit: number
   dailySendingLimit: number
   maxRetryCount: number
+  dailyDigestEnabled: boolean
+  dailyDigestPhone: string | null
 }
 
 interface Props {
@@ -55,6 +57,8 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
     messageRateLimit: settings?.messageRateLimit ?? 20,
     dailySendingLimit: settings?.dailySendingLimit ?? 1000,
     maxRetryCount: settings?.maxRetryCount ?? 3,
+    dailyDigestEnabled: settings?.dailyDigestEnabled ?? false,
+    dailyDigestPhone: settings?.dailyDigestPhone ?? "",
   })
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -282,6 +286,39 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
                 className="border-[#E0E3E5] bg-[#F2F4F6]"
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Daily digest */}
+      <Card className="border-[#E0E3E5] bg-white">
+        <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
+          <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
+            <RefreshCw className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
+            Daily Summary Digest
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 space-y-4">
+          <label className="flex items-center gap-2.5 text-sm cursor-pointer" style={{ color: BRAND_COLORS.bodyText }}>
+            <input
+              type="checkbox"
+              checked={form.dailyDigestEnabled}
+              onChange={(e) => set("dailyDigestEnabled", e.target.checked)}
+              className="h-4 w-4 accent-[#005E97]"
+            />
+            Send an end-of-day summary (patients seen, revenue, outstanding) via WhatsApp
+          </label>
+          <div className="max-w-xs">
+            <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Digest Phone Number</label>
+            <Input
+              value={form.dailyDigestPhone}
+              onChange={(e) => set("dailyDigestPhone", e.target.value)}
+              placeholder="e.g. 9198XXXXXXXX"
+              className="border-[#E0E3E5] bg-[#F2F4F6]"
+            />
+            <p className={hintCls} style={{ color: BRAND_COLORS.sidebarMuted }}>
+              Owner/admin WhatsApp number. Sent daily at 9:00 PM IST — the daily_summary template must be approved by Meta.
+            </p>
           </div>
         </CardContent>
       </Card>

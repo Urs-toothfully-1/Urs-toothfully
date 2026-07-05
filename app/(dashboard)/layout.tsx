@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth"
 import { ROUTES } from "@/lib/constants"
 import { Sidebar } from "@/components/dashboard/Sidebar"
 import { Header } from "@/components/dashboard/Header"
+import { CommandPalette } from "@/components/shared/CommandPalette"
 import { prisma } from "@/lib/prisma"
 
 async function getBranchName(branchId: string): Promise<string> {
@@ -28,6 +29,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen overflow-hidden bg-white">
+      <CommandPalette role={session.role} />
       {/* Sidebar */}
       <Sidebar role={session.role} branchName={branchName} />
 
@@ -38,7 +40,7 @@ export default async function DashboardLayout({
           role={session.role}
           branchName={branchName}
         />
-        <main className="flex-1 overflow-y-auto p-6" style={{ backgroundColor: "#F2F4F6" }}>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6" style={{ backgroundColor: "#F2F4F6" }}>
           {children}
         </main>
       </div>

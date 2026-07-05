@@ -6,6 +6,7 @@ import { QueueEntryCard } from "@/components/queue/QueueEntryCard"
 import { BRAND_COLORS } from "@/lib/constants"
 import { Stethoscope, Users } from "lucide-react"
 import { RefreshButton } from "@/components/shared/RefreshButton"
+import { AutoRefresh } from "@/components/shared/AutoRefresh"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export const metadata: Metadata = { title: "Doctor Queue" }
@@ -32,6 +33,7 @@ export default async function DoctorPage() {
 
   return (
     <div className="space-y-5">
+      <AutoRefresh />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

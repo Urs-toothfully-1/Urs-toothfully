@@ -3,9 +3,10 @@ import { jwtVerify } from "jose"
 import { SESSION_COOKIE_NAME, type Role, type SessionPayload } from "@/lib/session"
 import { ROUTES } from "@/lib/constants"
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/intake", "/api/whatsapp/webhook"]
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/intake", "/api/whatsapp/webhook", "/api/cron"]
 
 const ROLE_PATHS: Record<string, Role[]> = {
+  "/appointments": ["ADMIN", "DOCTOR", "RECEPTIONIST"],
   "/admin": ["ADMIN"],
   "/reception": ["RECEPTIONIST", "ADMIN"],
   "/doctor/estimate": ["DOCTOR", "ADMIN", "RECEPTIONIST"],
@@ -35,6 +36,10 @@ async function verifyToken(token: string): Promise<SessionPayload | null> {
   }
 }
 
+function apiUnauthorized(): NextResponse {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -43,15 +48,18 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
+  const isApi = pathname.startsWith("/api/")
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value
 
   if (!token) {
+    if (isApi) return apiUnauthorized()
     return NextResponse.redirect(new URL(ROUTES.login, request.url))
   }
 
   const payload = await verifyToken(token)
 
   if (!payload) {
+    if (isApi) return apiUnauthorized()
     // Clear the invalid/expired cookie and send to login
     const response = NextResponse.redirect(new URL(ROUTES.login, request.url))
     response.cookies.set(SESSION_COOKIE_NAME, "", { maxAge: 0, path: "/" })

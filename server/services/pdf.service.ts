@@ -1,6 +1,7 @@
 import path from "path"
 import fs from "fs/promises"
-import type { Browser } from "puppeteer"
+import { existsSync } from "fs"
+import type { Browser } from "puppeteer-core"
 import { prisma } from "@/lib/prisma"
 
 export type DocumentType = "estimate" | "receipt" | "prescription"
@@ -12,22 +13,47 @@ const OUTPUT_DIR = IS_VERCEL
   ? "/tmp/generated-documents"
   : path.join(process.cwd(), "generated-documents")
 
+// Local (Windows/Mac dev) browser locations, checked in order. Overridable
+// via PUPPETEER_EXECUTABLE_PATH.
+const LOCAL_BROWSER_PATHS = [
+  process.env.PUPPETEER_EXECUTABLE_PATH,
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/usr/bin/google-chrome",
+].filter((p): p is string => !!p)
+
 let browserPromise: Promise<Browser> | null = null
 
-async function getBrowser(): Promise<Browser> {
+async function launchBrowser(): Promise<Browser> {
+  const puppeteer = (await import("puppeteer-core")).default
   if (IS_VERCEL) {
+    const chromium = (await import("@sparticuz/chromium")).default
+    return puppeteer.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    })
+  }
+  const executablePath = LOCAL_BROWSER_PATHS.find((p) => existsSync(p))
+  if (!executablePath) {
     throw new Error(
-      "PDF generation is not available on this deployment. " +
-      "Open the Print page in your browser and use File → Print → Save as PDF."
+      "No local Chrome/Edge found for PDF generation. " +
+      "Set PUPPETEER_EXECUTABLE_PATH to a Chrome executable."
     )
   }
+  return puppeteer.launch({
+    executablePath,
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  })
+}
+
+async function getBrowser(): Promise<Browser> {
   if (!browserPromise) {
-    browserPromise = import("puppeteer").then((puppeteer) =>
-      puppeteer.default.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      })
-    )
+    browserPromise = launchBrowser()
     browserPromise.catch(() => { browserPromise = null })
   }
   return browserPromise

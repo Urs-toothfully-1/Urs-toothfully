@@ -2,7 +2,7 @@ import { Metadata } from "next"
 import { Suspense } from "react"
 import Link from "next/link"
 import { requireSession } from "@/lib/auth"
-import { patientRepository } from "@/server/repositories/patient.repository"
+import { patientRepository, SEARCH_PAGE_SIZE } from "@/server/repositories/patient.repository"
 import { PatientSearchInput } from "@/components/patients/PatientSearchInput"
 import { BRAND_COLORS } from "@/lib/constants"
 import { calculateAge, formatDate } from "@/lib/utils"
@@ -341,8 +341,16 @@ async function PatientListView({ stage }: { stage: StageKey | null }) {
   )
 }
 
-async function SearchResults({ query }: { query: string }) {
-  const patients = await patientRepository.search(query)
+async function SearchResults({ query, page }: { query: string; page: number }) {
+  const [patients, total] = await Promise.all([
+    patientRepository.search(query, page),
+    patientRepository.searchCount(query),
+  ])
+  const totalPages = Math.max(1, Math.ceil(total / SEARCH_PAGE_SIZE))
+  const from = (page - 1) * SEARCH_PAGE_SIZE + 1
+  const to = Math.min(page * SEARCH_PAGE_SIZE, total)
+  const pageHref = (p: number) => `/patients?q=${encodeURIComponent(query)}&page=${p}`
+
   if (patients.length === 0) {
     return (
       <div className="text-center py-12">
@@ -366,9 +374,36 @@ async function SearchResults({ query }: { query: string }) {
   return (
     <div className="space-y-2">
       <p className="text-xs pb-1" style={{ color: BRAND_COLORS.borderDivider }}>
-        {patients.length} result{patients.length !== 1 ? "s" : ""} for &quot;{query}&quot;
+        {total > SEARCH_PAGE_SIZE
+          ? `Showing ${from}–${to} of ${total} results for "${query}"`
+          : `${total} result${total !== 1 ? "s" : ""} for "${query}"`}
       </p>
-      {patients.map((p) => <PatientCard key={p.id} p={p as any} />)}
+      {patients.map((p) => <PatientCard key={p.id} p={p} />)}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-3">
+          {page > 1 ? (
+            <Link
+              href={pageHref(page - 1)}
+              className="text-sm font-medium px-3 py-1.5 rounded-md border border-[#E0E3E5] bg-white hover:bg-gray-50"
+              style={{ color: BRAND_COLORS.primaryTeal }}
+            >
+              ← Previous
+            </Link>
+          ) : <span />}
+          <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+            Page {page} of {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link
+              href={pageHref(page + 1)}
+              className="text-sm font-medium px-3 py-1.5 rounded-md border border-[#E0E3E5] bg-white hover:bg-gray-50"
+              style={{ color: BRAND_COLORS.primaryTeal }}
+            >
+              Next →
+            </Link>
+          ) : <span />}
+        </div>
+      )}
     </div>
   )
 }
@@ -376,16 +411,17 @@ async function SearchResults({ query }: { query: string }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  searchParams: Promise<{ q?: string; stage?: string }>
+  searchParams: Promise<{ q?: string; stage?: string; page?: string }>
 }
 
 const VALID_STAGES = new Set<StageKey>(["pre-consultation", "awaiting-treatment", "ongoing", "completed"])
 
 export default async function PatientsPage({ searchParams }: Props) {
   await requireSession()
-  const { q = "", stage: rawStage } = await searchParams
+  const { q = "", stage: rawStage, page: rawPage } = await searchParams
 
   const isSearching = q.trim().length >= 2
+  const page = Math.max(1, parseInt(rawPage ?? "1", 10) || 1)
   const activeStage: StageKey | null =
     rawStage && VALID_STAGES.has(rawStage as StageKey) ? (rawStage as StageKey) : null
 
@@ -427,7 +463,7 @@ export default async function PatientsPage({ searchParams }: Props) {
         }
       >
         {isSearching
-          ? <SearchResults query={q} />
+          ? <SearchResults query={q} page={page} />
           : <PatientListView stage={activeStage} />
         }
       </Suspense>

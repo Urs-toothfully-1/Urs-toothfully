@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useTransition } from "react"
 import { logoutAction } from "@/actions/auth"
 import type { Role } from "@/lib/session"
 import { LogOut, Loader2, ChevronDown, Building2 } from "lucide-react"
+import { MobileSidebar } from "@/components/dashboard/MobileSidebar"
 
 interface HeaderProps {
   userName: string
@@ -60,16 +61,19 @@ export function Header({ userName, role, branchName }: HeaderProps) {
   }
 
   return (
-    <header className="h-14 flex items-center justify-between px-6 bg-white border-b border-[#E0E3E5] flex-shrink-0 print:hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-      {/* Left — branch chip (Stitch style) */}
-      <div
-        className="flex items-center gap-2 rounded-lg border px-3 py-1.5"
-        style={{ borderColor: "#E0E3E5", backgroundColor: "#F7F9FB" }}
-      >
-        <Building2 className="h-3.5 w-3.5" style={{ color: "#005E97" }} />
-        <span className="text-sm font-medium" style={{ color: "#404751" }}>
-          {branchName} Branch
-        </span>
+    <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-white border-b border-[#E0E3E5] flex-shrink-0 print:hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+      {/* Left — hamburger (mobile) + branch chip (Stitch style) */}
+      <div className="flex items-center gap-3">
+        <MobileSidebar role={role} branchName={branchName} />
+        <div
+          className="flex items-center gap-2 rounded-lg border px-3 py-1.5"
+          style={{ borderColor: "#E0E3E5", backgroundColor: "#F7F9FB" }}
+        >
+          <Building2 className="h-3.5 w-3.5" style={{ color: "#005E97" }} />
+          <span className="text-sm font-medium truncate" style={{ color: "#404751" }}>
+            {branchName} Branch
+          </span>
+        </div>
       </div>
 
       {/* Right — user menu */}

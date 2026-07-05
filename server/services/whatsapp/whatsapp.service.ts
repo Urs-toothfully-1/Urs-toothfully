@@ -246,6 +246,8 @@ export const whatsappService = {
       messageRateLimit?: number
       dailySendingLimit?: number
       maxRetryCount?: number
+      dailyDigestEnabled?: boolean
+      dailyDigestPhone?: string
     },
     updatedById: string
   ) {
@@ -297,6 +299,8 @@ export const whatsappService = {
       messageRateLimit: s.messageRateLimit,
       dailySendingLimit: s.dailySendingLimit,
       maxRetryCount: s.maxRetryCount,
+      dailyDigestEnabled: s.dailyDigestEnabled,
+      dailyDigestPhone: s.dailyDigestPhone,
     }
   },
 

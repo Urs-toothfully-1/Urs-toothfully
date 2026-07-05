@@ -4,6 +4,9 @@ import { generateDocumentPdf, type DocumentType } from "@/server/services/pdf.se
 
 const VALID_TYPES: DocumentType[] = ["estimate", "receipt", "prescription"]
 
+// Headless Chromium cold start + page render can exceed the default timeout
+export const maxDuration = 60
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ type: string; id: string }> }

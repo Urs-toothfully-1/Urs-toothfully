@@ -44,7 +44,7 @@ export const queueService = {
       patientId: input.patientId,
       branchId: input.branchId,
       doctorId: input.doctorId,
-      visitType: input.visitType as any,
+      visitType: input.visitType,
       chiefComplaint: input.chiefComplaint,
       createdById,
     })
@@ -81,7 +81,7 @@ export const queueService = {
     if (status === "WITH_DOCTOR") extras.calledAt = new Date()
     if (status === "COMPLETED") extras.completedAt = new Date()
 
-    const entry = await queueRepository.updateStatus(queueId, status as any, extras)
+    const entry = await queueRepository.updateStatus(queueId, status, extras)
 
     // Keep the visit's own status in sync — otherwise it stays IN_PROGRESS
     // forever and old visits keep surfacing in payment/queue screens.

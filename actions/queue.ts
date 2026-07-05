@@ -5,6 +5,7 @@ import { requireRole, getSession } from "@/lib/auth"
 import { queueService } from "@/server/services/queue.service"
 import { queueRepository } from "@/server/repositories/queue.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
+import type { QueueStatus, VisitType } from "@prisma/client"
 
 export type AddToQueueState = {
   success?: boolean
@@ -39,7 +40,7 @@ export async function addToQueueAction(
       {
         patientId,
         branchId: session.branchId,
-        visitType: visitType as any,
+        visitType: visitType as VisitType,
         chiefComplaint,
         doctorId,
       },
@@ -72,7 +73,7 @@ export async function updateQueueStatusAction(
   }
 
   try {
-    await queueService.updateStatus(queueId, status as any, session.userId)
+    await queueService.updateStatus(queueId, status as QueueStatus, session.userId)
     revalidatePath("/reception")
     revalidatePath("/doctor")
     return { success: true }

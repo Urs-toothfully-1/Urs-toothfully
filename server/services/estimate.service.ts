@@ -108,7 +108,7 @@ export const estimateService = {
     status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED",
     updatedById: string
   ) {
-    const item = await estimateRepository.updateItemStatus(itemId, status as any, updatedById)
+    const item = await estimateRepository.updateItemStatus(itemId, status, updatedById)
 
     await createAuditLog({
       entityType: "EstimateItem",
