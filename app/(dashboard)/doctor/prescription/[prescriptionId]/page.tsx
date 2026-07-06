@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertTriangle, ChevronRight, ClipboardList, Printer } from "lucide-react"
 import type { PrescriptionData } from "@/lib/prescription-types"
+import { prisma } from "@/lib/prisma"
 
 export const metadata: Metadata = { title: "Prescription" }
 
@@ -25,6 +26,16 @@ export default async function PrescriptionPage({ params }: Props) {
 
   const data = (prescription.prescriptionData ?? {}) as unknown as PrescriptionData
   const canEdit = session.role === "ADMIN" || session.role === "DOCTOR"
+
+  const initialTemplates = canEdit
+    ? await prisma.examinationTemplate
+        .findMany({
+          where: { doctorId: session.userId },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, finding: true },
+        })
+        .catch(() => [])
+    : []
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
@@ -147,7 +158,7 @@ export default async function PrescriptionPage({ params }: Props) {
           )}
 
           {/* Editable section */}
-          <PrescriptionEditor prescriptionId={prescription.id} data={data} canEdit={canEdit} />
+          <PrescriptionEditor prescriptionId={prescription.id} data={data} canEdit={canEdit} initialTemplates={initialTemplates} />
 
           {!canEdit && (
             <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>

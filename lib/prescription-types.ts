@@ -19,6 +19,11 @@ export interface PrescriptionTreatment {
   quantity: number
 }
 
+export interface ExaminationFinding {
+  toothNumbers: string   // comma-separated FDI numbers, or "" for general
+  finding: string
+}
+
 export interface PrescriptionData {
   patient: {
     name: string
@@ -28,12 +33,17 @@ export interface PrescriptionData {
     mobile: string
   }
   medicalAlerts: string[]
+  /** Treatment plan snapshot (from estimate) — kept for reference, not shown in print */
   treatments: PrescriptionTreatment[]
   doctorName: string
   doctorRegNo?: string
   branchName: string
   estimateNo?: string
   date: string
+  /** Doctor's own written chief complaint */
+  chiefComplaint?: string
+  /** Doctor's clinical examination findings, each optionally linked to tooth numbers */
+  onExamination?: ExaminationFinding[]
   medicines: PrescriptionMedicine[]
   advice: string
   followUpDate?: string

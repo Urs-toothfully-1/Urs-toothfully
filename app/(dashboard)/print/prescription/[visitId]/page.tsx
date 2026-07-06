@@ -80,9 +80,10 @@ export default async function PrintPrescriptionPage({ params }: Props) {
   const age = Math.floor(
     (new Date().getTime() - new Date(visit.patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
   )
-  const chiefComplaint = visit.chiefComplaint ?? visit.patient.reasonForVisit ?? ""
+  // Chief complaint comes from the doctor's written entry, not receptionist's intake note
+  const chiefComplaint = rx?.chiefComplaint ?? ""
   const medicalAlerts = rx?.medicalAlerts ?? []
-  const treatments = rx?.treatments ?? []
+  const onExamination = rx?.onExamination ?? []
   const medicines = rx?.medicines ?? []
 
   return (
@@ -153,16 +154,13 @@ export default async function PrintPrescriptionPage({ params }: Props) {
               <div className="min-h-[80px]" />
             )}
 
-            <SectionLabel>MEDICAL OF PAST ILLNESS</SectionLabel>
-            <div className="min-h-[90px]" />
-
             <SectionLabel>MEDICAL HISTORY</SectionLabel>
             {medicalAlerts.length > 0 ? (
-              <ul className="text-[14px] min-h-[90px] space-y-0.5">
+              <ul className="text-[14px] min-h-[110px] space-y-0.5">
                 {medicalAlerts.map((a, i) => <li key={i}>• {a}</li>)}
               </ul>
             ) : (
-              <div className="min-h-[90px]" />
+              <div className="min-h-[110px]" />
             )}
 
             <SectionLabel>DIAGNOSIS</SectionLabel>
@@ -198,15 +196,17 @@ export default async function PrintPrescriptionPage({ params }: Props) {
               </span>
             </div>
 
-            {/* On examination — planned treatments (never prices) */}
+            {/* On examination — doctor's clinical findings */}
             <p className="font-bold text-[13px] mt-6 mb-1 tracking-wide">ON EXAMINATION</p>
-            {treatments.length > 0 ? (
+            {onExamination.length > 0 ? (
               <ul className="text-[14px] space-y-1 min-h-[110px]">
-                {treatments.map((t, i) => (
+                {onExamination.map((f, i) => (
                   <li key={i}>
-                    • {t.treatmentName}
-                    {t.toothNumber ? ` — ${t.toothNumber.includes(",") ? "Teeth" : "Tooth"} ${t.toothNumber.split(",").join(", ")}` : ""}
-                    {t.quantity > 1 ? ` × ${t.quantity}` : ""}
+                    •{" "}
+                    {f.toothNumbers
+                      ? <><strong>{f.toothNumbers.includes(",") ? "Teeth" : "Tooth"} {f.toothNumbers.split(",").join(", ")}:</strong>{" "}</>
+                      : null}
+                    {f.finding}
                   </li>
                 ))}
               </ul>

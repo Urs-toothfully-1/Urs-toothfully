@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { prescriptionRepository } from "@/server/repositories/prescription.repository"
 import { dentalHistoryRepository } from "@/server/repositories/dental-history.repository"
 import { createAuditLog } from "@/lib/audit"
-import { calculateAge, type PrescriptionData, type PrescriptionMedicine } from "@/lib/prescription-types"
+import { calculateAge, type PrescriptionData, type PrescriptionMedicine, type ExaminationFinding } from "@/lib/prescription-types"
 import type { DentalHistory } from "@prisma/client"
 import { z } from "zod"
 
@@ -14,7 +14,14 @@ export const medicineSchema = z.object({
   instructions: z.string().max(300).optional(),
 })
 
+export const examinationFindingSchema = z.object({
+  toothNumbers: z.string().max(200).default(""),
+  finding: z.string().min(1).max(500),
+})
+
 export const updatePrescriptionSchema = z.object({
+  chiefComplaint: z.string().max(500).default(""),
+  onExamination: z.array(examinationFindingSchema).max(20).default([]),
   medicines: z.array(medicineSchema).max(30),
   advice: z.string().max(2000).default(""),
   followUpDate: z.string().optional(),
@@ -120,7 +127,7 @@ export const prescriptionService = {
     return prescription
   },
 
-  /** Doctor adds/edits medicines, advice, follow-up. Snapshot fields stay intact. */
+  /** Doctor edits chief complaint, examination findings, medicines, advice, follow-up. */
   async update(id: string, input: UpdatePrescriptionInput, updatedById: string) {
     const record = await prescriptionRepository.findById(id)
     if (!record) throw new Error("Prescription not found")
@@ -128,6 +135,8 @@ export const prescriptionService = {
     const current = (record.prescriptionData ?? {}) as unknown as PrescriptionData
     const updated: PrescriptionData = {
       ...current,
+      chiefComplaint: input.chiefComplaint || undefined,
+      onExamination: (input.onExamination as ExaminationFinding[]).filter((f) => f.finding.trim()),
       medicines: input.medicines as PrescriptionMedicine[],
       advice: input.advice,
       followUpDate: input.followUpDate || undefined,

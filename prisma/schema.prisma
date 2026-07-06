@@ -216,6 +216,7 @@ model User {
   whatsappMessages      WhatsAppMessage[]      @relation("WhatsAppMessageCreatedBy")
   doctorAppointments    Appointment[]          @relation("AppointmentDoctor")
   createdAppointments   Appointment[]          @relation("AppointmentCreatedBy")
+  examinationTemplates  ExaminationTemplate[]  @relation("DoctorExaminationTemplates")
 }
 
 model DoctorAvailability {
@@ -899,4 +900,16 @@ model Appointment {
   @@index([doctorId, scheduledAt])
   @@index([patientId, scheduledAt])
   @@index([status, scheduledAt])
+}
+
+model ExaminationTemplate {
+  id        String   @id @default(uuid())
+  doctorId  String
+  doctor    User     @relation("DoctorExaminationTemplates", fields: [doctorId], references: [id])
+  name      String   @db.VarChar(100)
+  finding   String   @db.VarChar(500)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([doctorId])
 }
