@@ -77,7 +77,7 @@ export async function createEstimateAction(
 
     revalidatePath(`/patients/${patientId}/estimates`)
     revalidatePath(`/patients/${patientId}/progress`)
-    redirect(`/doctor/estimate/${estimate.id}`)
+    redirect(`/doctor/estimate/${estimate.id}/wizard`)
   } catch (err) {
     if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) throw err
     return { error: "Failed to save estimate. Please try again." }

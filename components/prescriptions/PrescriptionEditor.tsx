@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useState, useTransition } from "react"
+import { useActionState, useEffect, useRef, useState, useTransition } from "react"
 import { useFormStatus } from "react-dom"
 import { updatePrescriptionAction, PrescriptionFormState } from "@/actions/prescriptions"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -27,6 +27,8 @@ interface Props {
   data: PrescriptionData
   canEdit: boolean
   initialTemplates: ExamTemplate[]
+  formRef?: React.RefObject<HTMLFormElement | null>
+  onSaveSuccess?: () => void
 }
 
 function SubmitButton() {
@@ -47,9 +49,15 @@ const emptyMed: PrescriptionMedicine = { name: "", dosage: "", frequency: "", du
 const emptyFinding: ExaminationFinding = { toothNumbers: "", finding: "" }
 const cellCls = "h-9 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white"
 
-export function PrescriptionEditor({ prescriptionId, data, canEdit, initialTemplates }: Props) {
+export function PrescriptionEditor({ prescriptionId, data, canEdit, initialTemplates, formRef: externalFormRef, onSaveSuccess }: Props) {
+  const internalFormRef = useRef<HTMLFormElement>(null)
+  const resolvedRef = externalFormRef ?? internalFormRef
   const boundAction = updatePrescriptionAction.bind(null, prescriptionId)
   const [state, formAction] = useActionState(boundAction, {} as PrescriptionFormState)
+
+  useEffect(() => {
+    if (state.success && onSaveSuccess) onSaveSuccess()
+  }, [state.success]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [chiefComplaint, setChiefComplaint] = useState(data.chiefComplaint ?? "")
   const [findings, setFindings] = useState<ExaminationFinding[]>(
@@ -148,7 +156,7 @@ export function PrescriptionEditor({ prescriptionId, data, canEdit, initialTempl
   )
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form ref={resolvedRef} action={formAction} className="space-y-6">
       <input type="hidden" name="payload" value={payload} />
 
       {state.error && (

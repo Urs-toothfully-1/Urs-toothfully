@@ -11,6 +11,7 @@ import { EstimateBuilder } from "@/components/estimates/EstimateBuilder"
 import { BRAND_COLORS } from "@/lib/constants"
 import { ChevronRight } from "lucide-react"
 
+
 export const metadata: Metadata = { title: "New Estimate" }
 
 type Props = { searchParams: Promise<{ visitId?: string; patientId?: string }> }
@@ -63,15 +64,39 @@ export default async function NewEstimatePage({ searchParams }: Props) {
         <span>New Estimate</span>
       </nav>
 
+      {/* Wizard step indicator */}
+      <div className="flex items-center gap-0">
+        {[
+          { n: 1, label: "Estimate" },
+          { n: 2, label: "Prescription" },
+          { n: 3, label: "Payment Plan" },
+        ].map(({ n, label }, idx) => (
+          <div key={n} className="flex items-center">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg"
+              style={{ backgroundColor: n === 1 ? `${BRAND_COLORS.primaryTeal}18` : "transparent" }}>
+              <span className="h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                style={{ backgroundColor: n === 1 ? BRAND_COLORS.primaryTeal : BRAND_COLORS.borderDivider }}>
+                {n}
+              </span>
+              <span className="text-sm font-medium"
+                style={{ color: n === 1 ? BRAND_COLORS.primaryTeal : BRAND_COLORS.borderDivider }}>
+                {label}
+              </span>
+            </div>
+            {idx < 2 && <ChevronRight className="h-4 w-4 mx-1" style={{ color: BRAND_COLORS.borderDivider }} />}
+          </div>
+        ))}
+      </div>
+
       {/* Card */}
       <div className="bg-white rounded-xl border border-[#E0E3E5] shadow-sm overflow-hidden">
         <div className="h-1.5" style={{ backgroundColor: BRAND_COLORS.primaryTeal }} />
         <div className="px-6 py-5">
           <h1 className="text-xl font-bold mb-1" style={{ color: BRAND_COLORS.bodyText }}>
-            New Treatment Estimate
+            Step 1 — Treatment Estimate
           </h1>
           <p className="text-sm mb-6" style={{ color: BRAND_COLORS.borderDivider }}>
-            Add treatments, adjust prices, and save the estimate.
+            Add treatments and adjust prices. Click <strong>Next →</strong> to continue to the prescription.
           </p>
 
           <EstimateBuilder
