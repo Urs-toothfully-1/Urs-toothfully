@@ -2,7 +2,10 @@ import { Metadata } from "next"
 import { getSession } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
+import { userRepository } from "@/server/repositories/user.repository"
+import { prisma } from "@/lib/prisma"
 import { ItemStatusButton } from "@/components/estimates/ItemStatusButton"
+import { TreatmentSessionDialog } from "@/components/estimates/TreatmentSessionDialog"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,13 +20,21 @@ export default async function TreatmentProgressPage({ params }: Props) {
   if (!session) redirect("/login")
 
   const { patientId } = await params
-  const estimates = await estimateRepository.findByPatient(patientId)
+
+  const [estimates, patient, doctors] = await Promise.all([
+    estimateRepository.findByPatient(patientId),
+    prisma.patient.findUnique({ where: { id: patientId }, select: { id: true, registrationBranchId: true } }),
+    userRepository.findAllActiveDoctors(),
+  ])
+
+  const branchId = patient?.registrationBranchId ?? session.branchId
 
   const activeEstimates = estimates.filter(
     (e: { status: string; isDeleted: boolean }) => e.status !== "CANCELLED" && !e.isDeleted
   )
 
   const canUpdate = session.role === "ADMIN" || session.role === "DOCTOR"
+  const canStartSession = session.role === "ADMIN" || session.role === "RECEPTIONIST"
 
   // Compute overall stats
   const allItems = activeEstimates.flatMap((e: any) => e.items ?? [])
@@ -74,11 +85,21 @@ export default async function TreatmentProgressPage({ params }: Props) {
         activeEstimates.map((estimate: any) => (
           <Card key={estimate.id} className="border-[#E0E3E5] bg-white">
             <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
-              <CardTitle className="text-sm flex items-center justify-between" style={{ color: BRAND_COLORS.bodyText }}>
+              <CardTitle className="text-sm flex items-center justify-between gap-3 flex-wrap" style={{ color: BRAND_COLORS.bodyText }}>
                 <span>{estimate.estimateNo}</span>
-                <div className="flex items-center gap-3 text-xs font-normal" style={{ color: BRAND_COLORS.borderDivider }}>
+                <div className="flex items-center gap-3 text-xs font-normal flex-wrap" style={{ color: BRAND_COLORS.borderDivider }}>
                   <span>{formatDate(estimate.createdAt)}</span>
                   <span>Total: {formatCurrency(Number(estimate.total))}</span>
+                  {canStartSession && (estimate.items ?? []).some((i: any) => i.status === "PENDING") && (
+                    <TreatmentSessionDialog
+                      pendingItems={(estimate.items ?? [])
+                        .filter((i: any) => i.status === "PENDING")
+                        .map((i: any) => ({ id: i.id, treatmentName: i.treatmentName, toothNumber: i.toothNumber }))}
+                      patientId={patientId}
+                      branchId={branchId}
+                      doctors={(doctors as any[]).map((d) => ({ id: d.id, name: d.name }))}
+                    />
+                  )}
                 </div>
               </CardTitle>
             </CardHeader>
@@ -118,8 +139,11 @@ export default async function TreatmentProgressPage({ params }: Props) {
                           currentStatus={item.status}
                         />
                       ) : (
-                        <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: BRAND_COLORS.lightBackground, color: BRAND_COLORS.borderDivider }}>
-                          {item.status}
+                        <span className="text-xs px-2 py-0.5 rounded font-semibold" style={{
+                          backgroundColor: item.status === "PENDING" ? "#FEF3C7" : item.status === "IN_PROGRESS" ? "#DBEAFE" : item.status === "COMPLETED" ? "#D1FAE5" : "#F2F4F6",
+                          color: item.status === "PENDING" ? "#B45309" : item.status === "IN_PROGRESS" ? "#1D4ED8" : item.status === "COMPLETED" ? "#065F46" : "#707882",
+                        }}>
+                          {item.status === "PENDING" ? "Pending" : item.status === "IN_PROGRESS" ? "In Progress" : item.status === "COMPLETED" ? "✓ Done" : item.status}
                         </span>
                       )}
                     </div>

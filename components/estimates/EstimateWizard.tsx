@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
+import { type PaymentAgreementCardHandle } from "@/components/estimates/PaymentAgreementCard"
 import {
   ChevronRight, FileText, ClipboardList, FileSignature,
   CheckCircle2, ArrowLeft, ArrowRight, Loader2,
@@ -53,7 +54,7 @@ interface Props {
 const STEPS = [
   { n: 1, label: "Estimate", icon: FileText },
   { n: 2, label: "Prescription", icon: ClipboardList },
-  { n: 3, label: "Payment Plan", icon: FileSignature },
+  { n: 3, label: "Payment Agreement", icon: FileSignature },
 ]
 
 const STATUS_LABEL: Record<string, string> = {
@@ -87,10 +88,14 @@ export function EstimateWizard({
   const [isCompleting, startCompleting] = useTransition()
   const router = useRouter()
   const prescriptionFormRef = useRef<HTMLFormElement>(null)
+  const agreementRef = useRef<PaymentAgreementCardHandle>(null)
   const [prescriptionSaved, setPrescriptionSaved] = useState(false)
   const pendingNextRef = useRef(false)
 
   function handleComplete() {
+    // Auto-save the payment agreement before completing
+    agreementRef.current?.save()
+
     if (!queueId) {
       router.push("/doctor")
       return
@@ -179,7 +184,7 @@ export function EstimateWizard({
               </p>
             </div>
             <a
-              href={`/doctor/estimate/${estimateId}`}
+              href={`/doctor/estimate/${estimateId}/edit`}
               className="text-xs font-medium hover:underline"
               style={{ color: BRAND_COLORS.primaryTeal }}
             >
@@ -294,6 +299,7 @@ export function EstimateWizard({
       {/* ── STEP 3: Payment Agreement ────────────────────────────── */}
       {step === 3 && (
         <PaymentAgreementCard
+          ref={agreementRef}
           estimateId={estimateId}
           estimateTotal={estimateTotal}
           initialStages={paymentAgreementStages}
@@ -363,7 +369,7 @@ export function EstimateWizard({
               onClick={handleComplete}
               disabled={isCompleting}
               className="gap-2 text-white px-6"
-              style={{ backgroundColor: isCompleting ? BRAND_COLORS.borderDivider : "#1A6B4A" }}
+              style={{ backgroundColor: isCompleting ? BRAND_COLORS.borderDivider : BRAND_COLORS.secondaryGreen }}
             >
               {isCompleting ? (
                 <><Loader2 className="h-4 w-4 animate-spin" />Completing…</>

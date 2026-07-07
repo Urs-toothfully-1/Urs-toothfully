@@ -2,7 +2,7 @@
 
 import { useActionState, useRef, useState } from "react"
 import { useFormStatus } from "react-dom"
-import { createEstimateAction, EstimateFormState } from "@/actions/estimates"
+import { createEstimateAction, updateEstimateAction, EstimateFormState } from "@/actions/estimates"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -30,6 +30,15 @@ interface EstimateItem {
   amount: number
 }
 
+interface InitialItem {
+  treatmentId: string
+  treatmentName: string
+  category: string
+  toothNumber: string
+  quantity: number
+  unitRate: number
+}
+
 interface Props {
   patientId: string
   visitId: string
@@ -40,9 +49,14 @@ interface Props {
   treatments: Treatment[]
   advancePercent: number
   allowDiscount: boolean
+  // Edit mode
+  estimateId?: string
+  initialItems?: InitialItem[]
+  initialNotes?: string
+  initialDiscountPercent?: number
 }
 
-function SubmitButton() {
+function SubmitButton({ isEdit }: { isEdit: boolean }) {
   const { pending } = useFormStatus()
   return (
     <Button
@@ -53,6 +67,8 @@ function SubmitButton() {
     >
       {pending ? (
         <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</>
+      ) : isEdit ? (
+        <><Save className="mr-2 h-4 w-4" />Save Changes →</>
       ) : (
         <>Next — Prescription →</>
       )}
@@ -78,10 +94,19 @@ const inputCls = "h-8 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-w
 export function EstimateBuilder({
   patientId, visitId, branchId, patientName, visitNo, doctorName,
   treatments, advancePercent, allowDiscount,
+  estimateId, initialItems, initialNotes, initialDiscountPercent,
 }: Props) {
-  const [state, formAction] = useActionState(createEstimateAction, {} as EstimateFormState)
-  const [items, setItems] = useState<EstimateItem[]>([newItem()])
-  const [discountPercent, setDiscountPercent] = useState(0)
+  const isEdit = !!estimateId
+  const [state, formAction] = useActionState(
+    isEdit ? updateEstimateAction : createEstimateAction,
+    {} as EstimateFormState
+  )
+  const [items, setItems] = useState<EstimateItem[]>(
+    initialItems && initialItems.length > 0
+      ? initialItems.map((i) => ({ ...i, amount: i.quantity * i.unitRate, _key: Math.random().toString(36).slice(2) }))
+      : [newItem()]
+  )
+  const [discountPercent, setDiscountPercent] = useState(initialDiscountPercent ?? 0)
   const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({})
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -146,6 +171,7 @@ export function EstimateBuilder({
       <input type="hidden" name="patientId" value={patientId} />
       <input type="hidden" name="visitId" value={visitId} />
       <input type="hidden" name="branchId" value={branchId} />
+      {estimateId && <input type="hidden" name="estimateId" value={estimateId} />}
       <input type="hidden" name="itemsJson" defaultValue="" />
 
       {state.error && (
@@ -328,6 +354,7 @@ export function EstimateBuilder({
           <Textarea
             name="notes"
             placeholder="Optional notes for this estimate"
+            defaultValue={initialNotes ?? ""}
             className="border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-[#F2F4F6] resize-none"
             rows={4}
           />
@@ -389,9 +416,9 @@ export function EstimateBuilder({
         className="flex items-center gap-4 pt-2 border-t"
         style={{ borderColor: BRAND_COLORS.lightBackground }}
       >
-        <SubmitButton />
+        <SubmitButton isEdit={!!estimateId} />
         <a
-          href="/doctor"
+          href={estimateId ? `/doctor/estimate/${estimateId}/wizard` : "/doctor"}
           className="text-sm font-medium hover:underline"
           style={{ color: BRAND_COLORS.borderDivider }}
         >

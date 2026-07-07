@@ -25,7 +25,7 @@ export default async function NewEstimatePage({ searchParams }: Props) {
   // One estimate per visit — if it already exists, open it instead of a
   // blank builder (clicking "Estimate" twice used to show an empty form).
   const existing = await estimateRepository.findByVisit(visitId)
-  if (existing) redirect(`/doctor/estimate/${existing.id}`)
+  if (existing) redirect(`/doctor/estimate/${existing.id}/wizard`)
 
   const [patient, visit, treatments] = await Promise.all([
     patientRepository.findById(patientId),

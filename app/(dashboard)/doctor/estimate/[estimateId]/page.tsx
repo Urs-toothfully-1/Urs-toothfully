@@ -5,14 +5,9 @@ import { getSession } from "@/lib/auth"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { prescriptionService } from "@/server/services/prescription.service"
 import { paymentAgreementService } from "@/server/services/payment-agreement.service"
-import { queueRepository } from "@/server/repositories/queue.repository"
-import { ItemStatusButton } from "@/components/estimates/ItemStatusButton"
 import { ShareActions } from "@/components/share/ShareActions"
-import { CompleteVisitButton } from "@/components/queue/CompleteVisitButton"
-import { PaymentAgreementCard } from "@/components/estimates/PaymentAgreementCard"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { PaymentStage } from "@/lib/payment-agreement"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChevronRight, ClipboardList, FileText, Printer } from "lucide-react"
 
@@ -28,9 +23,8 @@ export default async function EstimateDetailPage({ params }: Props) {
   const estimate = await estimateRepository.findById(estimateId)
   if (!estimate) notFound()
 
-  const [paymentAgreement, queueEntry] = await Promise.all([
+  const [paymentAgreement] = await Promise.all([
     paymentAgreementService.getOrSuggest(estimateId),
-    queueRepository.findByVisit(estimate.visitId),
   ])
 
   // The prescription is auto-created with the estimate; lazily create it here
@@ -45,7 +39,6 @@ export default async function EstimateDetailPage({ params }: Props) {
   const total = Number(estimate.total)
   const paid = estimate.payments.reduce((s: number, p: { amount: unknown }) => s + Number(p.amount), 0)
   const balance = Math.max(0, total - paid)
-  const canUpdateStatus = session.role === "ADMIN" || session.role === "DOCTOR"
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
@@ -168,18 +161,15 @@ export default async function EstimateDetailPage({ params }: Props) {
                       {formatCurrency(Number(item.amount))}
                     </td>
                     <td className="py-2.5 px-2">
-                      {canUpdateStatus ? (
-                        <ItemStatusButton
-                          itemId={item.id}
-                          estimateId={estimate.id}
-                          patientId={estimate.patientId}
-                          currentStatus={item.status}
-                        />
-                      ) : (
-                        <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-                          {item.status}
-                        </span>
-                      )}
+                      <span
+                        className="text-xs px-2 py-0.5 rounded font-semibold"
+                        style={{
+                          backgroundColor: item.status === "PENDING" ? "#FEF3C7" : item.status === "IN_PROGRESS" ? "#DBEAFE" : item.status === "COMPLETED" ? "#D1FAE5" : "#F2F4F6",
+                          color: item.status === "PENDING" ? "#B45309" : item.status === "IN_PROGRESS" ? "#1D4ED8" : item.status === "COMPLETED" ? "#065F46" : "#707882",
+                        }}
+                      >
+                        {item.status === "PENDING" ? "Pending" : item.status === "IN_PROGRESS" ? "In Progress" : item.status === "COMPLETED" ? "✓ Done" : item.status}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -225,25 +215,6 @@ export default async function EstimateDetailPage({ params }: Props) {
           </div>
         </CardContent>
       </Card>
-      {/* Payment Agreement */}
-      <PaymentAgreementCard
-        estimateId={estimate.id}
-        estimateTotal={total}
-        initialStages={paymentAgreement.stages as PaymentStage[]}
-        initialRep={paymentAgreement.clinicRepresentative}
-        initialTermsAccepted={paymentAgreement.termsAccepted}
-        initialPatientSignedAt={paymentAgreement.patientSignedAt?.toISOString() ?? null}
-        estimateNo={estimate.estimateNo}
-        patientName={estimate.patient.fullName}
-        doctorName={estimate.doctor.name}
-      />
-
-      {/* Done — visible while the patient is still with the doctor */}
-      {canUpdateStatus &&
-        queueEntry &&
-        ["WAITING", "WITH_DOCTOR"].includes(queueEntry.status) && (
-          <CompleteVisitButton queueId={queueEntry.id} />
-        )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useState, useTransition } from "react"
+import { forwardRef, useActionState, useImperativeHandle, useState, useTransition } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -37,6 +37,10 @@ interface Props {
   doctorName: string
 }
 
+export interface PaymentAgreementCardHandle {
+  save: () => void
+}
+
 const inputCls =
   "w-full h-8 rounded border border-[#E0E3E5] bg-white px-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#005E97]"
 
@@ -44,7 +48,7 @@ function formatAmt(n: number) {
   return n.toLocaleString("en-IN")
 }
 
-export function PaymentAgreementCard({
+export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props>(function PaymentAgreementCard({
   estimateId,
   estimateTotal,
   initialStages,
@@ -54,7 +58,7 @@ export function PaymentAgreementCard({
   estimateNo,
   patientName,
   doctorName,
-}: Props) {
+}: Props, ref) {
   const [stages, setStages] = useState<PaymentStage[]>(initialStages)
   const [rep, setRep] = useState(initialRep ?? "")
   const [termsAccepted, setTermsAccepted] = useState(initialTermsAccepted)
@@ -98,19 +102,21 @@ export function PaymentAgreementCard({
     startTransition(() => formAction(fd))
   }
 
+  useImperativeHandle(ref, () => ({ save: handleSubmit }))
+
   const received = totalReceived(stages)
   const scheduled = totalScheduled(stages)
   const balance = Math.max(0, estimateTotal - received)
 
   return (
     <Card className="border-[#E0E3E5] bg-white overflow-hidden">
-      <div className="h-1" style={{ backgroundColor: "#1A6B4A" }} />
+      <div className="h-1" style={{ backgroundColor: BRAND_COLORS.secondaryGreen }} />
       <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <CardTitle className="text-base flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
-            <FileSignature className="h-4 w-4" style={{ color: "#1A6B4A" }} />
+            <FileSignature className="h-4 w-4" style={{ color: BRAND_COLORS.secondaryGreen }} />
             Payment Agreement
-            <span className="text-xs font-normal px-2 py-0.5 rounded" style={{ backgroundColor: "#EFF9F4", color: "#1A6B4A" }}>
+            <span className="text-xs font-normal px-2 py-0.5 rounded" style={{ backgroundColor: "#EFF9F4", color: BRAND_COLORS.secondaryGreen }}>
               {getTierLabel(estimateTotal)}
             </span>
           </CardTitle>
@@ -172,8 +178,12 @@ export function PaymentAgreementCard({
                     <input
                       type="number"
                       min={0}
-                      value={stage.amount}
-                      onChange={(e) => updateStage(idx, "amount", Math.max(0, Number(e.target.value)))}
+                      value={stage.amount === 0 ? "" : stage.amount}
+                      onChange={(e) => {
+                        const raw = e.target.value
+                        updateStage(idx, "amount", raw === "" ? 0 : Math.max(0, Number(raw)))
+                      }}
+                      placeholder="0"
                       className={`${inputCls} font-mono`}
                     />
                   </td>
@@ -193,9 +203,9 @@ export function PaymentAgreementCard({
                         type="checkbox"
                         checked={stage.received}
                         onChange={(e) => updateStage(idx, "received", e.target.checked)}
-                        className="h-4 w-4 accent-[#1A6B4A]"
+                        className="h-4 w-4 accent-[#006B5F]"
                       />
-                      <span className="text-xs" style={{ color: stage.received ? "#1A6B4A" : BRAND_COLORS.borderDivider }}>
+                      <span className="text-xs" style={{ color: stage.received ? BRAND_COLORS.secondaryGreen : BRAND_COLORS.borderDivider }}>
                         {stage.received ? "Yes" : "No"}
                       </span>
                     </label>
@@ -237,11 +247,11 @@ export function PaymentAgreementCard({
             </div>
             <div className="text-right">
               <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>Received</p>
-              <p className="font-semibold" style={{ color: "#1A6B4A" }}>₹{formatAmt(received)}</p>
+              <p className="font-semibold" style={{ color: BRAND_COLORS.secondaryGreen }}>₹{formatAmt(received)}</p>
             </div>
             <div className="text-right">
               <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>Balance Outstanding</p>
-              <p className="font-bold" style={{ color: balance > 0 ? "#C2410C" : "#1A6B4A" }}>
+              <p className="font-bold" style={{ color: balance > 0 ? "#C2410C" : BRAND_COLORS.secondaryGreen }}>
                 ₹{formatAmt(balance)}
               </p>
             </div>
@@ -317,7 +327,7 @@ export function PaymentAgreementCard({
             type="button"
             onClick={handleSubmit}
             className="h-9 px-6 text-sm font-semibold text-white gap-2"
-            style={{ backgroundColor: "#1A6B4A" }}
+            style={{ backgroundColor: BRAND_COLORS.secondaryGreen }}
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Save Agreement
@@ -336,4 +346,4 @@ export function PaymentAgreementCard({
       </CardContent>
     </Card>
   )
-}
+})

@@ -6,6 +6,13 @@ export const paymentAgreementRepository = {
     return prisma.paymentAgreement.findUnique({ where: { estimateId } })
   },
 
+  async findByEstimateIds(estimateIds: string[]) {
+    if (!estimateIds.length) return []
+    return prisma.paymentAgreement.findMany({
+      where: { estimateId: { in: estimateIds } },
+    })
+  },
+
   async upsert(
     estimateId: string,
     data: {

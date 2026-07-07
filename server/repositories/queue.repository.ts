@@ -126,4 +126,30 @@ export const queueRepository = {
       orderBy: { tokenNumber: "asc" },
     })
   },
+
+  async findSessionDetails(queueId: string) {
+    return prisma.queueEntry.findUnique({
+      where: { id: queueId },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            patientId: true,
+            fullName: true,
+            dateOfBirth: true,
+            gender: true,
+            mobile: true,
+            email: true,
+            address: true,
+            dentalHistories: {
+              where: { isLatest: true },
+              take: 1,
+            },
+          },
+        },
+        doctor: { select: { id: true, name: true } },
+        visit: { select: { id: true, visitNo: true, visitType: true, chiefComplaint: true } },
+      },
+    })
+  },
 }

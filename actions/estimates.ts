@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache"
 import { requireRole } from "@/lib/auth"
 import { estimateService } from "@/server/services/estimate.service"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
+import { settingsRepository } from "@/server/repositories/settings.repository"
+import { Decimal } from "@prisma/client/runtime/library"
 import type { ItemStatus } from "@prisma/client"
 
 export type EstimateFormState = {
@@ -81,6 +83,75 @@ export async function createEstimateAction(
   } catch (err) {
     if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) throw err
     return { error: "Failed to save estimate. Please try again." }
+  }
+}
+
+export async function updateEstimateAction(
+  _prev: EstimateFormState,
+  formData: FormData
+): Promise<EstimateFormState> {
+  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  if (!session) return { error: "Unauthorized" }
+
+  const estimateId = formData.get("estimateId")?.toString()
+  const patientId = formData.get("patientId")?.toString()
+  const branchId = formData.get("branchId")?.toString() ?? session.branchId
+  const itemsJson = formData.get("itemsJson")?.toString()
+  const discountPercent = formData.get("discountPercent")?.toString()
+  const notes = formData.get("notes")?.toString()
+
+  if (!estimateId || !patientId || !itemsJson) return { error: "Missing required fields." }
+
+  interface RawItem {
+    treatmentId?: string; treatmentName?: string; category?: string
+    toothNumber?: string; quantity?: string | number; unitRate?: string | number
+  }
+  let items: RawItem[]
+  try { items = JSON.parse(itemsJson) } catch { return { error: "Invalid estimate items." } }
+  if (!items.length) return { error: "At least one treatment item is required." }
+  if (items.some((i) => !i.treatmentName?.trim() || !i.quantity || !i.unitRate))
+    return { error: "All items must have a treatment name, quantity, and rate." }
+
+  try {
+    const mappedItems = items.map((item, idx) => {
+      const qty = parseInt(String(item.quantity), 10)
+      const rate = parseFloat(String(item.unitRate))
+      return {
+        treatmentId: item.treatmentId || undefined,
+        treatmentName: (item.treatmentName ?? "").trim(),
+        category: item.category || "OTHER",
+        toothNumber: item.toothNumber || undefined,
+        quantity: qty,
+        unitRate: new Decimal(rate),
+        amount: new Decimal(qty * rate),
+        sortOrder: idx,
+      }
+    })
+
+    const subtotal = mappedItems.reduce((s, i) => s + i.amount.toNumber(), 0)
+    const disc = discountPercent ? parseFloat(discountPercent) : 0
+    const discountAmount = disc > 0 ? (subtotal * disc) / 100 : 0
+    const total = subtotal - discountAmount
+
+    const advancePct = await settingsRepository.get("advance_percent", branchId)
+    const advanceRequired = total * (parseFloat(advancePct ?? "20") / 100)
+
+    await estimateRepository.update(estimateId, {
+      subtotal: new Decimal(subtotal),
+      total: new Decimal(total),
+      advanceRequired: new Decimal(advanceRequired),
+      discountPercent: disc > 0 ? new Decimal(disc) : null,
+      discountAmount: discountAmount > 0 ? new Decimal(discountAmount) : null,
+      notes: notes || null,
+      items: mappedItems,
+    })
+
+    revalidatePath(`/patients/${patientId}/estimates`)
+    revalidatePath(`/patients/${patientId}/progress`)
+    redirect(`/doctor/estimate/${estimateId}/wizard`)
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) throw err
+    return { error: "Failed to update estimate. Please try again." }
   }
 }
 

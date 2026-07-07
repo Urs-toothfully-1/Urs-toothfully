@@ -5,7 +5,7 @@ import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { paymentAgreementService } from "@/server/services/payment-agreement.service"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { PaymentStage, PAYMENT_TERMS } from "@/lib/payment-agreement"
+import { PaymentStage } from "@/lib/payment-agreement"
 import { PrintButtons } from "@/components/print/PrintButtons"
 import { ShareActions } from "@/components/share/ShareActions"
 
@@ -235,7 +235,7 @@ export default async function PrintEstimatePage({ params }: Props) {
         )}
 
         {/* Signature line */}
-        <div className="grid grid-cols-2 gap-10 mt-8 text-sm">
+        <div className="grid grid-cols-3 gap-8 mt-8 text-sm">
           <div>
             <div className="border-b border-gray-400 mb-1 h-8" />
             <p style={{ color: BRAND_COLORS.borderDivider }}>Patient Signature</p>
@@ -244,11 +244,21 @@ export default async function PrintEstimatePage({ params }: Props) {
             <div className="border-b border-gray-400 mb-1 h-8" />
             <p style={{ color: BRAND_COLORS.borderDivider }}>Authorized Signatory</p>
           </div>
+          <div>
+            <div className="border-b border-gray-400 mb-1 h-8" />
+            <p style={{ color: BRAND_COLORS.borderDivider }}>Dr. Signature</p>
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="mt-8">
-          <img src="/fotter-1.jpg" alt="Footer" className="w-full" />
+        <div className="mt-8 relative">
+          <img src="/fotter2.jpg" alt="Footer" className="w-full" />
+          <div style={{
+            position: "absolute", bottom: 0, right: 0,
+            width: 120, height: 12,
+            backgroundColor: "#8DC21F",
+            clipPath: "polygon(12px 0%, 100% 0%, 100% 100%, 0% 100%)",
+          }} />
         </div>
 
         {/* ── PAYMENT AGREEMENT — new page on print ─────────── */}
@@ -285,7 +295,7 @@ export default async function PrintEstimatePage({ params }: Props) {
           {/* Payment schedule table */}
           <table className="w-full text-sm mb-4" style={{ borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ backgroundColor: "#1A6B4A", color: "white" }}>
+              <tr style={{ backgroundColor: BRAND_COLORS.secondaryGreen, color: "white" }}>
                 {["Payment Stage", "Amount (₹)", "Due Date", "Received"].map((h) => (
                   <th key={h} className="py-2 px-3 text-left font-semibold" style={{ fontSize: "12px" }}>{h}</th>
                 ))}
@@ -311,7 +321,7 @@ export default async function PrintEstimatePage({ params }: Props) {
                   </td>
                   <td className="py-2.5 px-3 text-center">
                     {stage.received
-                      ? <span style={{ color: "#1A6B4A", fontWeight: 700 }}>✓ Received</span>
+                      ? <span style={{ color: BRAND_COLORS.secondaryGreen, fontWeight: 700 }}>✓ Received</span>
                       : <span style={{ color: BRAND_COLORS.borderDivider }}>—</span>
                     }
                   </td>
@@ -319,7 +329,7 @@ export default async function PrintEstimatePage({ params }: Props) {
               ))}
             </tbody>
             <tfoot>
-              <tr style={{ borderTop: "2px solid #1A6B4A" }}>
+              <tr style={{ borderTop: `2px solid ${BRAND_COLORS.secondaryGreen}` }}>
                 <td className="py-2 px-3 font-bold" style={{ color: BRAND_COLORS.bodyText }}>Total Treatment Cost</td>
                 <td className="py-2 px-3 font-bold" style={{ color: BRAND_COLORS.primaryTeal }}>
                   ₹{total.toLocaleString("en-IN")}
@@ -329,7 +339,7 @@ export default async function PrintEstimatePage({ params }: Props) {
               </tr>
               <tr>
                 <td className="py-1 px-3 font-semibold" style={{ color: BRAND_COLORS.bodyText }}>Total Amount Received</td>
-                <td className="py-1 px-3 font-semibold" style={{ color: "#1A6B4A" }}>
+                <td className="py-1 px-3 font-semibold" style={{ color: BRAND_COLORS.secondaryGreen }}>
                   ₹{received.toLocaleString("en-IN")}
                 </td>
                 <td />
@@ -345,14 +355,6 @@ export default async function PrintEstimatePage({ params }: Props) {
               </tr>
             </tfoot>
           </table>
-
-          {/* Terms & Conditions */}
-          <div className="mb-5">
-            <p className="font-bold text-sm mb-2" style={{ color: BRAND_COLORS.bodyText }}>Terms &amp; Conditions</p>
-            <ol className="text-xs space-y-1.5 list-decimal ml-4" style={{ color: BRAND_COLORS.secondaryText }}>
-              {PAYMENT_TERMS.map((t, i) => <li key={i}>{t}</li>)}
-            </ol>
-          </div>
 
           {/* Patient declaration */}
           <div
@@ -395,8 +397,14 @@ export default async function PrintEstimatePage({ params }: Props) {
           </div>
 
           {/* Footer */}
-          <div className="mt-8">
-            <img src="/fotter-1.jpg" alt="Footer" className="w-full" />
+          <div className="mt-8 relative">
+            <img src="/fotter2.jpg" alt="Footer" className="w-full" />
+            <div style={{
+              position: "absolute", bottom: 0, right: 0,
+              width: 120, height: 12,
+              backgroundColor: "#8DC21F",
+              clipPath: "polygon(12px 0%, 100% 0%, 100% 100%, 0% 100%)",
+            }} />
           </div>
         </div>
       </div>

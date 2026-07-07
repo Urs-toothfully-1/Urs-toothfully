@@ -66,11 +66,11 @@ export function ConsultationFeeForm({ visitId, visitNo, patientId, branchId, def
             Print Receipt
           </Link>
           <Link
-            href={isPreQueue ? `/patients/${patientId}` : "/reception"}
+            href={`/patients/${patientId}`}
             className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border border-[#E0E3E5]"
             style={{ color: BRAND_COLORS.bodyText }}
           >
-            {isPreQueue ? "Add to Queue →" : "Go to Queue"}
+            Go to Patient →
           </Link>
         </div>
       </div>

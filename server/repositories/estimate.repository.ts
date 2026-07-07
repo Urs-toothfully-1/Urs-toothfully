@@ -100,6 +100,59 @@ export const estimateRepository = {
     })
   },
 
+  async findPendingItemsByPatients(patientIds: string[]) {
+    if (!patientIds.length) return []
+    return prisma.estimateItem.findMany({
+      where: {
+        estimate: { patientId: { in: patientIds }, isDeleted: false, status: "ACTIVE" },
+        status: { in: ["PENDING", "IN_PROGRESS"] },
+      },
+      select: {
+        id: true,
+        treatmentName: true,
+        toothNumber: true,
+        status: true,
+        estimate: { select: { patientId: true } },
+      },
+      orderBy: { sortOrder: "asc" },
+    })
+  },
+
+  async update(
+    id: string,
+    data: {
+      subtotal: Prisma.Decimal
+      total: Prisma.Decimal
+      advanceRequired: Prisma.Decimal
+      discountPercent?: Prisma.Decimal | null
+      discountAmount?: Prisma.Decimal | null
+      notes?: string | null
+      items: Array<{
+        treatmentId?: string
+        treatmentName: string
+        category: string
+        toothNumber?: string
+        quantity: number
+        unitRate: Prisma.Decimal
+        amount: Prisma.Decimal
+        sortOrder: number
+      }>
+    }
+  ) {
+    const { items, ...estimateData } = data
+    return prisma.$transaction(async (tx) => {
+      await tx.estimateItem.deleteMany({ where: { estimateId: id } })
+      return tx.estimate.update({
+        where: { id },
+        data: {
+          ...estimateData,
+          items: { create: items },
+        },
+        include: { items: true, doctor: { select: { id: true, name: true } } },
+      })
+    })
+  },
+
   async updateItemStatus(
     itemId: string,
     status: ItemStatus,

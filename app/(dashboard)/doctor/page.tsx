@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 import { requireRole } from "@/lib/auth"
 import { queueRepository } from "@/server/repositories/queue.repository"
+import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
 import { QueueEntryCard } from "@/components/queue/QueueEntryCard"
 import { BRAND_COLORS } from "@/lib/constants"
@@ -30,6 +31,21 @@ export default async function DoctorPage() {
     ["WAITING", "WITH_DOCTOR", "ESTIMATE_CREATED"].includes(e.status)
   )
   const completed = myQueue.filter((e: { status: string }) => ["COMPLETED", "CANCELLED"].includes(e.status))
+
+  // Fetch pending treatment items for TREATMENT_SESSION entries currently with the doctor
+  const treatmentPatientIds = [
+    ...new Set(
+      (myQueue as any[])
+        .filter((e) => e.visit?.visitType === "TREATMENT_SESSION" && ["WAITING", "WITH_DOCTOR"].includes(e.status))
+        .map((e) => e.patientId as string)
+    ),
+  ]
+  const pendingItems = await estimateRepository.findPendingItemsByPatients(treatmentPatientIds)
+  const itemsByPatient = pendingItems.reduce<Record<string, typeof pendingItems>>((acc, item) => {
+    const pid = (item as any).estimate.patientId
+    ;(acc[pid] ??= []).push(item)
+    return acc
+  }, {})
 
   return (
     <div className="space-y-5">
@@ -80,6 +96,7 @@ export default async function DoctorPage() {
                 entry={entry}
                 role={session.role}
                 currentUserId={session.userId}
+                treatmentItems={itemsByPatient[entry.patientId] ?? []}
               />
             ))}
           </CardContent>
@@ -113,6 +130,7 @@ export default async function DoctorPage() {
                   entry={entry as any}
                   role={session.role}
                   currentUserId={session.userId}
+                  treatmentItems={itemsByPatient[entry.patientId] ?? []}
                 />
               ))}
             </div>

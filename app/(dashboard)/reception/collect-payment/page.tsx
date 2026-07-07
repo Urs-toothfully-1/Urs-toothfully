@@ -6,10 +6,11 @@ import { patientRepository } from "@/server/repositories/patient.repository"
 import { visitRepository } from "@/server/repositories/visit.repository"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { paymentRepository } from "@/server/repositories/payment.repository"
+import { paymentAgreementService } from "@/server/services/payment-agreement.service"
 import { settingsRepository } from "@/server/repositories/settings.repository"
 import { prisma } from "@/lib/prisma"
 import { ConsultationFeeForm } from "@/components/payments/ConsultationFeeForm"
-import { TreatmentPaymentForm } from "@/components/payments/TreatmentPaymentForm"
+import { AgreementAwarePaymentForm } from "@/components/payments/AgreementAwarePaymentForm"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,7 +25,6 @@ export default async function CollectPaymentPage({ searchParams }: Props) {
   const { patientId, visitId, estimateId } = await searchParams
 
   if (!patientId) {
-    // No patient selected — redirect to search
     redirect("/patients")
   }
 
@@ -62,6 +62,16 @@ export default async function CollectPaymentPage({ searchParams }: Props) {
 
   const activeEstimates = estimatesWithBalance.filter((e) => e.balance > 0.01)
 
+  // Fetch payment schedule for each active estimate (saved or auto-suggested)
+  const agreementResults = await Promise.all(
+    activeEstimates.map((e) => paymentAgreementService.getOrSuggest(e.id))
+  )
+
+  const estimatesWithStages = activeEstimates.map((e, i) => ({
+    ...e,
+    stages: (agreementResults[i]?.stages ?? []) as any[],
+  }))
+
   // Most recent visit with IN_PROGRESS status (for consultation fee)
   const activeVisit = visits.find(
     (v: any) => v.status === "IN_PROGRESS" && (!visitId || v.id === visitId)
@@ -71,17 +81,20 @@ export default async function CollectPaymentPage({ searchParams }: Props) {
     ? (visits.find((v: any) => v.id === visitId) as any)
     : activeVisit
 
-  const preselectedEstimate = estimateId
-    ? activeEstimates.find((e) => e.id === estimateId)
-    : undefined
-
-  // Show consultation fee form if:
-  // (a) there is an active visit (mid-visit collection), OR
-  // (b) fee has never been paid (pre-queue — new patient flow)
   const hasPaidConsultation = !!existingConsultationPayment
   const showPreQueueConsultation = !hasPaidConsultation && !preselectedVisit
   const showConsultation = !!preselectedVisit || showPreQueueConsultation
   const showTreatment = activeEstimates.length > 0
+
+  // Preselect estimate if passed via URL
+  const preselectedEstimateId = estimateId
+  if (preselectedEstimateId) {
+    const idx = estimatesWithStages.findIndex((e) => e.id === preselectedEstimateId)
+    if (idx > 0) {
+      const [found] = estimatesWithStages.splice(idx, 1)
+      estimatesWithStages.unshift(found)
+    }
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-5">
@@ -133,20 +146,20 @@ export default async function CollectPaymentPage({ searchParams }: Props) {
         </Card>
       )}
 
-      {/* Treatment / Advance section */}
+      {/* Treatment / Advance section (agreement-aware) */}
       {showTreatment && (
         <Card className="border-[#E0E3E5] bg-white">
           <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
             <CardTitle className="text-base flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
               <CreditCard className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
-              Treatment / Advance Payment
+              Treatment Payment
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-5">
-            <TreatmentPaymentForm
+            <AgreementAwarePaymentForm
               patientId={patientId}
               branchId={session.branchId}
-              estimates={preselectedEstimate ? [preselectedEstimate, ...activeEstimates.filter((e) => e.id !== preselectedEstimate.id)] : activeEstimates}
+              estimates={estimatesWithStages}
             />
           </CardContent>
         </Card>

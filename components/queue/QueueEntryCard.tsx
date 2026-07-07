@@ -5,6 +5,7 @@ import Link from "next/link"
 import { QueueStatusBadge } from "@/components/queue/QueueStatusBadge"
 import { VISIT_TYPE_LABELS, getTimeSince } from "@/lib/queue-helpers"
 import { updateQueueStatusAction, claimPatientAction } from "@/actions/queue"
+import { TreatmentCompletionDialog } from "@/components/queue/TreatmentCompletionDialog"
 import { Loader2, Stethoscope, CheckCircle2, CreditCard, XCircle, UserCheck, FilePlus, Phone } from "lucide-react"
 import { toast } from "sonner"
 import type { QueueStatus } from "@prisma/client"
@@ -22,10 +23,18 @@ interface QueueEntry {
   doctorId: string | null
 }
 
+interface TreatmentItem {
+  id: string
+  treatmentName: string
+  toothNumber?: string | null
+  status: string
+}
+
 interface Props {
   entry: QueueEntry
   role: Role
   currentUserId: string
+  treatmentItems?: TreatmentItem[]
 }
 
 const TOKEN_COLORS: Record<string, { bg: string; text: string }> = {
@@ -37,7 +46,7 @@ const TOKEN_COLORS: Record<string, { bg: string; text: string }> = {
   CANCELLED: { bg: "#F2F4F6", text: "#707882" },
 }
 
-export function QueueEntryCard({ entry, role, currentUserId }: Props) {
+export function QueueEntryCard({ entry, role, currentUserId, treatmentItems = [] }: Props) {
   const [isPending, startTransition] = useTransition()
 
   const isDoctor = role === "DOCTOR"
@@ -136,7 +145,7 @@ export function QueueEntryCard({ entry, role, currentUserId }: Props) {
               <UserCheck className="h-3.5 w-3.5" />Claim
             </button>
           )}
-          {entry.status === "WAITING" && isDoctor && isMyPatient && (
+          {entry.status === "WAITING" && isDoctor && isMyPatient && entry.visit.visitType !== "TREATMENT_SESSION" && (
             <button
               onClick={() => handleStatusUpdate("WITH_DOCTOR")}
               className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
@@ -145,23 +154,39 @@ export function QueueEntryCard({ entry, role, currentUserId }: Props) {
               <Stethoscope className="h-3.5 w-3.5" />Start
             </button>
           )}
-          {entry.status === "WITH_DOCTOR" && isDoctor && isMyPatient && (
+          {entry.status === "WAITING" && isDoctor && isMyPatient && entry.visit.visitType === "TREATMENT_SESSION" && (
+            <Link
+              href={`/doctor/treatment-session/${entry.id}`}
+              className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
+              style={{ background: "linear-gradient(135deg,#005E97,#0077BE)" }}
+            >
+              <Stethoscope className="h-3.5 w-3.5" />Start
+            </Link>
+          )}
+          {entry.status === "WITH_DOCTOR" && isDoctor && isMyPatient && entry.visit.visitType === "TREATMENT_SESSION" && (
             <>
               <Link
-                href={`/doctor/estimate/new?visitId=${entry.visitId}&patientId=${entry.patient.id}`}
+                href={`/doctor/treatment-session/${entry.id}`}
                 className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
                 style={{ background: "linear-gradient(135deg,#005E97,#0077BE)" }}
               >
-                <FilePlus className="h-3.5 w-3.5" />Estimate
+                <Stethoscope className="h-3.5 w-3.5" />View
               </Link>
-              <button
-                onClick={() => handleStatusUpdate("ESTIMATE_CREATED")}
-                className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
-                style={{ backgroundColor: "#7C3AED" }}
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />Done
-              </button>
+              <TreatmentCompletionDialog
+                queueId={entry.id}
+                patientId={entry.patient.id}
+                items={treatmentItems}
+              />
             </>
+          )}
+          {entry.status === "WITH_DOCTOR" && isDoctor && isMyPatient && entry.visit.visitType !== "TREATMENT_SESSION" && (
+            <Link
+              href={`/doctor/estimate/new?visitId=${entry.visitId}&patientId=${entry.patient.id}`}
+              className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
+              style={{ background: "linear-gradient(135deg,#005E97,#0077BE)" }}
+            >
+              <FilePlus className="h-3.5 w-3.5" />Estimate
+            </Link>
           )}
           {entry.status === "ESTIMATE_CREATED" && isReception && (
             <Link

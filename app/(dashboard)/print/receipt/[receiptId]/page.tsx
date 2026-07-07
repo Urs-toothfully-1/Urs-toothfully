@@ -210,8 +210,14 @@ export default async function PrintReceiptPage({ params }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="mt-6">
-          <img src="/fotter-1.jpg" alt="Footer" className="w-full" />
+        <div className="mt-6 relative">
+          <img src="/fotter2.jpg" alt="Footer" className="w-full" />
+          <div style={{
+            position: "absolute", bottom: 0, right: 0,
+            width: 120, height: 12,
+            backgroundColor: "#8DC21F",
+            clipPath: "polygon(12px 0%, 100% 0%, 100% 100%, 0% 100%)",
+          }} />
         </div>
 
         <p className="text-center text-xs mt-2" style={{ color: BRAND_COLORS.borderDivider }}>
