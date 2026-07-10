@@ -9,6 +9,8 @@ import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SessionActions } from "./SessionActions"
+import { SittingsTracker } from "@/components/estimates/SittingsTracker"
+import { VisitPrescriptionButton } from "@/components/queue/VisitPrescriptionButton"
 import {
   ChevronLeft,
   User,
@@ -18,6 +20,8 @@ import {
   Pill,
   Activity,
   Stethoscope,
+  FileText,
+  FileSignature,
 } from "lucide-react"
 
 export const metadata: Metadata = { title: "Treatment Session" }
@@ -77,10 +81,15 @@ export default async function TreatmentSessionPage({ params }: Props) {
           amount: true,
           status: true,
           category: true,
+          plannedSittings: true,
+          completedSittings: true,
         },
         orderBy: { sortOrder: "asc" },
       })
     : []
+
+  // The active estimate that these treatments belong to (for editable estimate + agreement)
+  const activeEstimateId = (pendingItems[0] as any)?.estimate?.id as string | undefined
 
   return (
     <div className="max-w-5xl mx-auto space-y-5">
@@ -398,6 +407,66 @@ export default async function TreatmentSessionPage({ params }: Props) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Session documents — prescription (this visit), estimate & agreement (editable) */}
+      <Card className="border-[#E0E3E5]">
+        <CardHeader className="pb-3 border-b" style={{ borderColor: "#F2F4F6" }}>
+          <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
+            <FileText className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
+            Session Documents
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="flex flex-wrap gap-3">
+            {/* New prescription for this treatment visit */}
+            <VisitPrescriptionButton visitId={entry.visit.id} />
+
+            {/* Editable estimate + treatment agreement */}
+            {activeEstimateId ? (
+              <Link
+                href={`/doctor/estimate/${activeEstimateId}/wizard`}
+                className="flex items-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-colors hover:bg-gray-50"
+                style={{ borderColor: "#F2F4F6", color: BRAND_COLORS.bodyText }}
+              >
+                <FileSignature className="h-4 w-4" style={{ color: BRAND_COLORS.secondaryGreen }} />
+                Estimate &amp; Agreement
+              </Link>
+            ) : (
+              <span className="flex items-center gap-2 rounded-lg border px-4 py-3 text-sm" style={{ borderColor: "#F2F4F6", color: BRAND_COLORS.borderDivider }}>
+                No estimate on file
+              </span>
+            )}
+          </div>
+          <p className="text-xs mt-3" style={{ color: BRAND_COLORS.borderDivider }}>
+            Fill a fresh prescription for today&apos;s visit, or open the estimate to edit treatments, rates, sittings and the payment agreement.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Sittings tracker — pick which treatments were worked on today */}
+      {entry.status === "WITH_DOCTOR" && fullItems.length > 0 && (
+        <Card className="border-[#E0E3E5]">
+          <CardHeader className="pb-3 border-b" style={{ borderColor: "#F2F4F6" }}>
+            <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
+              <Stethoscope className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
+              Sittings Done Today
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <SittingsTracker
+              patientId={entry.patient.id}
+              items={fullItems.map((i) => ({
+                id: i.id,
+                treatmentName: i.treatmentName,
+                toothNumber: i.toothNumber,
+                plannedSittings: i.plannedSittings ?? 1,
+                completedSittings: i.completedSittings ?? 0,
+                status: i.status,
+              }))}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Session action */}
       {["WAITING", "WITH_DOCTOR"].includes(entry.status) && (

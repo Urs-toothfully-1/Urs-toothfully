@@ -90,10 +90,10 @@ export default async function TreatmentProgressPage({ params }: Props) {
                 <div className="flex items-center gap-3 text-xs font-normal flex-wrap" style={{ color: BRAND_COLORS.borderDivider }}>
                   <span>{formatDate(estimate.createdAt)}</span>
                   <span>Total: {formatCurrency(Number(estimate.total))}</span>
-                  {canStartSession && (estimate.items ?? []).some((i: any) => i.status === "PENDING") && (
+                  {canStartSession && (estimate.items ?? []).some((i: any) => !["COMPLETED", "CANCELLED"].includes(i.status)) && (
                     <TreatmentSessionDialog
                       pendingItems={(estimate.items ?? [])
-                        .filter((i: any) => i.status === "PENDING")
+                        .filter((i: any) => !["COMPLETED", "CANCELLED"].includes(i.status))
                         .map((i: any) => ({ id: i.id, treatmentName: i.treatmentName, toothNumber: i.toothNumber }))}
                       patientId={patientId}
                       branchId={branchId}
@@ -123,6 +123,18 @@ export default async function TreatmentProgressPage({ params }: Props) {
                       <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
                         {item.category} · {item.quantity} × {formatCurrency(Number(item.unitRate))} = {formatCurrency(Number(item.amount))}
                       </p>
+                      {(item.plannedSittings ?? 1) > 1 || (item.completedSittings ?? 0) > 0 ? (
+                        <p className="text-xs mt-0.5 font-medium inline-flex items-center gap-1.5"
+                          style={{ color: (item.completedSittings ?? 0) >= (item.plannedSittings ?? 1) ? BRAND_COLORS.secondaryGreen : BRAND_COLORS.primaryTeal }}>
+                          Sittings: {item.completedSittings ?? 0} / {item.plannedSittings ?? 1}
+                          <span className="inline-block w-16 h-1.5 rounded-full align-middle" style={{ backgroundColor: BRAND_COLORS.lightBackground }}>
+                            <span className="block h-1.5 rounded-full" style={{
+                              width: `${Math.min(100, Math.round(((item.completedSittings ?? 0) / (item.plannedSittings ?? 1)) * 100))}%`,
+                              backgroundColor: (item.completedSittings ?? 0) >= (item.plannedSittings ?? 1) ? BRAND_COLORS.secondaryGreen : BRAND_COLORS.primaryTeal,
+                            }} />
+                          </span>
+                        </p>
+                      ) : null}
                       {item.statusUpdatedBy && item.status !== "PENDING" && (
                         <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
                           {item.status === "COMPLETED" ? "Completed" : "Started"} by {item.statusUpdatedBy.name}

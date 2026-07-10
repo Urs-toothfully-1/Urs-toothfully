@@ -1,8 +1,8 @@
 "use client"
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react"
-import { useFormStatus } from "react-dom"
-import { updatePrescriptionAction, PrescriptionFormState } from "@/actions/prescriptions"
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import { updatePrescriptionAction, saveNewVisitPrescriptionAction } from "@/actions/prescriptions"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,7 +13,7 @@ import {
   Plus, Save, Trash2, X,
 } from "lucide-react"
 import { BRAND_COLORS } from "@/lib/constants"
-import type { ExaminationFinding, PrescriptionData, PrescriptionMedicine } from "@/lib/prescription-types"
+import type { ExaminationFinding, PrescriptionData, PrescriptionMedicine, PrescriptionTreatment } from "@/lib/prescription-types"
 import { toast } from "sonner"
 
 export interface ExamTemplate {
@@ -22,46 +22,56 @@ export interface ExamTemplate {
   finding: string
 }
 
+export interface TreatmentOption {
+  id: string
+  category: string
+  name: string
+  defaultAmount: number
+}
+
 interface Props {
   prescriptionId: string
   data: PrescriptionData
   canEdit: boolean
   initialTemplates: ExamTemplate[]
-  formRef?: React.RefObject<HTMLFormElement | null>
+  /** Treatment master list — enables the editable Treatment Plan section */
+  treatments?: TreatmentOption[]
+  /** Submit label override (e.g. "Save & Finish Consultation") */
+  submitLabel?: string
   onSaveSuccess?: () => void
+  /** Fires whenever the treatment plan changes, so a parent wizard can carry it into the estimate */
+  onTreatmentsChange?: (treatments: PrescriptionTreatment[]) => void
+  /** The patient's previous prescription — enables a "Load from last visit" shortcut */
+  previousData?: Pick<PrescriptionData, "chiefComplaint" | "onExamination" | "treatments" | "medicines" | "advice"> | null
+  /** Create-on-save mode: no record exists yet; only created when the doctor saves real data. */
+  newForVisitId?: string
 }
 
-function SubmitButton() {
-  const { pending } = useFormStatus()
-  return (
-    <Button
-      type="submit"
-      disabled={pending}
-      className="h-10 px-6 font-semibold text-white"
-      style={{ backgroundColor: pending ? BRAND_COLORS.borderDivider : BRAND_COLORS.primaryTeal }}
-    >
-      {pending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : "Save Prescription"}
-    </Button>
-  )
+export interface PrescriptionEditorHandle {
+  /** Saves the prescription and resolves true on success. */
+  save: () => Promise<boolean>
 }
 
 const emptyMed: PrescriptionMedicine = { name: "", dosage: "", frequency: "", duration: "", instructions: "" }
 const emptyFinding: ExaminationFinding = { toothNumbers: "", finding: "" }
+const emptyTreatment: PrescriptionTreatment = { treatmentName: "", category: "OTHER", toothNumber: "", quantity: 1 }
 const cellCls = "h-9 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white"
 
-export function PrescriptionEditor({ prescriptionId, data, canEdit, initialTemplates, formRef: externalFormRef, onSaveSuccess }: Props) {
-  const internalFormRef = useRef<HTMLFormElement>(null)
-  const resolvedRef = externalFormRef ?? internalFormRef
-  const boundAction = updatePrescriptionAction.bind(null, prescriptionId)
-  const [state, formAction] = useActionState(boundAction, {} as PrescriptionFormState)
-
-  useEffect(() => {
-    if (state.success && onSaveSuccess) onSaveSuccess()
-  }, [state.success]) // eslint-disable-line react-hooks/exhaustive-deps
+export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(function PrescriptionEditor(
+  { prescriptionId, data, canEdit, initialTemplates, treatments = [], submitLabel, onSaveSuccess, onTreatmentsChange, previousData, newForVisitId }: Props,
+  ref
+) {
+  const router = useRouter()
+  const [saving, startSaving] = useTransition()
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
 
   const [chiefComplaint, setChiefComplaint] = useState(data.chiefComplaint ?? "")
   const [findings, setFindings] = useState<ExaminationFinding[]>(
     data.onExamination && data.onExamination.length > 0 ? data.onExamination : [{ ...emptyFinding }]
+  )
+  const [treatmentPlan, setTreatmentPlan] = useState<PrescriptionTreatment[]>(
+    data.treatments && data.treatments.length > 0 ? data.treatments : [{ ...emptyTreatment }]
   )
   const [medicines, setMedicines] = useState<PrescriptionMedicine[]>(
     data.medicines.length > 0 ? data.medicines : [{ ...emptyMed }]
@@ -131,18 +141,115 @@ export function PrescriptionEditor({ prescriptionId, data, canEdit, initialTempl
     })
   }
 
+  // ── Treatment plan helpers ────────────────────────────────────
+  const treatmentsByCategory = treatments.reduce<Record<string, TreatmentOption[]>>((acc, t) => {
+    ;(acc[t.category] ??= []).push(t)
+    return acc
+  }, {})
+
+  function setTreatment<K extends keyof PrescriptionTreatment>(idx: number, key: K, val: PrescriptionTreatment[K]) {
+    setTreatmentPlan((prev) => prev.map((t, i) => (i === idx ? { ...t, [key]: val } : t)))
+  }
+  function selectTreatmentMaster(idx: number, treatmentId: string) {
+    const t = treatments.find((x) => x.id === treatmentId)
+    setTreatmentPlan((prev) =>
+      prev.map((row, i) =>
+        i === idx
+          ? {
+              ...row,
+              treatmentId: t?.id ?? undefined,
+              treatmentName: t?.name ?? row.treatmentName,
+              category: t?.category ?? row.category,
+            }
+          : row
+      )
+    )
+  }
+  function addTreatment() { setTreatmentPlan((prev) => [...prev, { ...emptyTreatment }]) }
+  function removeTreatment(idx: number) { setTreatmentPlan((prev) => prev.filter((_, i) => i !== idx)) }
+
   // ── Medicine helpers ──────────────────────────────────────────
   function setMed(idx: number, key: keyof PrescriptionMedicine, val: string) {
     setMedicines((prev) => prev.map((m, i) => i === idx ? { ...m, [key]: val } : m))
   }
 
+  const cleanTreatments = treatmentPlan
+    .filter((t) => t.treatmentName.trim())
+    .map((t) => ({
+      treatmentId: t.treatmentId || undefined,
+      treatmentName: t.treatmentName.trim(),
+      category: t.category || "OTHER",
+      toothNumber: t.toothNumber || undefined,
+      quantity: Number(t.quantity) || 1,
+    }))
+
   const payload = JSON.stringify({
     chiefComplaint: chiefComplaint.trim(),
     onExamination: findings.filter((f) => f.finding.trim()),
+    treatments: cleanTreatments,
     medicines: medicines.filter((m) => m.name.trim()),
     advice,
     followUpDate: followUpDate || undefined,
   })
+
+  // Report treatment-plan changes up so a parent wizard can prefill the estimate.
+  useEffect(() => {
+    onTreatmentsChange?.(cleanTreatments)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payload])
+
+  async function doSave(): Promise<boolean> {
+    setSaveError(null)
+    setSaved(false)
+    const fd = new FormData()
+    fd.set("payload", payload)
+    return new Promise<boolean>((resolve) => {
+      startSaving(async () => {
+        // Create-on-save: the record is created only now, with the entered data.
+        if (newForVisitId && !prescriptionId) {
+          const result = await saveNewVisitPrescriptionAction(newForVisitId, {}, fd)
+          if (result.success && result.prescriptionId) {
+            onSaveSuccess?.()
+            router.replace(`/doctor/prescription/${result.prescriptionId}`)
+            resolve(true)
+          } else {
+            setSaveError(result.error ?? "Failed to save prescription.")
+            resolve(false)
+          }
+          return
+        }
+        const result = await updatePrescriptionAction(prescriptionId, {}, fd)
+        if (result.success) {
+          setSaved(true)
+          onSaveSuccess?.()
+          resolve(true)
+        } else {
+          setSaveError(result.error ?? "Failed to save prescription.")
+          resolve(false)
+        }
+      })
+    })
+  }
+
+  useImperativeHandle(ref, () => ({ save: doSave }))
+
+  function loadFromPrevious() {
+    if (!previousData) return
+    if (previousData.chiefComplaint) setChiefComplaint(previousData.chiefComplaint)
+    if (previousData.onExamination && previousData.onExamination.length) setFindings(previousData.onExamination.map((f) => ({ ...f })))
+    if (previousData.treatments && previousData.treatments.length) setTreatmentPlan(previousData.treatments.map((t) => ({ ...t })))
+    if (previousData.medicines && previousData.medicines.length) setMedicines(previousData.medicines.map((m) => ({ ...m })))
+    if (previousData.advice) setAdvice(previousData.advice)
+    toast.success("Loaded from the patient's last prescription — edit as needed and save")
+  }
+
+  const hasPrevious = !!(
+    previousData &&
+    ((previousData.treatments?.length ?? 0) > 0 ||
+      (previousData.medicines?.length ?? 0) > 0 ||
+      (previousData.onExamination?.length ?? 0) > 0 ||
+      previousData.chiefComplaint)
+  )
 
   if (!canEdit) return null
 
@@ -156,16 +263,26 @@ export function PrescriptionEditor({ prescriptionId, data, canEdit, initialTempl
   )
 
   return (
-    <form ref={resolvedRef} action={formAction} className="space-y-6">
-      <input type="hidden" name="payload" value={payload} />
-
-      {state.error && (
+    <form onSubmit={(e) => { e.preventDefault(); doSave() }} className="space-y-6">
+      {hasPrevious && (
+        <div className="flex items-center justify-between gap-3 flex-wrap rounded-lg border p-3"
+          style={{ borderColor: BRAND_COLORS.lightBackground, backgroundColor: "#F7F9FB" }}>
+          <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+            This patient has a prescription from a previous visit. Continue it, or leave blank to write a fresh one.
+          </p>
+          <Button type="button" variant="outline" size="sm" onClick={loadFromPrevious} className="gap-1.5 text-xs shrink-0">
+            <BookOpen className="h-3.5 w-3.5" />
+            Load from last prescription
+          </Button>
+        </div>
+      )}
+      {saveError && (
         <Alert variant="destructive" className="border-red-200 bg-red-50">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{state.error}</AlertDescription>
+          <AlertDescription>{saveError}</AlertDescription>
         </Alert>
       )}
-      {state.success && (
+      {saved && (
         <Alert className="border-green-200 bg-green-50 text-green-800">
           <CheckCircle2 className="h-4 w-4" />
           <AlertDescription>Prescription saved.</AlertDescription>
@@ -323,7 +440,97 @@ export function PrescriptionEditor({ prescriptionId, data, canEdit, initialTempl
         </button>
       </div>
 
-      {/* ── 3. Medicines ─────────────────────────────────────── */}
+      {/* ── 3. Treatment Plan ────────────────────────────────── */}
+      <div className="space-y-3">
+        {sectionHeader("Treatment Plan")}
+        <p className="text-xs -mt-1" style={{ color: BRAND_COLORS.borderDivider }}>
+          Add the treatments the patient needs. These carry over to the estimate in the next step (no prices here).
+        </p>
+        <div className="space-y-2">
+          {treatmentPlan.map((t, idx) => (
+            <div key={idx} className="rounded-lg border border-[#E0E3E5] p-3 bg-white">
+              <div className="flex items-start gap-2">
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-2">
+                  {/* Treatment picker + name */}
+                  <div className="md:col-span-6 space-y-1.5">
+                    {treatments.length > 0 && (
+                      <select
+                        className="w-full h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE]"
+                        value={t.treatmentId ?? ""}
+                        onChange={(e) => selectTreatmentMaster(idx, e.target.value)}
+                      >
+                        <option value="">— Select treatment —</option>
+                        {Object.entries(treatmentsByCategory).map(([cat, treats]) => (
+                          <optgroup key={cat} label={cat}>
+                            {treats.map((tr) => (
+                              <option key={tr.id} value={tr.id}>
+                                {tr.name} (₹{tr.defaultAmount.toLocaleString("en-IN")})
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    )}
+                    <Input
+                      value={t.treatmentName}
+                      onChange={(e) => setTreatment(idx, "treatmentName", e.target.value)}
+                      placeholder="Treatment name (e.g. Root Canal Treatment)"
+                      className={cellCls}
+                    />
+                  </div>
+                  {/* Tooth */}
+                  <div className="md:col-span-4 flex items-center gap-2">
+                    <span className="text-xs font-medium shrink-0" style={{ color: BRAND_COLORS.borderDivider }}>
+                      Tooth(s):
+                    </span>
+                    <ToothSelector
+                      value={t.toothNumber ?? ""}
+                      onChange={(val) => setTreatment(idx, "toothNumber", val)}
+                      compact
+                    />
+                    {t.toothNumber && (
+                      <span className="text-xs font-mono px-1.5 py-0.5 rounded"
+                        style={{ backgroundColor: `${BRAND_COLORS.primaryTeal}15`, color: BRAND_COLORS.primaryTeal }}>
+                        {t.toothNumber}
+                      </span>
+                    )}
+                  </div>
+                  {/* Qty */}
+                  <div className="md:col-span-2 flex items-center gap-2">
+                    <span className="text-xs font-medium shrink-0" style={{ color: BRAND_COLORS.borderDivider }}>Qty</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={t.quantity}
+                      onChange={(e) => setTreatment(idx, "quantity", Math.max(1, parseInt(e.target.value) || 1))}
+                      className={`${cellCls} text-center`}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeTreatment(idx)}
+                  className="mt-1 p-1.5 rounded hover:bg-red-50 text-red-400 shrink-0"
+                  aria-label="Remove treatment"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={addTreatment}
+          className="flex items-center gap-1.5 text-sm font-medium hover:underline"
+          style={{ color: BRAND_COLORS.primaryTeal }}
+        >
+          <Plus className="h-4 w-4" />
+          Add treatment
+        </button>
+      </div>
+
+      {/* ── 4. Medicines ─────────────────────────────────────── */}
       <div className="space-y-2">
         {sectionHeader("℞ Medicines")}
         <div className="overflow-x-auto">
@@ -401,8 +608,15 @@ export function PrescriptionEditor({ prescriptionId, data, canEdit, initialTempl
       </div>
 
       <div className="flex items-center gap-3 pt-2 border-t" style={{ borderColor: BRAND_COLORS.lightBackground }}>
-        <SubmitButton />
+        <Button
+          type="submit"
+          disabled={saving}
+          className="h-10 px-6 font-semibold text-white"
+          style={{ backgroundColor: saving ? BRAND_COLORS.borderDivider : BRAND_COLORS.primaryTeal }}
+        >
+          {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : (submitLabel ?? "Save Prescription")}
+        </Button>
       </div>
     </form>
   )
-}
+})

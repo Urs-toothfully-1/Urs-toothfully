@@ -14,6 +14,8 @@ interface Payment {
   estimate?: { estimateNo: string } | null
   visit?: { visitNo: string } | null
   receipt?: { id: string; receiptNo: string } | null
+  /** e.g. "1st Installment" / stage name — shown next to the Treatment badge */
+  installmentLabel?: string | null
 }
 
 const TYPE_STYLE: Record<string, { label: string; bg: string; color: string }> = {
@@ -41,10 +43,13 @@ export function PaymentCard({ payment }: { payment: Payment }) {
       <div className="flex gap-3">
         {/* Type badge */}
         <div
-          className="flex-shrink-0 text-xs font-bold px-2 py-1 rounded h-fit mt-0.5"
+          className="flex-shrink-0 text-xs font-bold px-2 py-1 rounded h-fit mt-0.5 text-center"
           style={{ backgroundColor: style.bg, color: style.color }}
         >
           {style.label}
+          {payment.installmentLabel && (
+            <span className="block text-[10px] font-medium mt-0.5">{payment.installmentLabel}</span>
+          )}
         </div>
 
         <div>

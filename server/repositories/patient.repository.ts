@@ -6,9 +6,10 @@ export type PatientWithBranch = Patient & {
   createdBy: { id: string; name: string }
 }
 
-function searchWhere(q: string) {
+function searchWhere(q: string, branchId?: string) {
   return {
     isDeleted: false,
+    ...(branchId ? { registrationBranchId: branchId } : {}),
     OR: [
       { patientId: { contains: q, mode: "insensitive" as const } },
       { fullName: { contains: q, mode: "insensitive" as const } },
@@ -21,10 +22,10 @@ function searchWhere(q: string) {
 export const SEARCH_PAGE_SIZE = 20
 
 export const patientRepository = {
-  async search(query: string, page = 1): Promise<PatientWithBranch[]> {
+  async search(query: string, page = 1, branchId?: string): Promise<PatientWithBranch[]> {
     const q = query.trim()
     return prisma.patient.findMany({
-      where: searchWhere(q),
+      where: searchWhere(q, branchId),
       include: {
         registrationBranch: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
@@ -35,8 +36,8 @@ export const patientRepository = {
     })
   },
 
-  async searchCount(query: string): Promise<number> {
-    return prisma.patient.count({ where: searchWhere(query.trim()) })
+  async searchCount(query: string, branchId?: string): Promise<number> {
+    return prisma.patient.count({ where: searchWhere(query.trim(), branchId) })
   },
 
   async findById(id: string): Promise<PatientWithBranch | null> {
@@ -129,9 +130,9 @@ export const patientRepository = {
     })
   },
 
-  async findAllWithTreatmentStatus() {
+  async findAllWithTreatmentStatus(branchId?: string) {
     return prisma.patient.findMany({
-      where: { isDeleted: false },
+      where: { isDeleted: false, ...(branchId ? { registrationBranchId: branchId } : {}) },
       select: {
         id: true,
         patientId: true,

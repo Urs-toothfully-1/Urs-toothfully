@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useRef, useState } from "react"
+import { useActionState, useRef, useState, useTransition } from "react"
 import { useFormStatus } from "react-dom"
 import { createEstimateAction, updateEstimateAction, EstimateFormState } from "@/actions/estimates"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ interface Treatment {
 
 interface EstimateItem {
   _key: string
+  id?: string
   treatmentId: string
   treatmentName: string
   category: string
@@ -28,15 +29,18 @@ interface EstimateItem {
   quantity: number
   unitRate: number
   amount: number
+  plannedSittings: number
 }
 
 interface InitialItem {
+  id?: string
   treatmentId: string
   treatmentName: string
   category: string
   toothNumber: string
   quantity: number
   unitRate: number
+  plannedSittings?: number
 }
 
 interface Props {
@@ -54,6 +58,10 @@ interface Props {
   initialItems?: InitialItem[]
   initialNotes?: string
   initialDiscountPercent?: number
+  // Wizard-embedded mode: save without redirect, then call onSaved
+  mode?: "page" | "wizard"
+  onSaved?: (estimateId: string) => void
+  submitLabel?: string
 }
 
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
@@ -76,9 +84,13 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   )
 }
 
+// Stable, non-random row-key generator (Math.random in render is impure/flagged).
+let rowKeySeq = 0
+const makeRowKey = () => `row-${rowKeySeq++}`
+
 function newItem(): EstimateItem {
   return {
-    _key: Math.random().toString(36).slice(2),
+    _key: makeRowKey(),
     treatmentId: "",
     treatmentName: "",
     category: "",
@@ -86,6 +98,7 @@ function newItem(): EstimateItem {
     quantity: 1,
     unitRate: 0,
     amount: 0,
+    plannedSittings: 1,
   }
 }
 
@@ -95,20 +108,56 @@ export function EstimateBuilder({
   patientId, visitId, branchId, patientName, visitNo, doctorName,
   treatments, advancePercent, allowDiscount,
   estimateId, initialItems, initialNotes, initialDiscountPercent,
+  mode = "page", onSaved, submitLabel,
 }: Props) {
   const isEdit = !!estimateId
+  const isWizard = mode === "wizard"
   const [state, formAction] = useActionState(
     isEdit ? updateEstimateAction : createEstimateAction,
     {} as EstimateFormState
   )
-  const [items, setItems] = useState<EstimateItem[]>(
+  // Wizard mode saves by awaiting the action directly (no redirect, no
+  // useEffect-on-success race) — this is also what fixes the Safari "Save & Next" hang.
+  const [wizardPending, startWizardSave] = useTransition()
+  const [wizardError, setWizardError] = useState<string | null>(null)
+  const [items, setItems] = useState<EstimateItem[]>(() =>
     initialItems && initialItems.length > 0
-      ? initialItems.map((i) => ({ ...i, amount: i.quantity * i.unitRate, _key: Math.random().toString(36).slice(2) }))
+      ? initialItems.map((i) => ({ ...i, plannedSittings: i.plannedSittings ?? 1, amount: i.quantity * i.unitRate, _key: makeRowKey() }))
       : [newItem()]
   )
   const [discountPercent, setDiscountPercent] = useState(initialDiscountPercent ?? 0)
   const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({})
   const formRef = useRef<HTMLFormElement>(null)
+
+  function buildFormData(): FormData {
+    const fd = new FormData()
+    fd.set("patientId", patientId)
+    fd.set("visitId", visitId)
+    fd.set("branchId", branchId)
+    if (estimateId) fd.set("estimateId", estimateId)
+    fd.set("itemsJson", JSON.stringify(items))
+    fd.set("discountPercent", String(discountPercent))
+    fd.set("notes", formRef.current?.querySelector<HTMLTextAreaElement>('textarea[name="notes"]')?.value ?? "")
+    fd.set("stayInWizard", "true")
+    return fd
+  }
+
+  function handleWizardSave() {
+    setWizardError(null)
+    const invalid = items.some((i) => !i.treatmentName.trim() || !i.quantity || !i.unitRate)
+    if (invalid) {
+      setWizardError("Every treatment needs a name, quantity, and rate before saving.")
+      return
+    }
+    startWizardSave(async () => {
+      // No estimate yet → create it lazily; otherwise update in place.
+      const result = estimateId
+        ? await updateEstimateAction({}, buildFormData())
+        : await createEstimateAction({}, buildFormData())
+      if (result.error) setWizardError(result.error)
+      else if (result.success) onSaved?.(result.estimateId ?? estimateId ?? "")
+    })
+  }
 
   // Grouped treatments by category
   const byCategory = treatments.reduce<Record<string, Treatment[]>>((acc, t) => {
@@ -167,17 +216,22 @@ export function EstimateBuilder({
   }
 
   return (
-    <form ref={formRef} action={formAction} onSubmit={handleSubmit} className="space-y-5">
+    <form
+      ref={formRef}
+      action={isWizard ? undefined : formAction}
+      onSubmit={isWizard ? (e) => e.preventDefault() : handleSubmit}
+      className="space-y-5"
+    >
       <input type="hidden" name="patientId" value={patientId} />
       <input type="hidden" name="visitId" value={visitId} />
       <input type="hidden" name="branchId" value={branchId} />
       {estimateId && <input type="hidden" name="estimateId" value={estimateId} />}
       <input type="hidden" name="itemsJson" defaultValue="" />
 
-      {state.error && (
+      {(isWizard ? wizardError : state.error) && (
         <Alert variant="destructive" className="border-red-200 bg-red-50">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{state.error}</AlertDescription>
+          <AlertDescription>{isWizard ? wizardError : state.error}</AlertDescription>
         </Alert>
       )}
 
@@ -216,6 +270,9 @@ export function EstimateBuilder({
               </th>
               <th className="text-center px-3 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
                 Qty
+              </th>
+              <th className="text-center px-3 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+                Sittings
               </th>
               <th className="text-right px-3 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
                 Rate (₹)
@@ -292,6 +349,18 @@ export function EstimateBuilder({
                       handleChange(item._key, "quantity", n)
                     }}
                     className={`${inputCls} text-center`}
+                  />
+                </td>
+
+                {/* Sittings (planned) */}
+                <td className="px-2 py-2 w-20">
+                  <Input
+                    type="number"
+                    min={1}
+                    value={item.plannedSittings}
+                    onChange={(e) => handleChange(item._key, "plannedSittings", Math.max(1, parseInt(e.target.value) || 1))}
+                    className={`${inputCls} text-center`}
+                    title="Number of sittings planned for this treatment"
                   />
                 </td>
 
@@ -416,14 +485,32 @@ export function EstimateBuilder({
         className="flex items-center gap-4 pt-2 border-t"
         style={{ borderColor: BRAND_COLORS.lightBackground }}
       >
-        <SubmitButton isEdit={!!estimateId} />
-        <a
-          href={estimateId ? `/doctor/estimate/${estimateId}/wizard` : "/doctor"}
-          className="text-sm font-medium hover:underline"
-          style={{ color: BRAND_COLORS.borderDivider }}
-        >
-          Cancel
-        </a>
+        {isWizard ? (
+          <Button
+            type="button"
+            onClick={handleWizardSave}
+            disabled={wizardPending}
+            className="h-10 px-6 font-semibold text-white"
+            style={{ backgroundColor: wizardPending ? BRAND_COLORS.borderDivider : BRAND_COLORS.primaryTeal }}
+          >
+            {wizardPending ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</>
+            ) : (
+              <><Save className="mr-2 h-4 w-4" />{submitLabel ?? "Save Estimate"}</>
+            )}
+          </Button>
+        ) : (
+          <>
+            <SubmitButton isEdit={!!estimateId} />
+            <a
+              href={estimateId ? `/doctor/estimate/${estimateId}/wizard` : "/doctor"}
+              className="text-sm font-medium hover:underline"
+              style={{ color: BRAND_COLORS.borderDivider }}
+            >
+              Cancel
+            </a>
+          </>
+        )}
       </div>
     </form>
   )

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { prescriptionRepository } from "@/server/repositories/prescription.repository"
 import { dentalHistoryRepository } from "@/server/repositories/dental-history.repository"
 import { createAuditLog } from "@/lib/audit"
-import { calculateAge, type PrescriptionData, type PrescriptionMedicine, type ExaminationFinding } from "@/lib/prescription-types"
+import { calculateAge, type PrescriptionData, type PrescriptionMedicine, type ExaminationFinding, type PrescriptionTreatment } from "@/lib/prescription-types"
 import type { DentalHistory } from "@prisma/client"
 import { z } from "zod"
 
@@ -19,9 +19,18 @@ export const examinationFindingSchema = z.object({
   finding: z.string().min(1).max(500),
 })
 
+export const treatmentPlanSchema = z.object({
+  treatmentId: z.string().optional(),
+  treatmentName: z.string().min(1).max(200),
+  category: z.string().max(100).default("OTHER"),
+  toothNumber: z.string().max(200).optional(),
+  quantity: z.number().int().min(1).max(99).default(1),
+})
+
 export const updatePrescriptionSchema = z.object({
   chiefComplaint: z.string().max(500).default(""),
   onExamination: z.array(examinationFindingSchema).max(20).default([]),
+  treatments: z.array(treatmentPlanSchema).max(40).default([]),
   medicines: z.array(medicineSchema).max(30),
   advice: z.string().max(2000).default(""),
   followUpDate: z.string().optional(),
@@ -127,6 +136,100 @@ export const prescriptionService = {
     return prescription
   },
 
+  /**
+   * Builds the prescription snapshot for a visit WITHOUT persisting it — used to
+   * render a blank "new prescription" form so nothing is saved until the doctor
+   * actually enters data.
+   */
+  async buildDraftForVisit(visitId: string): Promise<PrescriptionData | null> {
+    const visit = await prisma.patientVisit.findUnique({
+      where: { id: visitId },
+      include: {
+        patient: { select: { id: true, patientId: true, fullName: true, dateOfBirth: true, gender: true, mobile: true } },
+        doctor: { select: { name: true, doctorRegNo: true } },
+        branch: { select: { name: true } },
+      },
+    })
+    if (!visit) return null
+    const history = await dentalHistoryRepository.findLatestByPatient(visit.patientId)
+    return {
+      patient: {
+        name: visit.patient.fullName,
+        patientId: visit.patient.patientId,
+        age: calculateAge(visit.patient.dateOfBirth),
+        gender: visit.patient.gender,
+        mobile: visit.patient.mobile,
+      },
+      medicalAlerts: buildMedicalAlerts(history),
+      treatments: [],
+      doctorName: visit.doctor?.name ?? "",
+      doctorRegNo: visit.doctor?.doctorRegNo ?? undefined,
+      branchName: visit.branch.name,
+      date: new Date().toISOString(),
+      medicines: [],
+      advice: "",
+    }
+  },
+
+  /**
+   * Ensures a prescription exists for ANY visit (e.g. a treatment session, where
+   * there is no estimate to snapshot). Reuses an existing one; otherwise creates a
+   * fresh prescription from patient details + dental-history alerts.
+   */
+  async ensureForVisit(visitId: string, createdById: string) {
+    const existing = await prescriptionRepository.findByVisit(visitId)
+    if (existing) return existing
+
+    const visit = await prisma.patientVisit.findUnique({
+      where: { id: visitId },
+      include: {
+        patient: { select: { id: true, patientId: true, fullName: true, dateOfBirth: true, gender: true, mobile: true } },
+        doctor: { select: { id: true, name: true, doctorRegNo: true } },
+        branch: { select: { name: true } },
+      },
+    })
+    if (!visit || !visit.doctorId) throw new Error("Visit not found or has no assigned doctor")
+
+    const history = await dentalHistoryRepository.findLatestByPatient(visit.patientId)
+
+    const data: PrescriptionData = {
+      patient: {
+        name: visit.patient.fullName,
+        patientId: visit.patient.patientId,
+        age: calculateAge(visit.patient.dateOfBirth),
+        gender: visit.patient.gender,
+        mobile: visit.patient.mobile,
+      },
+      medicalAlerts: buildMedicalAlerts(history),
+      treatments: [],
+      doctorName: visit.doctor?.name ?? "",
+      doctorRegNo: visit.doctor?.doctorRegNo ?? undefined,
+      branchName: visit.branch.name,
+      date: new Date().toISOString(),
+      medicines: [],
+      advice: "",
+    }
+
+    const prescription = await prescriptionRepository.create({
+      patientId: visit.patientId,
+      visitId,
+      doctorId: visit.doctorId,
+      mode: "PARTIAL_DIGITAL",
+      prescriptionData: JSON.parse(JSON.stringify(data)),
+    })
+
+    await createAuditLog({
+      entityType: "PrescriptionRecord",
+      entityId: prescription.id,
+      action: "CREATE",
+      changedById: createdById,
+      newValues: { visitNo: visit.visitNo },
+      branchId: visit.branchId,
+    })
+
+    return prescription
+  },
+
   /** Doctor edits chief complaint, examination findings, medicines, advice, follow-up. */
   async update(id: string, input: UpdatePrescriptionInput, updatedById: string) {
     const record = await prescriptionRepository.findById(id)
@@ -137,6 +240,7 @@ export const prescriptionService = {
       ...current,
       chiefComplaint: input.chiefComplaint || undefined,
       onExamination: (input.onExamination as ExaminationFinding[]).filter((f) => f.finding.trim()),
+      treatments: (input.treatments as PrescriptionTreatment[]).filter((t) => t.treatmentName.trim()),
       medicines: input.medicines as PrescriptionMedicine[],
       advice: input.advice,
       followUpDate: input.followUpDate || undefined,

@@ -26,14 +26,39 @@ export default async function PaymentsPage({ params }: Props) {
     estimateRepository.findByPatient(patientId),
   ])
 
-  // Fetch payment schedule for each active estimate (saved or auto-suggested)
-  const activeEstimates = (estimates as any[]).filter((e) => e.status === "ACTIVE" && !e.isDeleted)
+  // Fetch payment schedule for each active estimate (saved or auto-suggested).
+  // Skip empty estimates (0 items / ₹0) — a prescription-only consultation has none.
+  const activeEstimates = (estimates as any[]).filter(
+    (e) => e.status === "ACTIVE" && !e.isDeleted && (e.items?.length ?? 0) > 0 && Number(e.total) > 0
+  )
   const agreementResults = await Promise.all(
     activeEstimates.map((e: any) => paymentAgreementService.getOrSuggest(e.id))
   )
   const agreementByEstimate = Object.fromEntries(
     activeEstimates.map((e: any, i: number) => [e.id, agreementResults[i]])
   )
+
+  // Installment label per treatment/advance payment: its ordinal among that
+  // estimate's treatment payments, using the agreement stage name when available.
+  const ordinal = (n: number) => {
+    const s = ["th", "st", "nd", "rd"], v = n % 100
+    return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]} Installment`
+  }
+  const installmentLabelByPaymentId: Record<string, string> = {}
+  const txByEstimate: Record<string, any[]> = {}
+  for (const p of payments as any[]) {
+    const eid = p.estimateId ?? p.estimate?.id
+    if (!p.isDeleted && eid && (p.paymentType === "TREATMENT" || p.paymentType === "ADVANCE")) {
+      ;(txByEstimate[eid] ??= []).push(p)
+    }
+  }
+  for (const [eid, list] of Object.entries(txByEstimate)) {
+    list.sort((a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime())
+    const stages = (agreementByEstimate[eid]?.stages as any[]) ?? []
+    list.forEach((p, i) => {
+      installmentLabelByPaymentId[p.id] = (stages[i]?.name as string | undefined) ?? ordinal(i + 1)
+    })
+  }
 
   type P = { paymentType: string; isDeleted: boolean; amount: unknown }
   const consultation = payments
@@ -231,6 +256,7 @@ export default async function PaymentsPage({ params }: Props) {
                     estimate: (payment as any).estimate,
                     visit: (payment as any).visit,
                     receipt: (payment as any).receipt,
+                    installmentLabel: installmentLabelByPaymentId[payment.id] ?? null,
                   }}
                 />
               ))}

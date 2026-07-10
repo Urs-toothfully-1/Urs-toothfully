@@ -11,6 +11,7 @@ export const estimateItemSchema = z.object({
   toothNumber: z.string().max(120).optional(),
   quantity: z.number().int().positive().default(1),
   unitRate: z.number().positive(),
+  plannedSittings: z.number().int().min(1).max(99).default(1),
   sortOrder: z.number().int().default(0),
 })
 
@@ -52,6 +53,7 @@ export const estimateService = {
       ...item,
       unitRate: new Decimal(item.unitRate),
       amount: new Decimal(item.quantity * item.unitRate),
+      plannedSittings: item.plannedSittings ?? 1,
     }))
 
     const subtotal = items.reduce((sum, item) => sum + Number(item.amount), 0)
@@ -101,6 +103,58 @@ export const estimateService = {
     }
 
     return estimate
+  },
+
+  /**
+   * Prescription-first entry: ensures an ACTIVE estimate exists for the visit
+   * (empty if new) plus its auto-created prescription, and returns the estimate id.
+   */
+  async ensureForVisit(input: { patientId: string; branchId: string; visitId: string }, doctorId: string) {
+    const existing = await estimateRepository.findByVisit(input.visitId)
+    if (existing) return existing.id
+
+    const estimateNo = await generateNextEstimateNo()
+    const estimate = await estimateRepository.createEmpty({
+      estimateNo,
+      patientId: input.patientId,
+      branchId: input.branchId,
+      doctorId,
+      visitId: input.visitId,
+    })
+
+    await createAuditLog({
+      entityType: "Estimate",
+      entityId: estimate.id,
+      action: "CREATE",
+      changedById: doctorId,
+      newValues: { estimateNo, total: 0, itemCount: 0 },
+      branchId: input.branchId,
+    })
+
+    try {
+      const { prescriptionService } = await import("@/server/services/prescription.service")
+      await prescriptionService.createFromEstimate(estimate.id, doctorId)
+    } catch (err) {
+      console.error("Auto-prescription creation failed:", err)
+    }
+
+    return estimate.id
+  },
+
+  async updateItemSittings(
+    itemId: string,
+    data: { plannedSittings?: number; completedSittings?: number; status?: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" },
+    updatedById: string
+  ) {
+    const item = await estimateRepository.updateItemSittings(itemId, { ...data, updatedById })
+    await createAuditLog({
+      entityType: "EstimateItem",
+      entityId: itemId,
+      action: "STATUS_CHANGE",
+      changedById: updatedById,
+      newValues: { ...data },
+    })
+    return item
   },
 
   async updateItemStatus(

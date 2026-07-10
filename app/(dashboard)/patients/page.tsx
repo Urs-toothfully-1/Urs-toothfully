@@ -145,16 +145,21 @@ function PatientCard({ p, badgeLabel, badgeBg, badgeColor }: {
 function StageFilterCards({
   counts,
   activeStage,
+  scopeAll,
 }: {
   counts: Record<StageKey, number>
   activeStage: StageKey | null
+  scopeAll: boolean
 }) {
+  const scopeQs = scopeAll ? "scope=all" : ""
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {SECTIONS.map((s) => {
         const Icon = s.icon
         const isActive = activeStage === s.key
-        const href = isActive ? "/patients" : `/patients?stage=${s.key}`
+        const href = isActive
+          ? `/patients${scopeQs ? `?${scopeQs}` : ""}`
+          : `/patients?stage=${s.key}${scopeQs ? `&${scopeQs}` : ""}`
 
         return (
           <Link key={s.key} href={href}>
@@ -191,8 +196,9 @@ function StageFilterCards({
 
 // ── Main list logic ───────────────────────────────────────────────────────────
 
-async function PatientListView({ stage }: { stage: StageKey | null }) {
-  const allPatients = await patientRepository.findAllWithTreatmentStatus()
+async function PatientListView({ stage, branchId, scopeAll }: { stage: StageKey | null; branchId?: string; scopeAll: boolean }) {
+  const allPatients = await patientRepository.findAllWithTreatmentStatus(branchId)
+  const scopeQs = scopeAll ? "scope=all" : ""
 
   const buckets: Record<StageKey, PatientRow[]> = {
     "pre-consultation": [],
@@ -216,7 +222,7 @@ async function PatientListView({ stage }: { stage: StageKey | null }) {
   if (totalPatients === 0) {
     return (
       <>
-        <StageFilterCards counts={counts} activeStage={stage} />
+        <StageFilterCards counts={counts} activeStage={stage} scopeAll={scopeAll} />
         <div className="text-center py-12">
           <Users className="h-12 w-12 mx-auto mb-3" style={{ color: BRAND_COLORS.lightBackground }} />
           <p className="text-sm" style={{ color: BRAND_COLORS.borderDivider }}>No patients registered yet.</p>
@@ -230,7 +236,7 @@ async function PatientListView({ stage }: { stage: StageKey | null }) {
 
   return (
     <>
-      <StageFilterCards counts={counts} activeStage={stage} />
+      <StageFilterCards counts={counts} activeStage={stage} scopeAll={scopeAll} />
 
       {/* Active filter: show only that stage */}
       {stage ? (() => {
@@ -252,7 +258,7 @@ async function PatientListView({ stage }: { stage: StageKey | null }) {
                   </span>
                 </CardTitle>
                 <Link
-                  href="/patients"
+                  href={`/patients${scopeQs ? `?${scopeQs}` : ""}`}
                   className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#E0E3E5] hover:bg-gray-50"
                   style={{ color: BRAND_COLORS.borderDivider }}
                 >
@@ -304,7 +310,7 @@ async function PatientListView({ stage }: { stage: StageKey | null }) {
                       {patients.length}
                     </span>
                     <Link
-                      href={`/patients?stage=${s.key}`}
+                      href={`/patients?stage=${s.key}${scopeQs ? `&${scopeQs}` : ""}`}
                       className="ml-auto text-xs font-normal hover:underline"
                       style={{ color: BRAND_COLORS.primaryTeal }}
                     >
@@ -341,15 +347,15 @@ async function PatientListView({ stage }: { stage: StageKey | null }) {
   )
 }
 
-async function SearchResults({ query, page }: { query: string; page: number }) {
+async function SearchResults({ query, page, branchId, scopeAll }: { query: string; page: number; branchId?: string; scopeAll: boolean }) {
   const [patients, total] = await Promise.all([
-    patientRepository.search(query, page),
-    patientRepository.searchCount(query),
+    patientRepository.search(query, page, branchId),
+    patientRepository.searchCount(query, branchId),
   ])
   const totalPages = Math.max(1, Math.ceil(total / SEARCH_PAGE_SIZE))
   const from = (page - 1) * SEARCH_PAGE_SIZE + 1
   const to = Math.min(page * SEARCH_PAGE_SIZE, total)
-  const pageHref = (p: number) => `/patients?q=${encodeURIComponent(query)}&page=${p}`
+  const pageHref = (p: number) => `/patients?q=${encodeURIComponent(query)}&page=${p}${scopeAll ? "&scope=all" : ""}`
 
   if (patients.length === 0) {
     return (
@@ -411,24 +417,30 @@ async function SearchResults({ query, page }: { query: string; page: number }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  searchParams: Promise<{ q?: string; stage?: string; page?: string }>
+  searchParams: Promise<{ q?: string; stage?: string; page?: string; scope?: string }>
 }
 
 const VALID_STAGES = new Set<StageKey>(["pre-consultation", "awaiting-treatment", "ongoing", "completed"])
 
 export default async function PatientsPage({ searchParams }: Props) {
-  await requireSession()
-  const { q = "", stage: rawStage, page: rawPage } = await searchParams
+  const session = await requireSession()
+  const { q = "", stage: rawStage, page: rawPage, scope } = await searchParams
 
   const isSearching = q.trim().length >= 2
   const page = Math.max(1, parseInt(rawPage ?? "1", 10) || 1)
   const activeStage: StageKey | null =
     rawStage && VALID_STAGES.has(rawStage as StageKey) ? (rawStage as StageKey) : null
 
+  // Receptionists see only their branch's patients by default; the "All Patients"
+  // toggle removes the branch filter. Admins/doctors always see everyone.
+  const isReception = session.role === "RECEPTIONIST"
+  const scopeAll = !isReception || scope === "all"
+  const branchFilter = isReception && !scopeAll ? session.branchId : undefined
+
   return (
     <div className="max-w-3xl mx-auto space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>Patients</h1>
           <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
@@ -436,17 +448,42 @@ export default async function PatientsPage({ searchParams }: Props) {
               ? "Search results"
               : activeStage
               ? `Filtered: ${SECTIONS.find((s) => s.key === activeStage)?.title}`
+              : isReception
+              ? (scopeAll ? "Showing patients from all branches" : "Showing your branch's patients")
               : "Filter by treatment stage or search below"}
           </p>
         </div>
-        <Link
-          href="/patients/new"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-white"
-          style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
-        >
-          <UserPlus className="h-4 w-4" />
-          New Patient
-        </Link>
+        <div className="flex items-center gap-2">
+          {isReception && (
+            scopeAll ? (
+              <Link
+                href="/patients"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium border"
+                style={{ borderColor: BRAND_COLORS.lightBackground, color: BRAND_COLORS.bodyText }}
+              >
+                <Users className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
+                My Branch Only
+              </Link>
+            ) : (
+              <Link
+                href="/patients?scope=all"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium border"
+                style={{ borderColor: BRAND_COLORS.lightBackground, color: BRAND_COLORS.bodyText }}
+              >
+                <Users className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
+                All Patients
+              </Link>
+            )
+          )}
+          <Link
+            href="/patients/new"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-white"
+            style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
+          >
+            <UserPlus className="h-4 w-4" />
+            New Patient
+          </Link>
+        </div>
       </div>
 
       {/* Search Input */}
@@ -463,8 +500,8 @@ export default async function PatientsPage({ searchParams }: Props) {
         }
       >
         {isSearching
-          ? <SearchResults query={q} page={page} />
-          : <PatientListView stage={activeStage} />
+          ? <SearchResults query={q} page={page} branchId={branchFilter} scopeAll={scopeAll} />
+          : <PatientListView stage={activeStage} branchId={branchFilter} scopeAll={scopeAll} />
         }
       </Suspense>
     </div>

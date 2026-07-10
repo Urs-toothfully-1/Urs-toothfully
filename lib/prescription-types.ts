@@ -17,6 +17,8 @@ export interface PrescriptionTreatment {
   category: string
   toothNumber?: string
   quantity: number
+  /** Optional link to TreatmentMaster so the estimate step can pull the default rate */
+  treatmentId?: string
 }
 
 export interface ExaminationFinding {

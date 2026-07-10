@@ -3,8 +3,10 @@ import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { getSession } from "@/lib/auth"
 import { prescriptionService } from "@/server/services/prescription.service"
+import { treatmentRepository } from "@/server/repositories/treatment.repository"
 import { PrescriptionEditor } from "@/components/prescriptions/PrescriptionEditor"
 import { ShareActions } from "@/components/share/ShareActions"
+import { BackButton } from "@/components/shared/BackButton"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatDate } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,26 +29,44 @@ export default async function PrescriptionPage({ params }: Props) {
   const data = (prescription.prescriptionData ?? {}) as unknown as PrescriptionData
   const canEdit = session.role === "ADMIN" || session.role === "DOCTOR"
 
-  const initialTemplates = canEdit
-    ? await prisma.examinationTemplate
-        .findMany({
-          where: { doctorId: session.userId },
-          orderBy: { name: "asc" },
-          select: { id: true, name: true, finding: true },
-        })
-        .catch(() => [])
-    : []
+  // Version = chronological ordinal among this patient's prescriptions (v1, v2, …)
+  const prescriptionVersion = await prisma.prescriptionRecord.count({
+    where: { patientId: prescription.patientId, createdAt: { lte: prescription.createdAt } },
+  })
+
+  const [initialTemplates, treatments] = await Promise.all([
+    canEdit
+      ? prisma.examinationTemplate
+          .findMany({
+            where: { doctorId: session.userId },
+            orderBy: { name: "asc" },
+            select: { id: true, name: true, finding: true },
+          })
+          .catch(() => [])
+      : Promise.resolve([]),
+    canEdit ? treatmentRepository.findAll() : Promise.resolve([]),
+  ])
+
+  const treatmentOptions = (treatments as any[]).map((t) => ({
+    id: t.id,
+    category: t.category,
+    name: t.name,
+    defaultAmount: Number(t.defaultAmount),
+  }))
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-sm" style={{ color: BRAND_COLORS.borderDivider }}>
-        <Link href={`/patients/${prescription.patientId}`} style={{ color: BRAND_COLORS.primaryTeal }} className="hover:underline">
-          {prescription.patient.fullName}
-        </Link>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <span>Prescription</span>
-      </nav>
+      {/* Back + Breadcrumb */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <nav className="flex items-center gap-1.5 text-sm" style={{ color: BRAND_COLORS.borderDivider }}>
+          <Link href={`/patients/${prescription.patientId}`} style={{ color: BRAND_COLORS.primaryTeal }} className="hover:underline">
+            {prescription.patient.fullName}
+          </Link>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span>Prescription</span>
+        </nav>
+        <BackButton fallbackHref={`/patients/${prescription.patientId}`} />
+      </div>
 
       <Card className="border-[#E0E3E5] bg-white overflow-hidden">
         <div className="h-1.5" style={{ backgroundColor: BRAND_COLORS.primaryTeal }} />
@@ -54,7 +74,7 @@ export default async function PrescriptionPage({ params }: Props) {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
               <ClipboardList className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
-              Prescription — {prescription.patient.patientId}
+              Prescription v{prescriptionVersion} — {prescription.patient.patientId}
             </CardTitle>
             <div className="flex items-center gap-4">
               <Link
@@ -72,7 +92,7 @@ export default async function PrescriptionPage({ params }: Props) {
                 patientName={prescription.patient.fullName}
                 patientMobile={prescription.patient.mobile}
                 patientEmail={prescription.patient.email}
-                docNo={`RX-${prescription.patient.patientId}`}
+                docNo={`RX-${prescription.patient.patientId}-v${prescriptionVersion}`}
                 branchName={data.branchName}
                 compact
               />
@@ -126,8 +146,8 @@ export default async function PrescriptionPage({ params }: Props) {
             </div>
           )}
 
-          {/* Treatment plan (no prices) */}
-          {data.treatments?.length > 0 && (
+          {/* Treatment plan (no prices) — read-only for non-editors; doctors edit it in the section below */}
+          {!canEdit && data.treatments?.length > 0 && (
             <div>
               <p className="text-xs font-semibold mb-2" style={{ color: BRAND_COLORS.borderDivider }}>
                 PLANNED TREATMENT
@@ -158,7 +178,7 @@ export default async function PrescriptionPage({ params }: Props) {
           )}
 
           {/* Editable section */}
-          <PrescriptionEditor prescriptionId={prescription.id} data={data} canEdit={canEdit} initialTemplates={initialTemplates} />
+          <PrescriptionEditor prescriptionId={prescription.id} data={data} canEdit={canEdit} initialTemplates={initialTemplates} treatments={treatmentOptions} />
 
           {!canEdit && (
             <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>

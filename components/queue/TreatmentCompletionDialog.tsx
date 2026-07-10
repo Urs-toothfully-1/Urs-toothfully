@@ -4,7 +4,7 @@ import { useState, useTransition } from "react"
 import { CheckCircle2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { BRAND_COLORS } from "@/lib/constants"
-import { completeTreatmentSessionAction } from "@/actions/queue"
+import { finishTreatmentsAction } from "@/actions/queue"
 import { toast } from "sonner"
 
 interface TreatmentItem {
@@ -41,17 +41,21 @@ export function TreatmentCompletionDialog({ queueId, patientId, items }: Props) 
   }
 
   function handleDone() {
+    if (selectedIds.size === 0) {
+      toast.error("Select at least one treatment to mark finished")
+      return
+    }
     startTransition(async () => {
-      const result = await completeTreatmentSessionAction({
+      const result = await finishTreatmentsAction({
         queueId,
         patientId,
-        completedItemIds: [...selectedIds],
+        itemIds: [...selectedIds],
       })
       if (result.success) {
-        toast.success("Session completed — treatment progress updated")
+        toast.success("Treatments marked as fully completed")
         setOpen(false)
       } else {
-        toast.error(result.error ?? "Failed to complete session")
+        toast.error(result.error ?? "Failed to finish treatments")
       }
     })
   }
@@ -82,7 +86,7 @@ export function TreatmentCompletionDialog({ queueId, patientId, items }: Props) 
                 </h2>
               </div>
               <p className="text-xs mb-4" style={{ color: BRAND_COLORS.borderDivider }}>
-                Select the treatments completed in this session. Unchecked items stay pending for the next visit.
+                Select treatments that are <strong>fully finished</strong> (all sittings done). Unchecked items stay open for the next visit.
               </p>
 
               <div className="rounded-lg border border-[#E0E3E5] divide-y divide-[#F2F4F6] mb-5 max-h-56 overflow-y-auto">

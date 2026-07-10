@@ -553,6 +553,8 @@ model EstimateItem {
   quantity          Int             @default(1)
   unitRate          Decimal         @db.Decimal(10, 2)
   amount            Decimal         @db.Decimal(10, 2)
+  plannedSittings   Int             @default(1)
+  completedSittings Int             @default(0)
   sortOrder         Int             @default(0)
   status            ItemStatus      @default(PENDING)
   statusUpdatedAt   DateTime?

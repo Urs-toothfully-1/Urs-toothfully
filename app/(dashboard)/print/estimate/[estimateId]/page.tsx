@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { paymentAgreementService } from "@/server/services/payment-agreement.service"
 import { BRAND_COLORS } from "@/lib/constants"
@@ -21,8 +22,11 @@ export default async function PrintEstimatePage({ params }: Props) {
   const estimate = await estimateRepository.findById(estimateId)
   if (!estimate) notFound()
 
-  const [agreement] = await Promise.all([
+  const [agreement, estimateVersion] = await Promise.all([
     paymentAgreementService.getOrSuggest(estimateId),
+    prisma.estimate.count({
+      where: { patientId: estimate.patientId, isDeleted: false, createdAt: { lte: estimate.createdAt } },
+    }),
   ])
   const agreementStages = (agreement.stages ?? []) as PaymentStage[]
 
@@ -58,7 +62,7 @@ export default async function PrintEstimatePage({ params }: Props) {
           patientName={estimate.patient.fullName}
           patientMobile={estimate.patient.mobile}
           patientEmail={estimate.patient.email}
-          docNo={estimate.estimateNo}
+          docNo={`${estimate.estimateNo} · v${estimateVersion}`}
           branchName={estimate.branch.name}
         />
       </div>
@@ -90,6 +94,7 @@ export default async function PrintEstimatePage({ params }: Props) {
             <p>
               <span style={{ color: BRAND_COLORS.borderDivider }}>Estimate No: </span>
               <strong style={{ color: BRAND_COLORS.bodyText }}>{estimate.estimateNo}</strong>
+              <span className="ml-1 font-semibold" style={{ color: BRAND_COLORS.secondaryGreen }}>· v{estimateVersion}</span>
             </p>
             <p>
               <span style={{ color: BRAND_COLORS.borderDivider }}>Date: </span>

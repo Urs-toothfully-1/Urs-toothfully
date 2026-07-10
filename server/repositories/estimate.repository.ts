@@ -36,6 +36,7 @@ export const estimateRepository = {
           select: {
             id: true, treatmentName: true, amount: true, status: true,
             category: true, toothNumber: true, quantity: true, unitRate: true,
+            plannedSittings: true, completedSittings: true,
             statusUpdatedAt: true,
             statusUpdatedBy: { select: { name: true } },
           },
@@ -84,6 +85,7 @@ export const estimateRepository = {
       quantity: number
       unitRate: Prisma.Decimal
       amount: Prisma.Decimal
+      plannedSittings?: number
       sortOrder: number
     }>
   }) {
@@ -112,7 +114,9 @@ export const estimateRepository = {
         treatmentName: true,
         toothNumber: true,
         status: true,
-        estimate: { select: { patientId: true } },
+        plannedSittings: true,
+        completedSittings: true,
+        estimate: { select: { patientId: true, id: true } },
       },
       orderBy: { sortOrder: "asc" },
     })
@@ -128,6 +132,7 @@ export const estimateRepository = {
       discountAmount?: Prisma.Decimal | null
       notes?: string | null
       items: Array<{
+        id?: string
         treatmentId?: string
         treatmentName: string
         category: string
@@ -135,21 +140,90 @@ export const estimateRepository = {
         quantity: number
         unitRate: Prisma.Decimal
         amount: Prisma.Decimal
+        plannedSittings?: number
         sortOrder: number
       }>
     }
   ) {
     const { items, ...estimateData } = data
     return prisma.$transaction(async (tx) => {
-      await tx.estimateItem.deleteMany({ where: { estimateId: id } })
+      // Reconcile items by id so treatment progress (completedSittings, status)
+      // is preserved when the estimate is edited after treatment has begun.
+      const existing = await tx.estimateItem.findMany({
+        where: { estimateId: id },
+        select: { id: true },
+      })
+      const existingIds = new Set(existing.map((e) => e.id))
+      const keepIds = items
+        .map((i) => i.id)
+        .filter((iid): iid is string => !!iid && existingIds.has(iid))
+
+      // Delete items removed by the doctor
+      await tx.estimateItem.deleteMany({
+        where: { estimateId: id, id: { notIn: keepIds.length ? keepIds : ["__none__"] } },
+      })
+
+      // Update kept items in place; create new ones
+      for (let idx = 0; idx < items.length; idx++) {
+        const it = items[idx]
+        const common = {
+          treatmentId: it.treatmentId,
+          treatmentName: it.treatmentName,
+          category: it.category,
+          toothNumber: it.toothNumber,
+          quantity: it.quantity,
+          unitRate: it.unitRate,
+          amount: it.amount,
+          plannedSittings: it.plannedSittings ?? 1,
+          sortOrder: idx,
+        }
+        if (it.id && existingIds.has(it.id)) {
+          await tx.estimateItem.update({ where: { id: it.id }, data: common })
+        } else {
+          await tx.estimateItem.create({ data: { estimateId: id, ...common } })
+        }
+      }
+
       return tx.estimate.update({
         where: { id },
-        data: {
-          ...estimateData,
-          items: { create: items },
-        },
-        include: { items: true, doctor: { select: { id: true, name: true } } },
+        data: estimateData,
+        include: { items: { orderBy: { sortOrder: "asc" } }, doctor: { select: { id: true, name: true } } },
       })
+    })
+  },
+
+  /** Creates an empty ACTIVE estimate for a visit (prescription-first flow). Reuses an existing one. */
+  async createEmpty(data: {
+    estimateNo: string
+    patientId: string
+    branchId: string
+    doctorId: string
+    visitId: string
+  }) {
+    return prisma.estimate.create({
+      data: {
+        ...data,
+        subtotal: new Prisma.Decimal(0),
+        total: new Prisma.Decimal(0),
+        advanceRequired: new Prisma.Decimal(0),
+      },
+      include: { items: true },
+    })
+  },
+
+  /** Targeted per-item update for the treatment phase — does not rebuild the estimate. */
+  async updateItemSittings(
+    itemId: string,
+    data: { plannedSittings?: number; completedSittings?: number; status?: ItemStatus; updatedById: string }
+  ) {
+    const { updatedById, ...rest } = data
+    return prisma.estimateItem.update({
+      where: { id: itemId },
+      data: {
+        ...rest,
+        statusUpdatedAt: new Date(),
+        statusUpdatedById: updatedById,
+      },
     })
   },
 

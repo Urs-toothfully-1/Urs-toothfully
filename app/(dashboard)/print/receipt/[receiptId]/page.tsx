@@ -52,6 +52,28 @@ export default async function PrintReceiptPage({ params }: Props) {
   const payment = receipt.payment
   const amount = Number(payment.amount)
 
+  // Descriptive document label: "Consultation" or "Treatment — <installment>".
+  // Installment = this payment's ordinal among the estimate's treatment payments;
+  // the matching agreement stage name is used when available.
+  let docLabel = PAYMENT_TYPE_LABELS[payment.paymentType] ?? payment.paymentType
+  if ((payment.paymentType === "TREATMENT" || payment.paymentType === "ADVANCE") && payment.estimateId) {
+    const [ordinal, agreement] = await Promise.all([
+      prisma.payment.count({
+        where: {
+          estimateId: payment.estimateId,
+          isDeleted: false,
+          paymentType: { in: ["TREATMENT", "ADVANCE"] },
+          OR: [{ paymentDate: { lt: payment.paymentDate } }, { paymentDate: payment.paymentDate, createdAt: { lte: payment.createdAt } }],
+        },
+      }),
+      prisma.paymentAgreement.findUnique({ where: { estimateId: payment.estimateId }, select: { stages: true } }),
+    ])
+    const stages = (agreement?.stages as any[] | undefined) ?? []
+    const stageName = stages[ordinal - 1]?.name as string | undefined
+    docLabel = `Treatment — ${stageName ?? `Installment ${ordinal}`}`
+  }
+  const shareDocNo = `${receipt.receiptNo} · ${docLabel}`
+
   return (
     <>
       <style>{`
@@ -78,7 +100,7 @@ export default async function PrintReceiptPage({ params }: Props) {
           patientName={receipt.patient.fullName}
           patientMobile={receipt.patient.mobile}
           patientEmail={receipt.patient.email}
-          docNo={receipt.receiptNo}
+          docNo={shareDocNo}
           branchName={receipt.branch.name}
         />
       </div>
@@ -95,7 +117,7 @@ export default async function PrintReceiptPage({ params }: Props) {
           className="text-center py-2 mb-4 rounded"
           style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
         >
-          <h1 className="text-lg font-bold text-white tracking-wider">RECEIPT</h1>
+          <h1 className="text-lg font-bold text-white tracking-wider">RECEIPT — {docLabel.toUpperCase()}</h1>
         </div>
 
         {/* Receipt meta */}

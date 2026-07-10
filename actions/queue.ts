@@ -116,19 +116,54 @@ export async function startTreatmentSessionAction(data: {
   }
 }
 
+// Ends today's treatment visit (closes the queue entry). It does NOT mark the
+// treatments finished — sittings are recorded via the Sittings Tracker, and a
+// treatment only becomes "Done" once all its sittings are complete. Treatments
+// with remaining sittings stay open so another session can be started.
 export async function completeTreatmentSessionAction(data: {
   queueId: string
   patientId: string
-  completedItemIds: string[]
+}): Promise<{ success: boolean; error?: string }> {
+  const session = await requireRole(["DOCTOR", "ADMIN"]).catch(() => null)
+  if (!session) return { success: false, error: "Unauthorized" }
+
+  try {
+    await queueService.updateStatus(data.queueId, "COMPLETED", session.userId)
+    revalidatePath(`/patients/${data.patientId}/progress`)
+    revalidatePath(`/patients/${data.patientId}`)
+    revalidatePath(`/doctor/treatment-session/${data.queueId}`)
+    revalidatePath("/doctor")
+    revalidatePath("/reception")
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Failed to complete session." }
+  }
+}
+
+// Explicitly marks the selected treatments as fully finished (all sittings done +
+// status COMPLETED), then ends the visit. Used by the queue "Done" shortcut.
+export async function finishTreatmentsAction(data: {
+  queueId: string
+  patientId: string
+  itemIds: string[]
 }): Promise<{ success: boolean; error?: string }> {
   const session = await requireRole(["DOCTOR", "ADMIN"]).catch(() => null)
   if (!session) return { success: false, error: "Unauthorized" }
 
   try {
     const { estimateService } = await import("@/server/services/estimate.service")
+    const { prisma } = await import("@/lib/prisma")
+    const items = await prisma.estimateItem.findMany({
+      where: { id: { in: data.itemIds } },
+      select: { id: true, plannedSittings: true },
+    })
     await Promise.all(
-      data.completedItemIds.map((id) =>
-        estimateService.updateItemStatus(id, "COMPLETED", session.userId)
+      items.map((it) =>
+        estimateService.updateItemSittings(
+          it.id,
+          { completedSittings: it.plannedSittings, status: "COMPLETED" },
+          session.userId
+        )
       )
     )
     await queueService.updateStatus(data.queueId, "COMPLETED", session.userId)
@@ -139,7 +174,7 @@ export async function completeTreatmentSessionAction(data: {
     revalidatePath("/reception")
     return { success: true }
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Failed to complete session." }
+    return { success: false, error: err instanceof Error ? err.message : "Failed to finish treatments." }
   }
 }
 

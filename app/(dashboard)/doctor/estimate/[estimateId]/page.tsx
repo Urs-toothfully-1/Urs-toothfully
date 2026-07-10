@@ -2,6 +2,7 @@ import { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { getSession } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { prescriptionService } from "@/server/services/prescription.service"
 import { paymentAgreementService } from "@/server/services/payment-agreement.service"
@@ -23,8 +24,12 @@ export default async function EstimateDetailPage({ params }: Props) {
   const estimate = await estimateRepository.findById(estimateId)
   if (!estimate) notFound()
 
-  const [paymentAgreement] = await Promise.all([
+  const [paymentAgreement, estimateVersion] = await Promise.all([
     paymentAgreementService.getOrSuggest(estimateId),
+    // Version = chronological ordinal among this patient's estimates (v1, v2, …)
+    prisma.estimate.count({
+      where: { patientId: estimate.patientId, isDeleted: false, createdAt: { lte: estimate.createdAt } },
+    }),
   ])
 
   // The prescription is auto-created with the estimate; lazily create it here
@@ -63,6 +68,9 @@ export default async function EstimateDetailPage({ params }: Props) {
             <CardTitle className="text-base flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
               <FileText className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
               {estimate.estimateNo}
+              <span className="text-xs px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: `${BRAND_COLORS.secondaryGreen}18`, color: BRAND_COLORS.secondaryGreen }}>
+                v{estimateVersion}
+              </span>
               <span
                 className="text-xs px-2 py-0.5 rounded font-normal"
                 style={{
@@ -99,7 +107,7 @@ export default async function EstimateDetailPage({ params }: Props) {
                 patientName={estimate.patient.fullName}
                 patientMobile={estimate.patient.mobile}
                 patientEmail={estimate.patient.email}
-                docNo={estimate.estimateNo}
+                docNo={`${estimate.estimateNo} · v${estimateVersion}`}
                 branchName={estimate.branch.name}
                 compact
               />
@@ -119,7 +127,7 @@ export default async function EstimateDetailPage({ params }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: `1px solid ${BRAND_COLORS.lightBackground}` }}>
-                  {["#", "Treatment", "Tooth", "Qty", "Rate", "Amount", "Status"].map((h) => (
+                  {["#", "Treatment", "Tooth", "Qty", "Sittings", "Rate", "Amount", "Status"].map((h) => (
                     <th
                       key={h}
                       className="text-left py-2 px-2 text-xs font-semibold"
@@ -153,6 +161,9 @@ export default async function EstimateDetailPage({ params }: Props) {
                     </td>
                     <td className="py-2.5 px-2 text-xs text-center" style={{ color: BRAND_COLORS.bodyText }}>
                       {item.quantity}
+                    </td>
+                    <td className="py-2.5 px-2 text-xs text-center" style={{ color: (item.completedSittings ?? 0) >= (item.plannedSittings ?? 1) && (item.completedSittings ?? 0) > 0 ? BRAND_COLORS.secondaryGreen : BRAND_COLORS.bodyText }}>
+                      {(item.completedSittings ?? 0)} / {(item.plannedSittings ?? 1)}
                     </td>
                     <td className="py-2.5 px-2 text-xs" style={{ color: BRAND_COLORS.bodyText }}>
                       {formatCurrency(Number(item.unitRate))}

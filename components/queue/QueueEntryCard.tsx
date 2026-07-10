@@ -181,11 +181,12 @@ export function QueueEntryCard({ entry, role, currentUserId, treatmentItems = []
           )}
           {entry.status === "WITH_DOCTOR" && isDoctor && isMyPatient && entry.visit.visitType !== "TREATMENT_SESSION" && (
             <Link
+              prefetch={false}
               href={`/doctor/estimate/new?visitId=${entry.visitId}&patientId=${entry.patient.id}`}
               className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"
               style={{ background: "linear-gradient(135deg,#005E97,#0077BE)" }}
             >
-              <FilePlus className="h-3.5 w-3.5" />Estimate
+              <FilePlus className="h-3.5 w-3.5" />Consultation
             </Link>
           )}
           {entry.status === "ESTIMATE_CREATED" && isReception && (

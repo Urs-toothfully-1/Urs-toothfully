@@ -3,7 +3,9 @@ import { requireRole } from "@/lib/auth"
 import { queueRepository } from "@/server/repositories/queue.repository"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
+import { prisma } from "@/lib/prisma"
 import { QueueEntryCard } from "@/components/queue/QueueEntryCard"
+import { BranchSwitcher } from "@/components/shared/BranchSwitcher"
 import { BRAND_COLORS } from "@/lib/constants"
 import { Stethoscope, Users } from "lucide-react"
 import { RefreshButton } from "@/components/shared/RefreshButton"
@@ -20,11 +22,12 @@ export default async function DoctorPage() {
   const assignmentMode = await settingsRepository.get("queue_assignment_mode", session.branchId)
   const isNextAvailable = assignmentMode === "NEXT_AVAILABLE_DOCTOR"
 
-  const [myQueue, unclaimedQueue] = await Promise.all([
+  const [myQueue, unclaimedQueue, branches] = await Promise.all([
     queueRepository.findByDoctorAndDate(session.userId, today),
     isNextAvailable
       ? queueRepository.findWaitingForNextAvailable(session.branchId)
       : Promise.resolve([]),
+    prisma.branch.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ])
 
   const active = myQueue.filter((e: { status: string }) =>
@@ -61,7 +64,10 @@ export default async function DoctorPage() {
             {today.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
           </p>
         </div>
-        <RefreshButton />
+        <div className="flex items-center gap-2">
+          <BranchSwitcher currentBranchId={session.branchId} branches={branches} />
+          <RefreshButton />
+        </div>
       </div>
 
       {/* Stats */}

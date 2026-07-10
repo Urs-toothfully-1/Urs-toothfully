@@ -77,6 +77,11 @@ export default async function PrintPrescriptionPage({ params }: Props) {
     }).catch(() => {})
   }
 
+  // Version = chronological ordinal among this patient's prescriptions (v1, v2, …)
+  const rxVersion = record
+    ? await prisma.prescriptionRecord.count({ where: { patientId: visit.patientId, createdAt: { lte: record.createdAt } } })
+    : 1
+
   const age = Math.floor(
     (new Date().getTime() - new Date(visit.patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
   )
@@ -84,6 +89,7 @@ export default async function PrintPrescriptionPage({ params }: Props) {
   const chiefComplaint = rx?.chiefComplaint ?? ""
   const medicalAlerts = rx?.medicalAlerts ?? []
   const onExamination = rx?.onExamination ?? []
+  const treatments = rx?.treatments ?? []
   const medicines = rx?.medicines ?? []
 
   return (
@@ -120,7 +126,7 @@ export default async function PrintPrescriptionPage({ params }: Props) {
             patientName={visit.patient.fullName}
             patientMobile={visit.patient.mobile}
             patientEmail={visit.patient.email}
-            docNo={`RX-${visit.patient.patientId}`}
+            docNo={`RX-${visit.patient.patientId}-v${rxVersion}`}
             branchName={visit.branch.name}
           />
         </div>
@@ -195,6 +201,7 @@ export default async function PrintPrescriptionPage({ params }: Props) {
                 {formatDate(new Date())}
               </span>
             </div>
+            <p className="text-[12px] mt-1 font-semibold" style={{ color: "#666" }}>Prescription v{rxVersion}</p>
 
             {/* On examination — doctor's clinical findings */}
             <p className="font-bold text-[13px] mt-6 mb-1 tracking-wide">ON EXAMINATION</p>
@@ -212,6 +219,25 @@ export default async function PrintPrescriptionPage({ params }: Props) {
               </ul>
             ) : (
               <BlankLines count={4} />
+            )}
+
+            {/* Treatment plan — planned treatments (no prices) */}
+            {treatments.length > 0 && (
+              <div className="mt-5">
+                <p className="font-bold text-[13px] mb-1 tracking-wide">TREATMENT PLAN</p>
+                <ul className="text-[14px] space-y-1">
+                  {treatments.map((t, i) => (
+                    <li key={i}>
+                      •{" "}
+                      <span className="font-medium">{t.treatmentName}</span>
+                      {t.toothNumber
+                        ? <> — {t.toothNumber.includes(",") ? "Teeth" : "Tooth"} {t.toothNumber.split(",").join(", ")}</>
+                        : null}
+                      {t.quantity > 1 ? <> × {t.quantity}</> : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             {/* Rx */}
