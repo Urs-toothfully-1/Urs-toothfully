@@ -8,7 +8,18 @@ import { z } from "zod"
 export const createPatientSchema = z.object({
   registrationBranchId: z.string().min(1),
   fullName: z.string().min(2).max(200).regex(/^[^<>]+$/, "Name contains invalid characters"),
-  dateOfBirth: z.string().date(),
+  dateOfBirth: z
+    .string()
+    .date()
+    .refine((d) => {
+      const dob = new Date(d)
+      const today = new Date()
+      today.setHours(23, 59, 59, 999)
+      // Not in the future, and within a plausible human age range (~120 years).
+      const earliest = new Date()
+      earliest.setFullYear(earliest.getFullYear() - 120)
+      return dob <= today && dob >= earliest
+    }, "Date of birth must be a real past date"),
   gender: z.enum(["MALE", "FEMALE", "OTHER"]),
   mobile: z.string().min(10).max(15).regex(/^\d+$/, "Mobile must be digits only"),
   email: z.string().email().optional().or(z.literal("")),

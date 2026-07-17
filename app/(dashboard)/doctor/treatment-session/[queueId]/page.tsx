@@ -7,10 +7,13 @@ import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { prisma } from "@/lib/prisma"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
+import { toothLabel } from "@/lib/teeth"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SessionActions } from "./SessionActions"
 import { SittingsTracker } from "@/components/estimates/SittingsTracker"
 import { VisitPrescriptionButton } from "@/components/queue/VisitPrescriptionButton"
+import { BookFollowUpDialog } from "@/components/appointments/BookFollowUpDialog"
+import { SessionClinicalNotes } from "@/components/clinical-notes/SessionClinicalNotes"
 import {
   ChevronLeft,
   User,
@@ -22,6 +25,7 @@ import {
   Stethoscope,
   FileText,
   FileSignature,
+  CheckCircle2,
 } from "lucide-react"
 
 export const metadata: Metadata = { title: "Treatment Session" }
@@ -90,6 +94,27 @@ export default async function TreatmentSessionPage({ params }: Props) {
 
   // The active estimate that these treatments belong to (for editable estimate + agreement)
   const activeEstimateId = (pendingItems[0] as any)?.estimate?.id as string | undefined
+
+  // Clinical-notes log lives on the consultation prescription (the estimate's visit)
+  // so notes accumulate across treatment sessions into one printable document.
+  let notesVisitId = entry.visit.id
+  if (activeEstimateId) {
+    const est = await prisma.estimate.findUnique({ where: { id: activeEstimateId }, select: { visitId: true } })
+    if (est) notesVisitId = est.visitId
+  }
+  const notesPrescription = await prisma.prescriptionRecord.findFirst({
+    where: { visitId: notesVisitId },
+    orderBy: { createdAt: "desc" },
+    select: { prescriptionData: true },
+  })
+  const existingNotes = (((notesPrescription?.prescriptionData as any)?.clinicalNotes ?? []) as { date: string; note: string }[])
+
+  // "What's missing" for a return visit: which of the 3 consultation docs exist
+  const hasPrescription = !!notesPrescription
+  const hasEstimate = !!activeEstimateId
+  const hasAgreement = activeEstimateId
+    ? !!(await prisma.paymentAgreement.findFirst({ where: { estimateId: activeEstimateId }, select: { id: true } }))
+    : false
 
   return (
     <div className="max-w-5xl mx-auto space-y-5">
@@ -168,7 +193,7 @@ export default async function TreatmentSessionPage({ params }: Props) {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Stethoscope className="h-3.5 w-3.5" />
-                  Dr. {entry.doctor?.name ?? "Unassigned"}
+                  {entry.doctor ? `Dr. ${entry.doctor.name.replace(/^Dr\.?\s*/i, "")}` : "Unassigned"}
                 </span>
               </div>
               {entry.visit.chiefComplaint && (
@@ -204,7 +229,7 @@ export default async function TreatmentSessionPage({ params }: Props) {
       )}
 
       {/* Main grid: medical history + treatments */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
         {/* Medical History */}
         <Card className="border-[#E0E3E5]">
           <CardHeader className="pb-3 border-b" style={{ borderColor: "#F2F4F6" }}>
@@ -377,7 +402,7 @@ export default async function TreatmentSessionPage({ params }: Props) {
                           </p>
                         </td>
                         <td className="py-2.5 px-2 text-xs" style={{ color: BRAND_COLORS.bodyText }}>
-                          {item.toothNumber || "—"}
+                          {toothLabel(item.toothNumber) || "—"}
                         </td>
                         <td className="py-2.5 px-2 text-xs text-center" style={{ color: BRAND_COLORS.bodyText }}>
                           {item.quantity}
@@ -417,9 +442,28 @@ export default async function TreatmentSessionPage({ params }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
+          {/* What's present vs still needed for this patient */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {([
+              { label: "Prescription", ok: hasPrescription },
+              { label: "Estimate", ok: hasEstimate },
+              { label: "Payment Plan", ok: hasAgreement },
+            ] as const).map((d) => (
+              <span key={d.label} className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
+                style={d.ok
+                  ? { backgroundColor: "#D1FAE5", color: "#065F46" }
+                  : { backgroundColor: "#FEF3C7", color: "#92400E" }}>
+                {d.ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
+                {d.label}: {d.ok ? "Ready" : "Needed"}
+              </span>
+            ))}
+          </div>
           <div className="flex flex-wrap gap-3">
             {/* New prescription for this treatment visit */}
             <VisitPrescriptionButton visitId={entry.visit.id} />
+
+            {/* Book a follow-up appointment during treatment */}
+            <BookFollowUpDialog patientId={entry.patient.id} branchId={entry.branchId} patientName={entry.patient.fullName} />
 
             {/* Editable estimate + treatment agreement */}
             {activeEstimateId ? (
@@ -442,6 +486,9 @@ export default async function TreatmentSessionPage({ params }: Props) {
           </p>
         </CardContent>
       </Card>
+
+      {/* Clinical notes — logged onto the prescription, printable with continuation pages */}
+      <SessionClinicalNotes visitId={notesVisitId} initialNotes={existingNotes} hasPrescription={!!notesPrescription} />
 
       {/* Sittings tracker — pick which treatments were worked on today */}
       {entry.status === "WITH_DOCTOR" && fullItems.length > 0 && (

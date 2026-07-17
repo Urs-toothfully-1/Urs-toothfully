@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { prescriptionRepository } from "@/server/repositories/prescription.repository"
 import { dentalHistoryRepository } from "@/server/repositories/dental-history.repository"
 import { createAuditLog } from "@/lib/audit"
-import { calculateAge, type PrescriptionData, type PrescriptionMedicine, type ExaminationFinding, type PrescriptionTreatment } from "@/lib/prescription-types"
+import { calculateAge, type PrescriptionData, type PrescriptionMedicine, type ExaminationFinding, type PrescriptionTreatment, type ClinicalNoteEntry } from "@/lib/prescription-types"
 import type { DentalHistory } from "@prisma/client"
 import { z } from "zod"
 
@@ -27,6 +27,11 @@ export const treatmentPlanSchema = z.object({
   quantity: z.number().int().min(1).max(99).default(1),
 })
 
+export const clinicalNoteSchema = z.object({
+  date: z.string().max(10),
+  note: z.string().max(2000),
+})
+
 export const updatePrescriptionSchema = z.object({
   chiefComplaint: z.string().max(500).default(""),
   onExamination: z.array(examinationFindingSchema).max(20).default([]),
@@ -34,6 +39,7 @@ export const updatePrescriptionSchema = z.object({
   medicines: z.array(medicineSchema).max(30),
   advice: z.string().max(2000).default(""),
   followUpDate: z.string().optional(),
+  clinicalNotes: z.array(clinicalNoteSchema).max(100).default([]),
 })
 
 export type UpdatePrescriptionInput = z.infer<typeof updatePrescriptionSchema>
@@ -230,6 +236,26 @@ export const prescriptionService = {
     return prescription
   },
 
+  /** Appends/replaces just the clinical-notes log, leaving the rest of the Rx intact. */
+  async updateClinicalNotes(id: string, notes: ClinicalNoteEntry[], updatedById: string) {
+    const record = await prescriptionRepository.findById(id)
+    if (!record) throw new Error("Prescription not found")
+    const current = (record.prescriptionData ?? {}) as unknown as PrescriptionData
+    const updated: PrescriptionData = {
+      ...current,
+      clinicalNotes: notes.filter((n) => n.note.trim()),
+    }
+    const result = await prescriptionRepository.updateData(id, JSON.parse(JSON.stringify(updated)))
+    await createAuditLog({
+      entityType: "PrescriptionRecord",
+      entityId: id,
+      action: "UPDATE",
+      changedById: updatedById,
+      newValues: { clinicalNotes: updated.clinicalNotes?.length ?? 0 },
+    })
+    return result
+  },
+
   /** Doctor edits chief complaint, examination findings, medicines, advice, follow-up. */
   async update(id: string, input: UpdatePrescriptionInput, updatedById: string) {
     const record = await prescriptionRepository.findById(id)
@@ -244,6 +270,7 @@ export const prescriptionService = {
       medicines: input.medicines as PrescriptionMedicine[],
       advice: input.advice,
       followUpDate: input.followUpDate || undefined,
+      clinicalNotes: (input.clinicalNotes as ClinicalNoteEntry[]).filter((n) => n.note.trim()),
     }
 
     const result = await prescriptionRepository.updateData(id, JSON.parse(JSON.stringify(updated)))

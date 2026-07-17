@@ -2,7 +2,11 @@ import { prisma } from "@/lib/prisma"
 
 /**
  * DB-backed rate limiting for the public intake registration.
- * Limits: 3 registrations per IP per hour, 20 per IP per day.
+ * Limits: 3 attempts per IP per hour, 20 per IP per day.
+ *
+ * Counts ALL recorded attempts (successful and failed), so a bot spamming the
+ * endpoint with junk/invalid submissions is throttled the same as real ones —
+ * previously only successes were counted, which let invalid floods bypass it.
  */
 
 export const INTAKE_LIMITS = {
@@ -21,10 +25,10 @@ export async function checkIntakeRateLimit(ipAddress: string): Promise<RateLimit
   const now = Date.now()
   const [lastHour, lastDay] = await Promise.all([
     prisma.intakeAttempt.count({
-      where: { ipAddress, success: true, createdAt: { gte: new Date(now - 60 * 60 * 1000) } },
+      where: { ipAddress, createdAt: { gte: new Date(now - 60 * 60 * 1000) } },
     }),
     prisma.intakeAttempt.count({
-      where: { ipAddress, success: true, createdAt: { gte: new Date(now - 24 * 60 * 60 * 1000) } },
+      where: { ipAddress, createdAt: { gte: new Date(now - 24 * 60 * 60 * 1000) } },
     }),
   ])
 
@@ -46,7 +50,14 @@ export async function recordIntakeAttempt(ipAddress: string, success: boolean): 
   }
 }
 
-/** Extracts the client IP from proxy headers. */
+/**
+ * Extracts the client IP from proxy headers.
+ *
+ * NOTE: `x-forwarded-for` is only trustworthy when set by a trusted proxy in
+ * front of the app (e.g. Vercel/Cloudflare, which overwrite the left-most hop
+ * with the real client IP). Do not treat this as spoof-proof on a raw origin
+ * with no proxy; pair it with the Turnstile bot check for public endpoints.
+ */
 export function getClientIp(headers: Headers): string {
   const fwd = headers.get("x-forwarded-for")
   if (fwd) return fwd.split(",")[0].trim()

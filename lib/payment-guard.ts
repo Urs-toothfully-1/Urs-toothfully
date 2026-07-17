@@ -18,7 +18,12 @@ export function validatePaymentInput(input: PaymentInput, role: Role): void {
   if (typeof input.amount !== "number" || !Number.isFinite(input.amount)) {
     throw new Error("Amount must be a valid number")
   }
-  if (input.amount <= 0) throw new Error("Amount must be greater than zero")
+  // Consultation may be free (₹0) for promotions; all other payments must be > 0.
+  if (input.paymentType === "CONSULTATION") {
+    if (input.amount < 0) throw new Error("Amount cannot be negative")
+  } else if (input.amount <= 0) {
+    throw new Error("Amount must be greater than zero")
+  }
   if (input.amount > MAX_PAYMENT) throw new Error("Amount exceeds the maximum allowed")
 
   if (input.paymentType === "CONSULTATION") {

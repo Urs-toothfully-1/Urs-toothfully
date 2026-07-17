@@ -11,6 +11,7 @@ import { verifyTurnstileToken } from "@/lib/turnstile"
 import { checkIntakeRateLimit, recordIntakeAttempt, getClientIp } from "@/lib/rate-limit"
 import { validateMobile } from "@/lib/whatsapp/phone"
 import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
+import { WHATSAPP_TRIGGERS } from "@/lib/whatsapp/templates"
 
 export type IntakeFormState = {
   error?: string
@@ -21,7 +22,17 @@ export type IntakeFormState = {
 const schema = z.object({
   branchId: z.string().min(1, "Please select a branch"),
   fullName: z.string().min(2, "Name must be at least 2 characters").max(200).regex(/^[^<>]+$/, "Name contains invalid characters"),
-  dateOfBirth: z.string().min(1, "Date of birth is required"),
+  dateOfBirth: z
+    .string()
+    .date("Enter a valid date of birth")
+    .refine((d) => {
+      const dob = new Date(d)
+      const today = new Date()
+      today.setHours(23, 59, 59, 999)
+      const earliest = new Date()
+      earliest.setFullYear(earliest.getFullYear() - 120)
+      return dob <= today && dob >= earliest
+    }, "Date of birth must be a real past date"),
   gender: z.enum(["MALE", "FEMALE", "OTHER"], { error: "Please select your gender" }),
   mobile: z.string().min(10, "Enter a valid 10-digit mobile number").max(15).regex(/^\d+$/,"Mobile must be digits only"),
   email: z.string().email("Enter a valid email").optional().or(z.literal("")),
@@ -88,6 +99,8 @@ export async function submitIntakeAction(
 
   const parsed = schema.safeParse(raw)
   if (!parsed.success) {
+    // Count invalid submissions toward the rate limit (anti-abuse).
+    await recordIntakeAttempt(clientIp, false)
     const fieldErrors: Record<string, string[]> = {}
     for (const [key, errs] of Object.entries(parsed.error.flatten().fieldErrors)) {
       if (errs) fieldErrors[key] = errs
@@ -98,6 +111,7 @@ export async function submitIntakeAction(
   // 3. Reject fake/invalid numbers (1111111111, 1234567890, bad country codes…)
   const phone = validateMobile(parsed.data.mobile)
   if (!phone.valid) {
+    await recordIntakeAttempt(clientIp, false)
     return { fieldErrors: { mobile: [phone.error ?? "Enter a valid mobile number"] }, fields: raw }
   }
 
@@ -135,10 +149,21 @@ export async function submitIntakeAction(
       },
     })
 
-    // WhatsApp consent stored with date/time/IP/version. NOTE: no message is
-    // sent here — messaging only starts after the consultation fee is paid.
+    // WhatsApp consent stored with date/time/IP/version. When the patient opts
+    // in we also send a registration confirmation (skips the consultation gate,
+    // by clinic request). Consent is the trust boundary here.
     if (whatsappConsent) {
       await whatsappService.setConsent(patient.id, true, clientIp || undefined).catch(() => null)
+      await whatsappService
+        .sendTrigger({
+          triggerKey: WHATSAPP_TRIGGERS.REGISTRATION_SUCCESSFUL,
+          patientId: patient.id,
+          variables: [patient.fullName, patient.patientId],
+          branchId: patient.registrationBranchId,
+          createdById: creator.id,
+          skipConsultationGate: true,
+        })
+        .catch(() => null)
     }
 
     await recordIntakeAttempt(clientIp, true)

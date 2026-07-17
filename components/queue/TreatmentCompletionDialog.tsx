@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { CheckCircle2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { BRAND_COLORS } from "@/lib/constants"
+import { toothLabel } from "@/lib/teeth"
 import { finishTreatmentsAction } from "@/actions/queue"
 import { toast } from "sonner"
 
@@ -107,7 +108,7 @@ export function TreatmentCompletionDialog({ queueId, patientId, items }: Props) 
                       </p>
                       {item.toothNumber && (
                         <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-                          Tooth #{item.toothNumber}
+                          {toothLabel(item.toothNumber)}
                         </p>
                       )}
                     </div>

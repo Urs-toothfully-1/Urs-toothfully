@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { Stethoscope, Loader2, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { BRAND_COLORS } from "@/lib/constants"
+import { toothLabel } from "@/lib/teeth"
 import { startTreatmentSessionAction } from "@/actions/queue"
 import { toast } from "sonner"
 
@@ -100,7 +101,7 @@ export function TreatmentSessionDialog({ pendingItems, patientId, branchId, doct
                     </p>
                     {item.toothNumber && (
                       <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-                        Tooth #{item.toothNumber}
+                        {toothLabel(item.toothNumber)}
                       </p>
                     )}
                   </div>

@@ -141,6 +141,12 @@ enum AppointmentStatus {
   NO_SHOW
 }
 
+enum AppointmentRequestStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+}
+
 // ─── MODELS ───────────────────────────────────────────────────
 
 model Branch {
@@ -166,6 +172,7 @@ model Branch {
   prescriptionTemplates PrescriptionTemplate[]
   whatsappMessages      WhatsAppMessage[]
   appointments          Appointment[]
+  appointmentRequests   AppointmentRequest[]
 }
 
 model User {
@@ -178,6 +185,7 @@ model User {
   role                Role
   doctorRegNo         String?  @db.VarChar(20)
   doctorQualification String?  @db.VarChar(200)
+  signatureData       String?  @db.Text  // doctor's digital signature, base64 data URL
   isActive            Boolean  @default(true)
   loginAttempts       Int      @default(0)
   lockedUntil         DateTime?
@@ -217,6 +225,7 @@ model User {
   doctorAppointments    Appointment[]          @relation("AppointmentDoctor")
   createdAppointments   Appointment[]          @relation("AppointmentCreatedBy")
   examinationTemplates  ExaminationTemplate[]  @relation("DoctorExaminationTemplates")
+  handledRequests       AppointmentRequest[]
 }
 
 model DoctorAvailability {
@@ -902,6 +911,32 @@ model Appointment {
   @@index([doctorId, scheduledAt])
   @@index([patientId, scheduledAt])
   @@index([status, scheduledAt])
+}
+
+// Public appointment requests submitted from the website (pre-patient lead).
+// Reception/admin reviews these and confirms into a real Appointment.
+model AppointmentRequest {
+  id            String                   @id @default(uuid())
+  fullName      String                   @db.VarChar(200)
+  mobile        String                   @db.VarChar(15)
+  problem       String?                  @db.VarChar(500)
+  preferredDate DateTime                 @db.Date
+  branchId      String
+  branch        Branch                   @relation(fields: [branchId], references: [id])
+  status        AppointmentRequestStatus @default(PENDING)
+  notes         String?                  @db.VarChar(500)
+  // WhatsApp opt-in captured on the public form; transferred to a real
+  // WhatsAppConsent record once the patient exists (at confirm time).
+  whatsappConsent Boolean                @default(false)
+  consentIp       String?                @db.VarChar(45)
+  appointmentId String?                  @unique // set when confirmed
+  handledById   String? // reception/admin who confirmed or declined
+  handledBy     User?                    @relation(fields: [handledById], references: [id])
+  handledAt     DateTime?
+  createdAt     DateTime                 @default(now())
+
+  @@index([status, createdAt])
+  @@index([branchId, status])
 }
 
 model ExaminationTemplate {

@@ -5,6 +5,7 @@ import { logoutAction } from "@/actions/auth"
 import type { Role } from "@/lib/session"
 import { LogOut, Loader2, ChevronDown, Building2 } from "lucide-react"
 import { MobileSidebar } from "@/components/dashboard/MobileSidebar"
+import { branchColor } from "@/lib/branch-colors"
 
 interface HeaderProps {
   userName: string
@@ -66,11 +67,11 @@ export function Header({ userName, role, branchName }: HeaderProps) {
       <div className="flex items-center gap-3">
         <MobileSidebar role={role} branchName={branchName} />
         <div
-          className="flex items-center gap-2 rounded-lg border px-3 py-1.5"
-          style={{ borderColor: "#E0E3E5", backgroundColor: "#F7F9FB" }}
+          className="flex items-center gap-2 rounded-lg px-3 py-1.5"
+          style={{ backgroundColor: branchColor(branchName).bg }}
         >
-          <Building2 className="h-3.5 w-3.5" style={{ color: "#005E97" }} />
-          <span className="text-sm font-medium truncate" style={{ color: "#404751" }}>
+          <Building2 className="h-3.5 w-3.5" style={{ color: branchColor(branchName).text }} />
+          <span className="text-sm font-semibold truncate" style={{ color: branchColor(branchName).text }}>
             {branchName} Branch
           </span>
         </div>

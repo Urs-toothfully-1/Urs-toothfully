@@ -6,6 +6,7 @@ import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { paymentAgreementService } from "@/server/services/payment-agreement.service"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { toothLabel } from "@/lib/teeth"
 import { PaymentStage } from "@/lib/payment-agreement"
 import { PrintButtons } from "@/components/print/PrintButtons"
 import { ShareActions } from "@/components/share/ShareActions"
@@ -164,7 +165,7 @@ export default async function PrintEstimatePage({ params }: Props) {
                   </div>
                 </td>
                 <td className="py-2 px-3" style={{ color: BRAND_COLORS.bodyText }}>
-                  {item.toothNumber || "—"}
+                  {toothLabel(item.toothNumber) || "—"}
                 </td>
                 <td className="py-2 px-3 text-center" style={{ color: BRAND_COLORS.bodyText }}>
                   {item.quantity}
@@ -250,7 +251,12 @@ export default async function PrintEstimatePage({ params }: Props) {
             <p style={{ color: BRAND_COLORS.borderDivider }}>Authorized Signatory</p>
           </div>
           <div>
-            <div className="border-b border-gray-400 mb-1 h-8" />
+            <div className="border-b border-gray-400 mb-1 h-8 flex items-end justify-center overflow-hidden">
+              {estimate.doctor.signatureData ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={estimate.doctor.signatureData} alt="Signature" style={{ maxHeight: 30, maxWidth: "100%", objectFit: "contain" }} />
+              ) : null}
+            </div>
             <p style={{ color: BRAND_COLORS.borderDivider }}>Dr. Signature</p>
           </div>
         </div>

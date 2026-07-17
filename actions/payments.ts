@@ -36,7 +36,7 @@ export async function collectConsultationFeeAction(
   }
 
   const amount = parseFloat(amountStr)
-  if (isNaN(amount) || amount <= 0) return { error: "Invalid amount." }
+  if (isNaN(amount) || amount < 0) return { error: "Invalid amount." }
 
   try {
     validatePaymentInput({ paymentType: "CONSULTATION", visitId, amount }, session.role)

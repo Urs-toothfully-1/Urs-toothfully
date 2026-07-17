@@ -8,6 +8,7 @@ import { ItemStatusButton } from "@/components/estimates/ItemStatusButton"
 import { TreatmentSessionDialog } from "@/components/estimates/TreatmentSessionDialog"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { toothLabel } from "@/lib/teeth"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle } from "lucide-react"
 
@@ -116,7 +117,7 @@ export default async function TreatmentProgressPage({ params }: Props) {
                         {item.treatmentName}
                         {item.toothNumber && (
                           <span className="ml-2 text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-                            {item.toothNumber.includes(",") ? "Teeth" : "Tooth"} #{item.toothNumber.split(",").join(", ")}
+                            {toothLabel(item.toothNumber)}
                           </span>
                         )}
                       </p>

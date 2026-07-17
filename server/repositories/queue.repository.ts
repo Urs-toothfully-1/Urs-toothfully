@@ -85,6 +85,21 @@ export const queueRepository = {
     })
   },
 
+  /**
+   * Atomically claim a WAITING, unclaimed entry for a doctor. The conditional
+   * `where` runs as a single UPDATE, so two doctors racing to claim the same
+   * entry cannot both succeed — exactly one gets count === 1, the other 0.
+   * Returns the number of rows updated (1 = claimed, 0 = already taken).
+   */
+  async claimIfAvailable(id: string, doctorId: string): Promise<number> {
+    const now = new Date()
+    const res = await prisma.queueEntry.updateMany({
+      where: { id, status: "WAITING", doctorId: null },
+      data: { status: "WITH_DOCTOR", doctorId, claimedAt: now, calledAt: now },
+    })
+    return res.count
+  },
+
   async getNextTokenNumber(branchId: string, date: Date): Promise<number> {
     const start = new Date(date)
     start.setHours(0, 0, 0, 0)

@@ -9,6 +9,26 @@ export type PrescriptionFormState = {
   error?: string
 }
 
+/**
+ * Saves the dated clinical-notes log to a visit's prescription (creating the
+ * prescription on first save). Used from the treatment session to log what was done.
+ */
+export async function saveVisitClinicalNotesAction(
+  visitId: string,
+  notes: { date: string; note: string }[]
+): Promise<{ success: boolean; prescriptionId?: string; error?: string }> {
+  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  if (!session) return { success: false, error: "Only doctors can write clinical notes." }
+  try {
+    const prescription = await prescriptionService.ensureForVisit(visitId, session.userId)
+    await prescriptionService.updateClinicalNotes(prescription.id, notes, session.userId)
+    revalidatePath(`/doctor/prescription/${prescription.id}`, "page")
+    return { success: true, prescriptionId: prescription.id }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Failed to save clinical notes." }
+  }
+}
+
 /** Ensures a prescription exists for a visit (e.g. treatment session) and returns its id. */
 export async function ensureVisitPrescriptionAction(
   visitId: string

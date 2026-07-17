@@ -4,15 +4,16 @@ import { useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { updateAppointmentStatusAction } from "@/actions/appointments"
+import { updateAppointmentStatusAction, rescheduleAppointmentAction } from "@/actions/appointments"
 import { BRAND_COLORS } from "@/lib/constants"
+import { BranchBadge } from "@/components/shared/BranchBadge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { CheckCircle2, Clock, Loader2, UserX, XCircle } from "lucide-react"
+import { CalendarClock, CheckCircle2, Clock, Loader2, UserX, XCircle } from "lucide-react"
 import type { AppointmentStatus } from "@prisma/client"
 
 const STATUS_STYLE: Record<AppointmentStatus, { label: string; bg: string; color: string }> = {
@@ -48,6 +49,10 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
   const time = new Date(a.scheduledAt)
   const style = STATUS_STYLE[a.status]
 
+  const [reschedOpen, setReschedOpen] = useState(false)
+  const [rDate, setRDate] = useState(a.scheduledAt.slice(0, 10))
+  const [rTime, setRTime] = useState(a.scheduledAt.slice(11, 16))
+
   function update(status: AppointmentStatus, reason?: string) {
     startTransition(async () => {
       const result = await updateAppointmentStatusAction(a.id, status, reason)
@@ -57,6 +62,19 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
         router.refresh()
       } else {
         toast.error(result.error ?? "Failed to update appointment")
+      }
+    })
+  }
+
+  function reschedule() {
+    startTransition(async () => {
+      const result = await rescheduleAppointmentAction(a.id, rDate, rTime)
+      if (result.success) {
+        toast.success("Appointment rescheduled")
+        setReschedOpen(false)
+        router.refresh()
+      } else {
+        toast.error(result.error ?? "Failed to reschedule")
       }
     })
   }
@@ -91,8 +109,9 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
                 {style.label}
               </span>
             </div>
-            <p className="text-xs mt-0.5 truncate" style={{ color: BRAND_COLORS.sidebarMuted }}>
-              {a.patient.patientId} · 📱 {a.patient.mobile} · {a.doctor.name} · {a.branch.name}
+            <p className="text-xs mt-0.5 truncate flex items-center gap-1.5" style={{ color: BRAND_COLORS.sidebarMuted }}>
+              <span>{a.patient.patientId} · 📱 {a.patient.mobile} · {a.doctor.name} ·</span>
+              <BranchBadge name={a.branch.name} />
             </p>
             {a.reason && (
               <p className="text-xs mt-0.5 truncate" style={{ color: BRAND_COLORS.bodyText }}>
@@ -121,6 +140,15 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
               className="text-amber-700 border-amber-200 hover:bg-amber-50"
             >
               <UserX className="h-3.5 w-3.5 mr-1" /> No Show
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isPending}
+              onClick={() => setReschedOpen(true)}
+              className="text-[#005E97] border-[#93C5FD] hover:bg-blue-50"
+            >
+              <CalendarClock className="h-3.5 w-3.5 mr-1" /> Reschedule
             </Button>
             <Button
               size="sm"
@@ -160,6 +188,26 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
             >
               {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Cancel Appointment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reschedOpen} onOpenChange={setReschedOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Reschedule Appointment</DialogTitle>
+            <DialogDescription>{a.patient.fullName} · {a.doctor.name}</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2">
+            <Input type="date" value={rDate} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setRDate(e.target.value)} />
+            <Input type="time" value={rTime} onChange={(e) => setRTime(e.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReschedOpen(false)} disabled={isPending}>Keep</Button>
+            <Button disabled={isPending || !rDate || !rTime} onClick={reschedule} style={{ backgroundColor: BRAND_COLORS.primaryTeal }}>
+              {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Reschedule
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -125,7 +125,7 @@ export function ConsultationFeeForm({ visitId, visitNo, patientId, branchId, def
           <Input
             name="amount"
             type="number"
-            min={1}
+            min={0}
             step={0.01}
             defaultValue={defaultFee}
             required
@@ -134,7 +134,7 @@ export function ConsultationFeeForm({ visitId, visitNo, patientId, branchId, def
           />
         </div>
         <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-          Default fee: {formatCurrency(defaultFee)} — edit if needed
+          Default fee: {formatCurrency(defaultFee)} — edit if needed. Enter ₹0 for a free consultation.
         </p>
       </div>
 

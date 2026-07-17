@@ -9,6 +9,7 @@ import { paymentAgreementService } from "@/server/services/payment-agreement.ser
 import { ShareActions } from "@/components/share/ShareActions"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { toothLabel } from "@/lib/teeth"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChevronRight, ClipboardList, FileText, Printer } from "lucide-react"
 
@@ -157,7 +158,7 @@ export default async function EstimateDetailPage({ params }: Props) {
                       </p>
                     </td>
                     <td className="py-2.5 px-2 text-xs" style={{ color: BRAND_COLORS.bodyText }}>
-                      {item.toothNumber || "—"}
+                      {toothLabel(item.toothNumber) || "—"}
                     </td>
                     <td className="py-2.5 px-2 text-xs text-center" style={{ color: BRAND_COLORS.bodyText }}>
                       {item.quantity}

@@ -12,10 +12,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ patients: [] })
     }
 
-    const patients = await patientRepository.search(q)
+    // Branch isolation: non-admin roles only see patients registered at their
+    // own branch; ADMIN searches across all branches.
+    const branchId = session.role === "ADMIN" ? undefined : session.branchId
+    const patients = await patientRepository.search(q, 1, branchId)
     return NextResponse.json({ patients })
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  } catch (err) {
+    if (err instanceof Error && err.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    if (err instanceof Error && err.message === "FORBIDDEN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    // Unexpected failure (e.g. DB error) must not masquerade as a 401.
+    console.error("[GET /api/patients] unexpected error:", err)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 

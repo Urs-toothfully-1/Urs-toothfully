@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { BackButton } from "@/components/shared/BackButton"
+import { BookFollowUpDialog } from "@/components/appointments/BookFollowUpDialog"
 import { PrescriptionEditor, ExamTemplate, TreatmentOption, PrescriptionEditorHandle } from "@/components/prescriptions/PrescriptionEditor"
 import { EstimateBuilder } from "@/components/estimates/EstimateBuilder"
 import { PaymentAgreementCard, type PaymentAgreementCardHandle } from "@/components/estimates/PaymentAgreementCard"
@@ -58,7 +59,7 @@ interface Props {
 const STEPS = [
   { n: 1, label: "Prescription", icon: ClipboardList },
   { n: 2, label: "Estimate", icon: FileText },
-  { n: 3, label: "Treatment Agreement", icon: FileSignature },
+  { n: 3, label: "Payment Plan", icon: FileSignature },
 ]
 
 export function EstimateWizard({
@@ -149,7 +150,7 @@ export function EstimateWizard({
       if (!queueId) { router.push("/doctor"); return }
       const result = await updateQueueStatusAction(queueId, "COMPLETED")
       if (result.success) {
-        toast.success("Consultation completed — estimate & payment plan saved")
+        toast.success("Consultation completed")
         router.push("/doctor")
       } else {
         toast.error(result.error ?? "Failed to complete consultation")
@@ -159,14 +160,16 @@ export function EstimateWizard({
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
-      {/* Back */}
-      <div className="flex items-center justify-between gap-3">
-        <BackButton fallbackHref="/doctor" />
-        <p className="text-sm font-medium" style={{ color: BRAND_COLORS.borderDivider }}>{patientName}</p>
-      </div>
-
-      {/* Step indicator */}
-      <div className="bg-white rounded-xl border border-[#E0E3E5] p-4 flex items-center gap-1">
+      {/* Header — back, patient, book follow-up, and the step pills in one card */}
+      <div className="bg-white rounded-xl border border-[#E0E3E5] p-3 space-y-3">
+        <div className="flex items-center justify-between gap-3 px-1">
+          <BackButton fallbackHref="/doctor" />
+          <div className="flex items-center gap-3">
+            <p className="text-sm font-medium hidden sm:block" style={{ color: BRAND_COLORS.bodyText }}>{patientName}</p>
+            <BookFollowUpDialog patientId={patientId} branchId={branchId} patientName={patientName} />
+          </div>
+        </div>
+        <div className="flex items-center gap-1 border-t pt-2" style={{ borderColor: BRAND_COLORS.lightBackground }}>
         {STEPS.map(({ n, label, icon: Icon }, idx) => {
           const done = n < step
           const active = n === step
@@ -205,6 +208,7 @@ export function EstimateWizard({
             </div>
           )
         })}
+        </div>
       </div>
 
       {/* ── STEP 1: Prescription ─────────────────────────────────── */}
@@ -279,8 +283,8 @@ export function EstimateWizard({
               initialItems={estimateInitialItems}
               initialNotes={estimateNotes ?? ""}
               initialDiscountPercent={estimateDiscount ?? 0}
-              submitLabel={hasEstimate ? "Save Estimate & Continue →" : "Create Estimate & Continue →"}
-              onSaved={(id) => { setCurrentEstimateId(id); toast.success("Estimate saved"); setStep(3); router.refresh() }}
+              submitLabel={hasEstimate ? "Save Estimate" : "Create Estimate"}
+              onSaved={(id) => { setCurrentEstimateId(id); toast.success("Estimate saved — finish now, or add a payment plan"); router.refresh() }}
             />
           </div>
         </div>
@@ -318,14 +322,13 @@ export function EstimateWizard({
       {/* ── Navigation bar ───────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-[#E0E3E5] px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          {step > 1 && (
+          {step > 1 ? (
             <Button type="button" variant="outline" onClick={() => setStep((s) => s - 1)} className="gap-2">
-              <ArrowLeft className="h-4 w-4" />Back
+              <ArrowLeft className="h-4 w-4" />Previous step
             </Button>
+          ) : (
+            <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>Step {step} of 3</span>
           )}
-          <a href="/doctor" className="text-sm font-medium hover:underline" style={{ color: BRAND_COLORS.borderDivider }}>
-            ← Queue
-          </a>
         </div>
 
         <div className="flex items-center gap-3">
@@ -334,7 +337,7 @@ export function EstimateWizard({
               {!hasEstimate && (
                 <Button type="button" variant="outline" onClick={finishRxOnly} disabled={isFinishing} className="gap-2">
                   {isFinishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  Finish (Rx only)
+                  Finish (Prescription only)
                 </Button>
               )}
               <Button
@@ -349,16 +352,22 @@ export function EstimateWizard({
           )}
           {step === 2 && (
             <>
-              {!hasEstimate && (
+              {!hasEstimate ? (
                 <Button type="button" variant="outline" onClick={finishRxOnly} disabled={isFinishing} className="gap-2">
                   {isFinishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  Finish (Rx only)
+                  Finish (Prescription only)
                 </Button>
-              )}
-              {hasEstimate && (
-                <Button type="button" variant="outline" onClick={() => setStep(3)} className="gap-2">
-                  Next: Agreement <ArrowRight className="h-4 w-4" />
-                </Button>
+              ) : (
+                <>
+                  <Button type="button" onClick={completeWithEstimate} disabled={isFinishing} className="gap-2 text-white"
+                    style={{ backgroundColor: isFinishing ? BRAND_COLORS.borderDivider : BRAND_COLORS.secondaryGreen }}>
+                    {isFinishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    Finish (no payment plan)
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setStep(3)} className="gap-2">
+                    Add payment plan <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </>
               )}
             </>
           )}

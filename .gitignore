@@ -46,3 +46,7 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# Playwright generated output
+tests/e2e/.report/
+test-results/

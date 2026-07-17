@@ -75,12 +75,29 @@ export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props
     setStages(suggestPaymentSchedule(estimateTotal))
   }
 
+  // Keep the schedule summing to the estimate total: received stages and the
+  // just-edited stage stay put; the last other unreceived stage absorbs the rest.
+  function rebalance(list: PaymentStage[], keepIdx: number): PaymentStage[] {
+    let absorber = -1
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (!list[i].received && i !== keepIdx) { absorber = i; break }
+    }
+    if (absorber === -1) return list
+    const sumOthers = list.reduce((s, st, i) => (i === absorber ? s : s + st.amount), 0)
+    const amount = Math.max(0, Math.round(estimateTotal - sumOthers))
+    return list.map((s, i) => (i === absorber ? { ...s, amount } : s))
+  }
+
   function addRow() {
     setStages((prev) => [...prev, { name: "Additional Installment", amount: 0, dueDate: "", received: false }])
   }
 
   function removeRow(idx: number) {
-    setStages((prev) => prev.filter((_, i) => i !== idx))
+    setStages((prev) => rebalance(prev.filter((_, i) => i !== idx), -1))
+  }
+
+  function balanceAfterEdit(idx: number) {
+    setStages((prev) => rebalance(prev, idx))
   }
 
   function updateStage<K extends keyof PaymentStage>(idx: number, key: K, val: PaymentStage[K]) {
@@ -183,8 +200,11 @@ export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props
                         const raw = e.target.value
                         updateStage(idx, "amount", raw === "" ? 0 : Math.max(0, Number(raw)))
                       }}
+                      onBlur={() => balanceAfterEdit(idx)}
+                      disabled={stage.received}
                       placeholder="0"
-                      className={`${inputCls} font-mono`}
+                      className={`${inputCls} font-mono disabled:opacity-60`}
+                      title={stage.received ? "Received — amount locked" : "Other installments auto-adjust so the total stays exact"}
                     />
                   </td>
                   {/* Due Date */}

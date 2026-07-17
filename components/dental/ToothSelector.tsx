@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { BRAND_COLORS } from "@/lib/constants"
+import { toothLabel } from "@/lib/teeth"
 import { X } from "lucide-react"
 
 /**
@@ -51,7 +52,7 @@ export function ToothSelector({ value, onChange, compact }: Props) {
   const [selected, setSelected] = useState<Set<string>>(() => parseValue(value))
   const [showPrimary, setShowPrimary] = useState(false)
 
-  const display = value.split(",").map((t) => t.trim()).filter(Boolean).join(", ")
+  const display = toothLabel(value)
 
   function openDialog() {
     setSelected(parseValue(value))

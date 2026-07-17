@@ -4,6 +4,7 @@ import Link from "next/link"
 import { requireSession } from "@/lib/auth"
 import { patientRepository, SEARCH_PAGE_SIZE } from "@/server/repositories/patient.repository"
 import { PatientSearchInput } from "@/components/patients/PatientSearchInput"
+import { BranchBadge } from "@/components/shared/BranchBadge"
 import { BRAND_COLORS } from "@/lib/constants"
 import { calculateAge, formatDate } from "@/lib/utils"
 import { UserPlus, Users, Clock, Stethoscope, Activity, CheckCircle2, X } from "lucide-react"
@@ -127,10 +128,8 @@ function PatientCard({ p, badgeLabel, badgeBg, badgeColor }: {
             </div>
           </div>
           <div className="text-right flex-shrink-0">
-            <p className="text-xs font-medium" style={{ color: BRAND_COLORS.bodyText }}>
-              {p.registrationBranch.name}
-            </p>
-            <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
+            <BranchBadge name={p.registrationBranch.name} />
+            <p className="text-xs mt-1" style={{ color: BRAND_COLORS.borderDivider }}>
               {formatDate(p.createdAt)}
             </p>
           </div>

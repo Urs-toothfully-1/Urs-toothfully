@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { ROUTES, APP_NAME, APP_TAGLINE, CLINIC_HOURS } from "@/lib/constants"
 import { LoginForm } from "@/components/auth/LoginForm"
+import { Logo } from "@/components/shared/Logo"
 import { MapPin, Clock } from "lucide-react"
 
 export const metadata: Metadata = { title: "Login — Ur's Toothfully" }
@@ -36,12 +37,7 @@ export default async function LoginPage() {
         {/* Top — logo + name */}
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-10">
-            <div
-              className="h-11 w-11 rounded-xl flex items-center justify-center text-white text-lg font-bold"
-              style={{ background: "linear-gradient(135deg, #005E97, #0077BE)" }}
-            >
-              T
-            </div>
+            <Logo className="h-11 w-11" rounded="rounded-xl" />
             <div>
               <p className="text-white text-lg font-bold leading-tight">{APP_NAME}</p>
               <p className="text-xs mt-0.5" style={{ color: "#707882" }}>Clinic Management System</p>
@@ -94,12 +90,7 @@ export default async function LoginPage() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-3 mb-10">
-          <div
-            className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold"
-            style={{ background: "linear-gradient(135deg, #005E97, #0077BE)" }}
-          >
-            T
-          </div>
+          <Logo className="h-10 w-10" rounded="rounded-xl" />
           <div>
             <p className="font-bold" style={{ color: "#191C1E" }}>{APP_NAME}</p>
             <p className="text-xs" style={{ color: "#707882" }}>{APP_TAGLINE}</p>

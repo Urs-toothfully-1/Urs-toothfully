@@ -1,5 +1,6 @@
 import { Metadata } from "next"
 import { IntakeForm } from "@/components/intake/IntakeForm"
+import { Logo } from "@/components/shared/Logo"
 import { APP_NAME, APP_TAGLINE, BRAND_COLORS, CLINIC_HOURS } from "@/lib/constants"
 import { prisma } from "@/lib/prisma"
 
@@ -21,13 +22,16 @@ export default async function IntakePage() {
     <div className="min-h-screen" style={{ backgroundColor: BRAND_COLORS.lightBackground }}>
       {/* Header */}
       <header className="bg-white border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
-        <div className="max-w-2xl mx-auto px-4 py-5 text-center">
-          <h1 className="text-2xl font-bold" style={{ color: BRAND_COLORS.primaryTeal }}>
-            {APP_NAME}
-          </h1>
-          <p className="text-sm mt-1" style={{ color: BRAND_COLORS.borderDivider }}>
-            {APP_TAGLINE}
-          </p>
+        <div className="max-w-2xl mx-auto px-4 py-5 flex items-center justify-center gap-3">
+          <Logo className="h-11 w-11" rounded="rounded-xl" />
+          <div className="text-center sm:text-left">
+            <h1 className="text-2xl font-bold" style={{ color: BRAND_COLORS.primaryTeal }}>
+              {APP_NAME}
+            </h1>
+            <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
+              {APP_TAGLINE}
+            </p>
+          </div>
         </div>
       </header>
 

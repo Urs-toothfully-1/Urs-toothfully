@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { updateItemSittingsAction } from "@/actions/estimates"
 import { BRAND_COLORS } from "@/lib/constants"
+import { toothLabel } from "@/lib/teeth"
 import { Minus, Plus, Loader2, CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -90,9 +91,9 @@ export function SittingsTracker({ patientId, items: initialItems }: Props) {
               <p className="text-sm font-medium" style={{ color: BRAND_COLORS.bodyText }}>
                 {item.treatmentName}
                 {item.toothNumber && (
-                  <span className="ml-2 text-xs font-mono px-1.5 py-0.5 rounded"
+                  <span className="ml-2 text-xs font-mono px-1.5 py-0.5 rounded whitespace-nowrap"
                     style={{ backgroundColor: `${BRAND_COLORS.primaryTeal}15`, color: BRAND_COLORS.primaryTeal }}>
-                    {item.toothNumber}
+                    {toothLabel(item.toothNumber)}
                   </span>
                 )}
               </p>
@@ -103,36 +104,38 @@ export function SittingsTracker({ patientId, items: initialItems }: Props) {
             </div>
 
             {/* Completed controls */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>Done today &amp; total</span>
-              <button type="button" onClick={() => changeCompleted(item, -1)}
-                disabled={item.completedSittings <= 0}
-                className="h-7 w-7 rounded-md border flex items-center justify-center disabled:opacity-30 hover:bg-gray-50"
-                style={{ borderColor: BRAND_COLORS.lightBackground }}>
-                <Minus className="h-3.5 w-3.5" />
-              </button>
-              <span className="text-sm font-bold tabular-nums w-14 text-center"
-                style={{ color: done ? BRAND_COLORS.secondaryGreen : BRAND_COLORS.bodyText }}>
-                {item.completedSittings} / {item.plannedSittings}
-              </span>
-              <button type="button" onClick={() => changeCompleted(item, +1)}
-                disabled={item.completedSittings >= item.plannedSittings}
-                className="h-7 w-7 rounded-md border flex items-center justify-center disabled:opacity-30 hover:bg-gray-50"
-                style={{ borderColor: BRAND_COLORS.lightBackground }}>
-                <Plus className="h-3.5 w-3.5" />
-              </button>
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: BRAND_COLORS.borderDivider }}>Sittings done</span>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => changeCompleted(item, -1)}
+                  disabled={item.completedSittings <= 0} aria-label="One less sitting"
+                  className="h-7 w-7 rounded-md border flex items-center justify-center disabled:opacity-30 hover:bg-gray-50"
+                  style={{ borderColor: BRAND_COLORS.lightBackground }}>
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+                <span className="text-sm font-bold tabular-nums w-12 text-center"
+                  style={{ color: done ? BRAND_COLORS.secondaryGreen : BRAND_COLORS.bodyText }}>
+                  {item.completedSittings} / {item.plannedSittings}
+                </span>
+                <button type="button" onClick={() => changeCompleted(item, +1)}
+                  disabled={item.completedSittings >= item.plannedSittings} aria-label="One more sitting"
+                  className="h-7 w-7 rounded-md border flex items-center justify-center disabled:opacity-30 hover:bg-gray-50"
+                  style={{ borderColor: BRAND_COLORS.lightBackground }}>
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
 
             {/* Planned editor */}
-            <label className="flex items-center gap-1.5 text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-              Plan
+            <label className="flex flex-col items-center gap-0.5 text-[10px] font-medium uppercase tracking-wide" style={{ color: BRAND_COLORS.borderDivider }}>
+              Total planned
               <input
                 type="number"
                 min={1}
                 value={item.plannedSittings}
                 onChange={(e) => changePlanned(item, parseInt(e.target.value))}
-                className="h-7 w-14 rounded border px-1.5 text-sm text-center"
-                style={{ borderColor: BRAND_COLORS.lightBackground }}
+                className="h-7 w-14 rounded border px-1.5 text-sm text-center normal-case"
+                style={{ borderColor: BRAND_COLORS.lightBackground, color: BRAND_COLORS.bodyText }}
               />
             </label>
 

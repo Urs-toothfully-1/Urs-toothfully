@@ -9,6 +9,7 @@ import { ShareActions } from "@/components/share/ShareActions"
 import { BackButton } from "@/components/shared/BackButton"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatDate } from "@/lib/utils"
+import { toothLabel } from "@/lib/teeth"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertTriangle, ChevronRight, ClipboardList, Printer } from "lucide-react"
 import type { PrescriptionData } from "@/lib/prescription-types"
@@ -165,7 +166,7 @@ export default async function PrescriptionPage({ params }: Props) {
                         className="text-xs px-1.5 py-0.5 rounded font-mono"
                         style={{ backgroundColor: `${BRAND_COLORS.primaryTeal}15`, color: BRAND_COLORS.primaryTeal }}
                       >
-                        {t.toothNumber.includes(",") ? "Teeth" : "Tooth"} {t.toothNumber.split(",").join(", ")}
+                        {toothLabel(t.toothNumber)}
                       </span>
                     )}
                     {t.quantity > 1 && (

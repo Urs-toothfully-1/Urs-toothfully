@@ -7,7 +7,7 @@ export const estimateRepository = {
       where: { id, isDeleted: false },
       include: {
         patient: { select: { id: true, patientId: true, fullName: true, mobile: true, email: true } },
-        doctor: { select: { id: true, name: true } },
+        doctor: { select: { id: true, name: true, signatureData: true } },
         branch: { select: { id: true, name: true } },
         items: { orderBy: { sortOrder: "asc" } },
         payments: {

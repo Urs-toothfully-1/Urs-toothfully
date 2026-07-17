@@ -13,7 +13,7 @@ import {
   Plus, Save, Trash2, X,
 } from "lucide-react"
 import { BRAND_COLORS } from "@/lib/constants"
-import type { ExaminationFinding, PrescriptionData, PrescriptionMedicine, PrescriptionTreatment } from "@/lib/prescription-types"
+import type { ClinicalNoteEntry, ExaminationFinding, PrescriptionData, PrescriptionMedicine, PrescriptionTreatment } from "@/lib/prescription-types"
 import { toast } from "sonner"
 
 export interface ExamTemplate {
@@ -78,6 +78,18 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
   )
   const [advice, setAdvice] = useState(data.advice ?? "")
   const [followUpDate, setFollowUpDate] = useState(data.followUpDate ?? "")
+  const [clinicalNotes, setClinicalNotes] = useState<ClinicalNoteEntry[]>(data.clinicalNotes ?? [])
+
+  const todayStr = new Date().toISOString().slice(0, 10)
+  function addClinicalNote() {
+    setClinicalNotes((prev) => [...prev, { date: todayStr, note: "" }])
+  }
+  function setClinicalNote(idx: number, note: string) {
+    setClinicalNotes((prev) => prev.map((n, i) => (i === idx ? { ...n, note } : n)))
+  }
+  function removeClinicalNote(idx: number) {
+    setClinicalNotes((prev) => prev.filter((_, i) => i !== idx))
+  }
 
   // Template state
   const [templates, setTemplates] = useState<ExamTemplate[]>(initialTemplates)
@@ -190,6 +202,7 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
     medicines: medicines.filter((m) => m.name.trim()),
     advice,
     followUpDate: followUpDate || undefined,
+    clinicalNotes: clinicalNotes.filter((n) => n.note.trim()),
   })
 
   // Report treatment-plan changes up so a parent wizard can prefill the estimate.
@@ -365,12 +378,6 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
                       onChange={(val) => setFinding(idx, "toothNumbers", val)}
                       compact
                     />
-                    {f.toothNumbers && (
-                      <span className="text-xs font-mono px-1.5 py-0.5 rounded"
-                        style={{ backgroundColor: `${BRAND_COLORS.primaryTeal}15`, color: BRAND_COLORS.primaryTeal }}>
-                        {f.toothNumbers}
-                      </span>
-                    )}
                   </div>
                 </div>
                 <button
@@ -488,12 +495,6 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
                       onChange={(val) => setTreatment(idx, "toothNumber", val)}
                       compact
                     />
-                    {t.toothNumber && (
-                      <span className="text-xs font-mono px-1.5 py-0.5 rounded"
-                        style={{ backgroundColor: `${BRAND_COLORS.primaryTeal}15`, color: BRAND_COLORS.primaryTeal }}>
-                        {t.toothNumber}
-                      </span>
-                    )}
                   </div>
                   {/* Qty */}
                   <div className="md:col-span-2 flex items-center gap-2">
@@ -605,6 +606,41 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
             min={new Date().toISOString().split("T")[0]}
             className="h-10 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white" />
         </div>
+      </div>
+
+      {/* ── 5. Clinical Notes (dated) ─────────────────────────── */}
+      <div className="space-y-3">
+        {sectionHeader("Clinical Notes — what was done")}
+        <p className="text-xs -mt-1" style={{ color: BRAND_COLORS.borderDivider }}>
+          Add a dated note each visit. These print after the Rx (Prescription — Clinical Notes), continuing to a new page if the sheet fills up.
+        </p>
+        {clinicalNotes.length > 0 && (
+          <div className="space-y-2">
+            {clinicalNotes.map((n, idx) => (
+              <div key={idx} className="flex items-start gap-2">
+                <span className="text-xs font-semibold font-mono mt-2.5 shrink-0 w-24" style={{ color: BRAND_COLORS.primaryTeal }}>
+                  {new Date(`${n.date}T12:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                </span>
+                <Textarea
+                  value={n.note}
+                  onChange={(e) => setClinicalNote(idx, e.target.value)}
+                  placeholder="e.g. Access opening & pulpectomy done on 46, dressing placed…"
+                  rows={2}
+                  className="flex-1 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white resize-none"
+                />
+                <button type="button" onClick={() => removeClinicalNote(idx)}
+                  className="mt-2 p-1.5 rounded hover:bg-red-50 text-red-400 shrink-0" aria-label="Remove note">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <button type="button" onClick={addClinicalNote}
+          className="flex items-center gap-1.5 text-sm font-medium hover:underline"
+          style={{ color: BRAND_COLORS.primaryTeal }}>
+          <Plus className="h-4 w-4" />Add today&apos;s note ({new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short" })})
+        </button>
       </div>
 
       <div className="flex items-center gap-3 pt-2 border-t" style={{ borderColor: BRAND_COLORS.lightBackground }}>

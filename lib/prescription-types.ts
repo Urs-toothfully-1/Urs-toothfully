@@ -26,6 +26,12 @@ export interface ExaminationFinding {
   finding: string
 }
 
+/** Dated note of what the doctor did — accumulates across visits, printed after Rx. */
+export interface ClinicalNoteEntry {
+  date: string  // "YYYY-MM-DD"
+  note: string
+}
+
 export interface PrescriptionData {
   patient: {
     name: string
@@ -49,6 +55,8 @@ export interface PrescriptionData {
   medicines: PrescriptionMedicine[]
   advice: string
   followUpDate?: string
+  /** Doctor's dated clinical notes (what was done), shown/printed after the Rx */
+  clinicalNotes?: ClinicalNoteEntry[]
 }
 
 export function calculateAge(dateOfBirth: Date | string): number {

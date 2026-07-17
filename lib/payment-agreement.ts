@@ -10,11 +10,17 @@ interface Tier {
   pct: number
 }
 
+// Round to a clean, payable figure. ponytail: nearest ₹1,000; the last stage
+// always absorbs the remainder so the schedule still sums to the exact total.
+function roundPayable(n: number): number {
+  return Math.max(0, Math.round(n / 1000) * 1000)
+}
+
 function buildStages(total: number, tiers: Tier[]): PaymentStage[] {
   let remaining = total
   return tiers.map((t, i) => {
     const isLast = i === tiers.length - 1
-    const amount = isLast ? Math.round(remaining) : Math.round(total * t.pct)
+    const amount = isLast ? Math.max(0, Math.round(remaining)) : roundPayable(total * t.pct)
     if (!isLast) remaining -= amount
     return { name: t.label, amount, dueDate: "", received: false }
   })

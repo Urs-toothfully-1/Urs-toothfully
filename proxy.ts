@@ -3,7 +3,7 @@ import { jwtVerify } from "jose"
 import { SESSION_COOKIE_NAME, type Role, type SessionPayload } from "@/lib/session"
 import { ROUTES } from "@/lib/constants"
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/intake", "/api/whatsapp/webhook", "/api/cron"]
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/intake", "/book", "/api/whatsapp/webhook", "/api/cron"]
 
 const ROLE_PATHS: Record<string, Role[]> = {
   "/appointments": ["ADMIN", "DOCTOR", "RECEPTIONIST"],
@@ -89,6 +89,8 @@ function getDefaultRoute(role: Role): string {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|public|api/auth/login).*)",
+    // Static assets live at the root (public/logo.jpeg → /logo.jpeg), so they
+    // must be excluded by extension — a "public" prefix never matches them.
+    "/((?!_next/static|_next/image|favicon.ico|api/auth/login|.*\\.(?:jpg|jpeg|png|gif|svg|ico|webp|avif|css|js|woff|woff2|ttf)$).*)",
   ],
 }

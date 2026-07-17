@@ -103,14 +103,16 @@ export const queueService = {
   async claimPatient(queueId: string, doctorId: string) {
     const entry = await queueRepository.findById(queueId)
     if (!entry) throw new Error("Queue entry not found")
-    if (entry.doctorId) throw new Error("Patient already claimed by a doctor")
-    if (entry.status !== "WAITING") throw new Error("Patient is not in WAITING status")
 
-    const updated = await queueRepository.updateStatus(queueId, "WITH_DOCTOR", {
-      doctorId,
-      claimedAt: new Date(),
-      calledAt: new Date(),
-    })
+    // Atomic conditional claim — prevents a race where two doctors both pass a
+    // check-then-update and double-claim the same patient.
+    const claimed = await queueRepository.claimIfAvailable(queueId, doctorId)
+    if (claimed === 0) {
+      // Lost the race (or state changed) — report the precise reason.
+      const current = await queueRepository.findById(queueId)
+      if (current?.doctorId) throw new Error("Patient already claimed by a doctor")
+      throw new Error("Patient is not in WAITING status")
+    }
 
     await createAuditLog({
       entityType: "QueueEntry",
@@ -120,6 +122,6 @@ export const queueService = {
       newValues: { doctorId, status: "WITH_DOCTOR" },
     })
 
-    return updated
+    return queueRepository.findById(queueId)
   },
 }
