@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { formatDate } from "@/lib/utils"
+import { formatAge } from "@/lib/patient-dob"
 import { toothLabel } from "@/lib/teeth"
 import { PrintButtons } from "@/components/print/PrintButtons"
 import { ShareActions } from "@/components/share/ShareActions"
@@ -80,9 +81,8 @@ export default async function PrintPrescriptionPage({ params, searchParams }: Pr
     ? await prisma.prescriptionRecord.count({ where: { patientId: visit.patientId, createdAt: { lte: record.createdAt } } })
     : 1
 
-  const age = Math.floor(
-    (new Date().getTime() - new Date(visit.patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-  )
+  // Blank rather than a nonsense number when the DOB is the online-booking sentinel
+  const age = formatAge(visit.patient.dateOfBirth)
   // Chief complaint comes from the doctor's written entry, not receptionist's intake note
   const chiefComplaint = rx?.chiefComplaint ?? ""
   const medicalAlerts = rx?.medicalAlerts ?? []

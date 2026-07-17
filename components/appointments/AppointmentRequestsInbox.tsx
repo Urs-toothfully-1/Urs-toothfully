@@ -27,6 +27,7 @@ function ConfirmRow({ req, doctors }: { req: RequestView; doctors: Props["doctor
   const [doctorId, setDoctorId] = useState(doctors[0]?.id ?? "")
   const [date, setDate] = useState(req.preferredDate)
   const [time, setTime] = useState("10:30")
+  const [reason, setReason] = useState("")
   const [pending, start] = useTransition()
 
   function confirm() {
@@ -40,8 +41,8 @@ function ConfirmRow({ req, doctors }: { req: RequestView; doctors: Props["doctor
 
   function decline() {
     start(async () => {
-      const res = await declineAppointmentRequestAction(req.id)
-      if (res.success) toast.success("Request declined")
+      const res = await declineAppointmentRequestAction(req.id, reason.trim() || undefined)
+      if (res.success) toast.success(`Declined — please call ${req.fullName} on ${req.mobile}`)
       else toast.error(res.error ?? "Failed to decline")
     })
   }
@@ -83,6 +84,18 @@ function ConfirmRow({ req, doctors }: { req: RequestView; doctors: Props["doctor
             className="h-9 rounded-lg border border-[#E0E3E5] bg-white px-2 text-sm" />
           <input type="time" value={time} onChange={(e) => setTime(e.target.value)} disabled={pending}
             className="h-9 rounded-lg border border-[#E0E3E5] bg-white px-2 text-sm" />
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            disabled={pending}
+            maxLength={500}
+            placeholder="Reason (only needed if declining)"
+            className="sm:col-span-3 h-9 rounded-lg border border-[#E0E3E5] bg-white px-2 text-sm"
+          />
+          <p className="sm:col-span-3 text-[11px] -mt-1" style={{ color: BRAND_COLORS.borderDivider }}>
+            Declining does not notify the patient — call {req.mobile} to let them know.
+          </p>
           <div className="sm:col-span-3 flex items-center gap-2 justify-end">
             <button type="button" onClick={decline} disabled={pending}
               className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium text-red-600" style={{ borderColor: "#FECACA" }}>

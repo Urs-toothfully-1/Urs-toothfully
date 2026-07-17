@@ -8,6 +8,7 @@ import { Gender } from "@prisma/client"
 import { extractDentalHistoryData } from "@/lib/dental-history-form"
 import { dentalHistoryRepository } from "@/server/repositories/dental-history.repository"
 import { verifyTurnstileToken } from "@/lib/turnstile"
+import { checkBotSignals, warnIfTurnstileMissing } from "@/lib/bot-guard"
 import { checkIntakeRateLimit, recordIntakeAttempt, getClientIp } from "@/lib/rate-limit"
 import { validateMobile } from "@/lib/whatsapp/phone"
 import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
@@ -82,7 +83,16 @@ export async function submitIntakeAction(
   const hdrs = await headers()
   const clientIp = getClientIp(hdrs)
 
-  // 1. Cloudflare Turnstile — registration is blocked if verification fails
+  // 1. Always-on bot checks — Turnstile fails open when unconfigured, these don't
+  warnIfTurnstileMissing("/intake")
+  const bot = checkBotSignals(formData)
+  if (!bot.ok) {
+    console.warn(`[security] /intake submission rejected: ${bot.reason} (ip=${clientIp || "unknown"})`)
+    await recordIntakeAttempt(clientIp, false)
+    return { error: bot.error, fields: raw }
+  }
+
+  // 2. Cloudflare Turnstile — registration is blocked if verification fails
   const turnstile = await verifyTurnstileToken(
     formData.get("cf-turnstile-response")?.toString() ?? null,
     clientIp || undefined

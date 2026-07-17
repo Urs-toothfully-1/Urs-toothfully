@@ -2,10 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { appointmentService } from "@/server/services/appointment.service"
 import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
 
-/** Placeholder DOB for patients stubbed from an online booking; reception
- * completes the real profile at the front desk.
- * ponytail: sentinel DOB, replace when the patient is registered properly. */
-const UNKNOWN_DOB = new Date("1900-01-01T00:00:00Z")
+import { UNKNOWN_DOB } from "@/lib/patient-dob"
 
 async function nextPatientId(): Promise<string> {
   const year = new Date().getFullYear()

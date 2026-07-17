@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { formatAge } from "@/lib/patient-dob"
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { requireRole } from "@/lib/auth"
@@ -33,14 +34,6 @@ export const dynamic = "force-dynamic"
 
 type Props = { params: Promise<{ queueId: string }> }
 
-function calcAge(dob: Date): number {
-  const today = new Date()
-  let age = today.getFullYear() - dob.getFullYear()
-  const m = today.getMonth() - dob.getMonth()
-  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
-  return age
-}
-
 export default async function TreatmentSessionPage({ params }: Props) {
   const session = await requireRole(["DOCTOR", "ADMIN"])
   const { queueId } = await params
@@ -56,7 +49,7 @@ export default async function TreatmentSessionPage({ params }: Props) {
   const pendingItems = await estimateRepository.findPendingItemsByPatients([entry.patient.id])
 
   const history = entry.patient.dentalHistories[0] ?? null
-  const age = calcAge(new Date(entry.patient.dateOfBirth))
+  const age = formatAge(entry.patient.dateOfBirth)
 
   // Build medical alerts list
   const alerts: string[] = []
@@ -185,7 +178,7 @@ export default async function TreatmentSessionPage({ params }: Props) {
               <div className="flex flex-wrap gap-4 mt-1.5 text-sm" style={{ color: BRAND_COLORS.borderDivider }}>
                 <span className="flex items-center gap-1.5">
                   <User className="h-3.5 w-3.5" />
-                  {entry.patient.gender === "MALE" ? "Male" : entry.patient.gender === "FEMALE" ? "Female" : "Other"} · {age} yrs
+                  {entry.patient.gender === "MALE" ? "Male" : entry.patient.gender === "FEMALE" ? "Female" : "Other"} · {age === "—" ? "age —" : `${age} yrs`}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Phone className="h-3.5 w-3.5" />

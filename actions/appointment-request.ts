@@ -5,6 +5,7 @@ import { headers } from "next/headers"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { verifyTurnstileToken } from "@/lib/turnstile"
+import { checkBotSignals, warnIfTurnstileMissing } from "@/lib/bot-guard"
 import { checkIntakeRateLimit, recordIntakeAttempt, getClientIp } from "@/lib/rate-limit"
 import { validateMobile } from "@/lib/whatsapp/phone"
 
@@ -37,6 +38,15 @@ export async function submitAppointmentRequestAction(
 
   const hdrs = await headers()
   const clientIp = getClientIp(hdrs)
+
+  // Always-on checks — Turnstile fails open when unconfigured, these do not.
+  warnIfTurnstileMissing("/book")
+  const bot = checkBotSignals(formData)
+  if (!bot.ok) {
+    console.warn(`[security] /book submission rejected: ${bot.reason} (ip=${clientIp || "unknown"})`)
+    await recordIntakeAttempt(clientIp, false)
+    return { error: bot.error, fields: raw }
+  }
 
   const turnstile = await verifyTurnstileToken(
     formData.get("cf-turnstile-response")?.toString() ?? null,

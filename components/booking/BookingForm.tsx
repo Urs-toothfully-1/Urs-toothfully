@@ -4,6 +4,7 @@ import { useActionState, useState } from "react"
 import { useFormStatus } from "react-dom"
 import { submitAppointmentRequestAction, BookingFormState } from "@/actions/appointment-request"
 import { TurnstileWidget } from "@/components/intake/TurnstileWidget"
+import { BotGuardFields } from "@/components/shared/BotGuardFields"
 import { branchColor } from "@/lib/branch-colors"
 import { AlertCircle, Loader2, CalendarCheck, Check } from "lucide-react"
 
@@ -134,6 +135,8 @@ export function BookingForm({ branches }: { branches: Branch[] }) {
           I agree to receive my appointment confirmation and reminders from Ur&apos;s Toothfully on WhatsApp.
         </span>
       </label>
+
+      <BotGuardFields />
 
       <TurnstileWidget />
 

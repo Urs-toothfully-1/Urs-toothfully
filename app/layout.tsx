@@ -6,10 +6,28 @@ import { APP_NAME, APP_TAGLINE } from "@/lib/constants"
 
 // Absolute base for og:image — link previews (WhatsApp, etc.) reject relative
 // URLs, and without this Next falls back to localhost.
-// Set NEXT_PUBLIC_SITE_URL when a custom domain is attached. Vercel's
-// VERCEL_PROJECT_PRODUCTION_URL is deliberately not used: it resolves to an
-// internal alias (project-2yxjv.vercel.app), not the canonical domain.
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://urs-toothfully-scale-x2.vercel.app"
+//
+// Set NEXT_PUBLIC_SITE_URL (or NEXT_PUBLIC_APP_URL) when a custom domain is
+// attached. Both are currently defined-but-empty in Vercel, so blank values are
+// filtered out — `new URL("")` throws and would take the whole site down.
+// Vercel's VERCEL_PROJECT_PRODUCTION_URL is deliberately ignored: it resolves
+// to an internal alias (project-2yxjv.vercel.app), not the canonical domain.
+const CANONICAL_URL = "https://urs-toothfully-scale-x2.vercel.app"
+
+function firstUrl(...candidates: (string | undefined)[]): string {
+  for (const c of candidates) {
+    const v = c?.trim()
+    if (!v) continue
+    try {
+      return new URL(v).toString()
+    } catch {
+      // ignore a malformed env value rather than crash the app
+    }
+  }
+  return CANONICAL_URL
+}
+
+const SITE_URL = firstUrl(process.env.NEXT_PUBLIC_SITE_URL, process.env.NEXT_PUBLIC_APP_URL)
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

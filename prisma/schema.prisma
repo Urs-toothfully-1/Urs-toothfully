@@ -906,6 +906,7 @@ model Appointment {
   createdBy          User              @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
+  request            AppointmentRequest?
 
   @@index([branchId, scheduledAt])
   @@index([doctorId, scheduledAt])
@@ -930,6 +931,7 @@ model AppointmentRequest {
   whatsappConsent Boolean                @default(false)
   consentIp       String?                @db.VarChar(45)
   appointmentId String?                  @unique // set when confirmed
+  appointment   Appointment?             @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
   handledById   String? // reception/admin who confirmed or declined
   handledBy     User?                    @relation(fields: [handledById], references: [id])
   handledAt     DateTime?

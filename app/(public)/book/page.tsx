@@ -13,6 +13,10 @@ const BOOK_DESCRIPTION =
 export const metadata: Metadata = {
   title: "Book an Appointment",
   description: BOOK_DESCRIPTION,
+  // The rest of the app is staff-only and noindex (set in the root layout);
+  // this page is public marketing, so let search engines have it.
+  robots: { index: true, follow: true },
+  alternates: { canonical: "/book" },
   openGraph: {
     title: `Book an Appointment — ${APP_NAME}`,
     description: BOOK_DESCRIPTION,

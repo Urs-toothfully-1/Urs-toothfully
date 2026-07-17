@@ -6,7 +6,8 @@ import { dentalHistoryRepository } from "@/server/repositories/dental-history.re
 import { HealthAlertBadges } from "@/components/patients/HealthAlertBadges"
 import { ProfileTabs } from "@/components/patients/ProfileTabs"
 import { BRAND_COLORS } from "@/lib/constants"
-import { calculateAge, formatDate } from "@/lib/utils"
+import { formatDate } from "@/lib/utils"
+import { formatAge, isUnknownDob } from "@/lib/patient-dob"
 import { ChevronRight } from "lucide-react"
 
 type Props = {
@@ -31,7 +32,7 @@ export default async function PatientProfileLayout({ children, params }: Props) 
 
   if (!patient) notFound()
 
-  const age = calculateAge(new Date(patient.dateOfBirth))
+  const age = formatAge(patient.dateOfBirth)
 
   return (
     <div className="space-y-0">
@@ -82,11 +83,21 @@ export default async function PatientProfileLayout({ children, params }: Props) 
 
                 <div className="flex flex-wrap items-center gap-3 mt-1.5">
                   <span className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>
-                    {GENDER_LABELS[patient.gender]} · {age} yrs
+                    {GENDER_LABELS[patient.gender]} · {age === "—" ? "age —" : `${age} yrs`}
                   </span>
-                  <span className="text-sm" style={{ color: BRAND_COLORS.borderDivider }}>
-                    DOB: {formatDate(patient.dateOfBirth)}
-                  </span>
+                  {isUnknownDob(patient.dateOfBirth) ? (
+                    // Stub created by an online booking — nudge reception to finish it
+                    <span
+                      className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}
+                    >
+                      Profile incomplete — add date of birth &amp; gender
+                    </span>
+                  ) : (
+                    <span className="text-sm" style={{ color: BRAND_COLORS.borderDivider }}>
+                      DOB: {formatDate(patient.dateOfBirth)}
+                    </span>
+                  )}
                   <span className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>
                     📱 {patient.mobile}
                   </span>

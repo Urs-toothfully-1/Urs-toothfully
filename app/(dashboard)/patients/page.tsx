@@ -6,7 +6,8 @@ import { patientRepository, SEARCH_PAGE_SIZE } from "@/server/repositories/patie
 import { PatientSearchInput } from "@/components/patients/PatientSearchInput"
 import { BranchBadge } from "@/components/shared/BranchBadge"
 import { BRAND_COLORS } from "@/lib/constants"
-import { calculateAge, formatDate } from "@/lib/utils"
+import { formatDate } from "@/lib/utils"
+import { formatAge } from "@/lib/patient-dob"
 import { UserPlus, Users, Clock, Stethoscope, Activity, CheckCircle2, X } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -85,7 +86,7 @@ function PatientCard({ p, badgeLabel, badgeBg, badgeColor }: {
   badgeBg?: string
   badgeColor?: string
 }) {
-  const age = calculateAge(new Date(p.dateOfBirth))
+  const age = formatAge(p.dateOfBirth)
   return (
     <Link href={`/patients/${p.id}`}>
       <Card className="border-[#E0E3E5] hover:shadow-md hover:border-[#0077BE] transition-all cursor-pointer">
@@ -119,7 +120,7 @@ function PatientCard({ p, badgeLabel, badgeBg, badgeColor }: {
               </div>
               <div className="flex items-center gap-3 mt-0.5">
                 <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-                  {GENDER_SHORT[p.gender]} · {age}y
+                  {GENDER_SHORT[p.gender]} · {age === "—" ? "age —" : `${age}y`}
                 </span>
                 <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
                   📱 {p.mobile}

@@ -4,6 +4,7 @@ import { useActionState, useState } from "react"
 import { useFormStatus } from "react-dom"
 import { submitIntakeAction, IntakeFormState } from "@/actions/intake"
 import { TurnstileWidget } from "@/components/intake/TurnstileWidget"
+import { BotGuardFields } from "@/components/shared/BotGuardFields"
 import { BRAND_COLORS } from "@/lib/constants"
 import { AlertCircle, Loader2, Send } from "lucide-react"
 
@@ -198,6 +199,8 @@ export function IntakeForm({ branches }: Props) {
         🔒 Your information is stored securely and used only for your dental care at {" "}
         <strong>Ur&apos;s Toothfully</strong>. We do not share your data with third parties.
       </p>
+
+      <BotGuardFields />
 
       <TurnstileWidget />
 

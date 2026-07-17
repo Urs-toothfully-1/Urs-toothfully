@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useActionState } from "react"
+import { useState, useActionState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { createAppointmentAction } from "@/actions/appointments"
@@ -20,17 +20,24 @@ interface Props {
 export function BookFollowUpDialog({ patientId, branchId, patientName }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [state, formAction, pending] = useActionState(createAppointmentAction, {} as { success?: boolean; error?: string })
 
-  useEffect(() => {
-    if (state.success) {
-      toast.success("Follow-up booked")
-      setOpen(false)
-      router.refresh()
-    } else if (state.error) {
-      toast.error(state.error)
-    }
-  }, [state, router])
+  // Side effects live in the action, not an effect: they belong to the submit
+  // event, and reacting to `state` re-fired the toast whenever the effect's
+  // dependencies changed identity.
+  const [state, formAction, pending] = useActionState(
+    async (prev: { success?: boolean; error?: string }, formData: FormData) => {
+      const result = await createAppointmentAction(prev, formData)
+      if (result.success) {
+        toast.success("Follow-up booked")
+        setOpen(false)
+        router.refresh()
+      } else if (result.error) {
+        toast.error(result.error)
+      }
+      return result
+    },
+    {} as { success?: boolean; error?: string }
+  )
 
   return (
     <>
