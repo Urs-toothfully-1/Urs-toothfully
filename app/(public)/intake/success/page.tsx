@@ -4,7 +4,7 @@ import { APP_NAME, CLINIC_HOURS, BRAND_COLORS } from "@/lib/constants"
 import { CheckCircle2, MapPin } from "lucide-react"
 import Link from "next/link"
 
-export const metadata: Metadata = { title: `Registration Successful — ${APP_NAME}` }
+export const metadata: Metadata = { title: "Registration Successful" }
 
 type Props = { searchParams: Promise<{ id?: string; name?: string }> }
 

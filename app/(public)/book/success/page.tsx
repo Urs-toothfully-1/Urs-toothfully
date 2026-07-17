@@ -3,7 +3,7 @@ import Link from "next/link"
 import { APP_NAME, CLINIC_HOURS, EMERGENCY_CONTACT } from "@/lib/constants"
 import { CalendarCheck, Phone } from "lucide-react"
 
-export const metadata: Metadata = { title: `Request Received — ${APP_NAME}` }
+export const metadata: Metadata = { title: "Request Received" }
 
 type Props = { searchParams: Promise<{ name?: string }> }
 

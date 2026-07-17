@@ -6,7 +6,7 @@ import { LoginForm } from "@/components/auth/LoginForm"
 import { Logo } from "@/components/shared/Logo"
 import { MapPin, Clock } from "lucide-react"
 
-export const metadata: Metadata = { title: "Login — Ur's Toothfully" }
+export const metadata: Metadata = { title: "Login" }
 
 export default async function LoginPage() {
   const session = await getSession()

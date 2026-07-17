@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma"
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: `Patient Registration — ${APP_NAME}`,
+  title: "Patient Registration",
   description: "Register as a new patient at Ur's Toothfully. Fill in your details before your visit.",
 }
 

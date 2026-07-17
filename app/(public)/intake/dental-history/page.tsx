@@ -5,7 +5,7 @@ import { IntakeDentalHistoryForm } from "@/components/intake/IntakeDentalHistory
 import { ClipboardList } from "lucide-react"
 
 export const metadata: Metadata = {
-  title: `Medical History — ${APP_NAME}`,
+  title: "Medical History",
 }
 
 type Props = { searchParams: Promise<{ patientId?: string; name?: string }> }

@@ -7,9 +7,21 @@ import { Clock, Phone, ShieldCheck, Star } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
+const BOOK_DESCRIPTION =
+  "Request a dental appointment at Ur's Toothfully. Pick your clinic and preferred date — we'll confirm your slot."
+
 export const metadata: Metadata = {
-  title: `Book an Appointment — ${APP_NAME}`,
-  description: "Request a dental appointment at Ur's Toothfully. Pick your clinic and preferred date — we'll confirm your slot.",
+  title: "Book an Appointment",
+  description: BOOK_DESCRIPTION,
+  openGraph: {
+    title: `Book an Appointment — ${APP_NAME}`,
+    description: BOOK_DESCRIPTION,
+    siteName: APP_NAME,
+    type: "website",
+    // Declaring openGraph here drops the root segment's inherited image, so
+    // the preview card must be named explicitly.
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: APP_NAME }],
+  },
 }
 
 export default async function BookPage() {

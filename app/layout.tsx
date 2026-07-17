@@ -4,13 +4,30 @@ import "./globals.css"
 import { Toaster } from "@/components/ui/sonner"
 import { APP_NAME, APP_TAGLINE } from "@/lib/constants"
 
+// Absolute base for og:image — link previews (WhatsApp, etc.) reject relative
+// URLs, and without this Next falls back to localhost.
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "https://urs-toothfully-scale-x2.vercel.app")
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: APP_NAME,
     template: `%s — ${APP_NAME}`,
   },
   description: APP_TAGLINE,
   robots: { index: false, follow: false },
+  openGraph: {
+    type: "website",
+    siteName: APP_NAME,
+    title: APP_NAME,
+    description: APP_TAGLINE,
+    locale: "en_IN",
+  },
+  twitter: { card: "summary_large_image", title: APP_NAME, description: APP_TAGLINE },
 }
 
 export default function RootLayout({
