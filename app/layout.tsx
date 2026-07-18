@@ -5,29 +5,29 @@ import { Toaster } from "@/components/ui/sonner"
 import { APP_NAME, APP_TAGLINE } from "@/lib/constants"
 
 // Absolute base for og:image — link previews (WhatsApp, etc.) reject relative
-// URLs, and without this Next falls back to localhost.
+// URLs, and without this Next falls back to localhost or Vercel's internal
+// deployment alias.
 //
-// Set NEXT_PUBLIC_SITE_URL (or NEXT_PUBLIC_APP_URL) when a custom domain is
-// attached. Both are currently defined-but-empty in Vercel, so blank values are
-// filtered out — `new URL("")` throws and would take the whole site down.
-// Vercel's VERCEL_PROJECT_PRODUCTION_URL is deliberately ignored: it resolves
-// to an internal alias (project-2yxjv.vercel.app), not the canonical domain.
+// We pin the canonical domain rather than reading NEXT_PUBLIC_APP_URL /
+// VERCEL_PROJECT_PRODUCTION_URL: on Vercel those resolve to the internal alias
+// (project-2yxjv-scale-x2.vercel.app), which then leaks into every canonical
+// tag and preview image. Only an EXPLICIT NEXT_PUBLIC_SITE_URL overrides it —
+// set that to the real domain once one is attached.
 const CANONICAL_URL = "https://urs-toothfully-scale-x2.vercel.app"
 
-function firstUrl(...candidates: (string | undefined)[]): string {
-  for (const c of candidates) {
-    const v = c?.trim()
-    if (!v) continue
+function resolveSiteUrl(): string {
+  const override = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+  if (override) {
     try {
-      return new URL(v).toString()
+      return new URL(override).toString()
     } catch {
-      // ignore a malformed env value rather than crash the app
+      // malformed override — fall back rather than crash at boot
     }
   }
   return CANONICAL_URL
 }
 
-const SITE_URL = firstUrl(process.env.NEXT_PUBLIC_SITE_URL, process.env.NEXT_PUBLIC_APP_URL)
+const SITE_URL = resolveSiteUrl()
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
