@@ -13,11 +13,22 @@ Writes a timestamped `full-db-<ts>.json` to `Desktop/Urs_toothfully/backups`
 containing every table. **Copy that file off this machine** (Google Drive /
 Dropbox / USB) — a backup that only lives on the same PC isn't really a backup.
 
-## Automated weekly backup (Windows Task Scheduler)
+## Automated monthly backup (Windows Task Scheduler)
 
-A task named **"Toothfully DB Backup"** runs every **Sunday 2:00 AM** (IST) via
-`scripts/run-backup.cmd`. It uses "start when available", so if the PC is off at
-2 AM it runs the next time it's on.
+A task named **"Toothfully DB Backup"** runs on the **1st of every month at
+2:00 AM** via `scripts/run-backup.cmd`. It uses "start when available", so if
+the PC is off on the 1st it runs the next time it's on.
+
+Backups are written to `Desktop\Urs_toothfully\backups\` (outside the repo).
+
+To change the schedule (e.g. back to weekly, or a different day):
+
+```powershell
+# monthly on the 1st (current)
+schtasks /Create /TN "Toothfully DB Backup" /TR "C:\Users\Asus\Desktop\Urs_toothfully\toothfully\scripts\run-backup.cmd" /SC MONTHLY /D 1 /ST 02:00 /F
+# weekly on Sunday
+schtasks /Create /TN "Toothfully DB Backup" /TR "C:\Users\Asus\Desktop\Urs_toothfully\toothfully\scripts\run-backup.cmd" /SC WEEKLY /D SUN /ST 02:00 /F
+```
 
 Manage it:
 
