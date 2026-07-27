@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { CalendarClock, CheckCircle2, Clock, Loader2, UserX, XCircle } from "lucide-react"
 import type { AppointmentStatus } from "@prisma/client"
+import { fmtIstTime, fmtIstDateTime, istDayKey, istTimeValue, istTodayStr } from "@/lib/ist"
 
 const STATUS_STYLE: Record<AppointmentStatus, { label: string; bg: string; color: string }> = {
   SCHEDULED: { label: "Scheduled", bg: "#DBEAFE", color: "#1E40AF" },
@@ -50,8 +51,9 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
   const style = STATUS_STYLE[a.status]
 
   const [reschedOpen, setReschedOpen] = useState(false)
-  const [rDate, setRDate] = useState(a.scheduledAt.slice(0, 10))
-  const [rTime, setRTime] = useState(a.scheduledAt.slice(11, 16))
+  // Prefill from the IST wall-clock, not the raw UTC slice of the ISO string.
+  const [rDate, setRDate] = useState(istDayKey(time))
+  const [rTime, setRTime] = useState(istTimeValue(time))
 
   function update(status: AppointmentStatus, reason?: string) {
     startTransition(async () => {
@@ -86,7 +88,7 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
           {/* Time block */}
           <div className="text-center flex-shrink-0 w-16">
             <p className="text-sm font-bold" style={{ color: BRAND_COLORS.primaryTeal }}>
-              {time.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })}
+              {fmtIstTime(time)}
             </p>
             <p className="text-[11px] flex items-center justify-center gap-0.5" style={{ color: BRAND_COLORS.sidebarMuted }}>
               <Clock className="h-3 w-3" /> {a.durationMins}m
@@ -168,7 +170,7 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
           <DialogHeader>
             <DialogTitle>Cancel Appointment</DialogTitle>
             <DialogDescription>
-              {a.patient.fullName} · {time.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })}
+              {a.patient.fullName} · {fmtIstDateTime(time)}
             </DialogDescription>
           </DialogHeader>
           <Input
@@ -200,7 +202,7 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
             <DialogDescription>{a.patient.fullName} · {a.doctor.name}</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-2">
-            <Input type="date" value={rDate} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setRDate(e.target.value)} />
+            <Input type="date" value={rDate} min={istTodayStr()} onChange={(e) => setRDate(e.target.value)} />
             <Input type="time" value={rTime} onChange={(e) => setRTime(e.target.value)} />
           </div>
           <DialogFooter>

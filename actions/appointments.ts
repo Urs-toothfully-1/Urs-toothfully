@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 import { requireRole, getSession } from "@/lib/auth"
+import { istInstant } from "@/lib/ist"
 import { appointmentService } from "@/server/services/appointment.service"
-import { appointmentRequestService } from "@/server/services/appointment-request.service"
+import { appointmentRequestService, findOrCreateStubPatient } from "@/server/services/appointment-request.service"
+import { validateMobile } from "@/lib/whatsapp/phone"
 import type { AppointmentStatus } from "@prisma/client"
 
 export type CreateAppointmentState = {
@@ -31,7 +33,7 @@ export async function createAppointmentAction(
     return { error: "Patient, doctor, date and time are required." }
   }
 
-  const scheduledAt = new Date(`${date}T${time}`)
+  const scheduledAt = istInstant(date, time)
   if (isNaN(scheduledAt.getTime())) return { error: "Invalid date or time." }
 
   try {
@@ -47,6 +49,59 @@ export async function createAppointmentAction(
   }
 }
 
+/**
+ * Books an appointment for someone who phoned/walked in but is not yet a
+ * registered patient. Creates a stub patient (find-or-reuse by mobile) that
+ * reception completes when the person registers at the desk.
+ */
+export async function createUnregisteredAppointmentAction(input: {
+  fullName: string
+  mobile: string
+  doctorId: string
+  date: string
+  time: string
+  durationMins?: number
+  reason?: string
+  branchId?: string
+}): Promise<{ success: boolean; error?: string }> {
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  if (!session) return { success: false, error: "Unauthorized" }
+
+  const fullName = input.fullName?.trim()
+  const mobile = input.mobile?.trim()
+  if (!fullName || fullName.length < 2) return { success: false, error: "Enter the patient's name." }
+  if (!input.doctorId || !input.date || !input.time) return { success: false, error: "Doctor, date and time are required." }
+
+  const phone = validateMobile(mobile ?? "")
+  if (!phone.valid) return { success: false, error: phone.error ?? "Enter a valid mobile number." }
+
+  const scheduledAt = istInstant(input.date, input.time)
+  if (isNaN(scheduledAt.getTime())) return { success: false, error: "Invalid date or time." }
+
+  const branchId = input.branchId || session.branchId
+  try {
+    const patient = await findOrCreateStubPatient(
+      { fullName, mobile: mobile!, branchId, problem: input.reason, leadSource: "Phone / Walk-in Booking" },
+      session.userId
+    )
+    await appointmentService.create(
+      {
+        patientId: patient.id,
+        doctorId: input.doctorId,
+        branchId,
+        scheduledAt,
+        durationMins: input.durationMins ?? 30,
+        reason: input.reason?.trim() || undefined,
+      },
+      session.userId
+    )
+    revalidatePath("/appointments", "page")
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Failed to book appointment." }
+  }
+}
+
 export async function rescheduleAppointmentAction(
   appointmentId: string,
   date: string,
@@ -55,7 +110,7 @@ export async function rescheduleAppointmentAction(
   const session = await getSession()
   if (!session) return { success: false, error: "Unauthorized" }
 
-  const scheduledAt = new Date(`${date}T${time}`)
+  const scheduledAt = istInstant(date, time)
   if (isNaN(scheduledAt.getTime())) return { success: false, error: "Invalid date or time." }
 
   try {
@@ -78,7 +133,7 @@ export async function confirmAppointmentRequestAction(
   if (!session) return { success: false, error: "Unauthorized" }
   if (!doctorId || !date || !time) return { success: false, error: "Doctor, date and time are required." }
 
-  const scheduledAt = new Date(`${date}T${time}`)
+  const scheduledAt = istInstant(date, time)
   if (isNaN(scheduledAt.getTime())) return { success: false, error: "Invalid date or time." }
 
   try {

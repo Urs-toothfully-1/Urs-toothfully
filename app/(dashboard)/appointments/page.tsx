@@ -9,6 +9,7 @@ import { AppointmentCard, type AppointmentView } from "@/components/appointments
 import { AppointmentRequestsInbox } from "@/components/appointments/AppointmentRequestsInbox"
 import { AutoRefresh } from "@/components/shared/AutoRefresh"
 import { BRAND_COLORS } from "@/lib/constants"
+import { istTodayStr, istDayRange, IST_TZ } from "@/lib/ist"
 import { CalendarDays, ChevronLeft, ChevronRight, Building2, Globe } from "lucide-react"
 
 export const metadata: Metadata = { title: "Appointments" }
@@ -27,8 +28,7 @@ export default async function AppointmentsPage({ searchParams }: Props) {
   const session = await requireSession()
   const { date: rawDate, month: rawMonth, scope } = await searchParams
 
-  const today = new Date()
-  const todayStr = toDayString(today)
+  const todayStr = istTodayStr()
   const day = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : todayStr
   const dayDate = new Date(`${day}T12:00:00`)
 
@@ -37,8 +37,10 @@ export default async function AppointmentsPage({ searchParams }: Props) {
     ? new Date(`${rawMonth}-01T12:00:00`)
     : new Date(dayDate.getFullYear(), dayDate.getMonth(), 1, 12)
   const monthStr = `${monthBase.getFullYear()}-${pad(monthBase.getMonth() + 1)}`
-  const monthStart = new Date(monthBase.getFullYear(), monthBase.getMonth(), 1, 0, 0, 0)
-  const monthEnd = new Date(monthBase.getFullYear(), monthBase.getMonth() + 1, 0, 23, 59, 59)
+  const daysInMonthCount = new Date(monthBase.getFullYear(), monthBase.getMonth() + 1, 0).getDate()
+  // IST-day bounds so a booking's day matches the calendar cell it lands in.
+  const monthStart = istDayRange(`${monthStr}-01`).start
+  const monthEnd = istDayRange(`${monthStr}-${pad(daysInMonthCount)}`).end
   const prevMonth = `${new Date(monthBase.getFullYear(), monthBase.getMonth() - 1, 1).getFullYear()}-${pad(new Date(monthBase.getFullYear(), monthBase.getMonth() - 1, 1).getMonth() + 1)}`
   const nextMonth = `${new Date(monthBase.getFullYear(), monthBase.getMonth() + 1, 1).getFullYear()}-${pad(new Date(monthBase.getFullYear(), monthBase.getMonth() + 1, 1).getMonth() + 1)}`
 
@@ -79,9 +81,10 @@ export default async function AppointmentsPage({ searchParams }: Props) {
   const scheduled = views.filter((v) => v.status === "SCHEDULED")
   const done = views.filter((v) => v.status !== "SCHEDULED")
 
-  // Build the month grid (Sunday-first), padded to full weeks
-  const leading = monthStart.getDay()
-  const daysInMonth = monthEnd.getDate()
+  // Build the month grid (Sunday-first), padded to full weeks. Weekday of the
+  // 1st is read from a noon-UTC date so it never shifts with the host timezone.
+  const leading = new Date(`${monthStr}-01T12:00:00Z`).getUTCDay()
+  const daysInMonth = daysInMonthCount
   const cells: (string | null)[] = []
   for (let i = 0; i < leading; i++) cells.push(null)
   for (let d = 1; d <= daysInMonth; d++) cells.push(`${monthStr}-${pad(d)}`)
@@ -89,7 +92,7 @@ export default async function AppointmentsPage({ searchParams }: Props) {
 
   const scopeQs = allBranches && isReception ? "&scope=all" : ""
   const cellHref = (d: string) => `/appointments?date=${d}&month=${monthStr}${scopeQs}`
-  const heading = dayDate.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+  const heading = dayDate.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: IST_TZ })
 
   return (
     <div className="max-w-5xl mx-auto space-y-5">

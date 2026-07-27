@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { createAuditLog } from "@/lib/audit"
 import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
 import { WHATSAPP_TRIGGERS } from "@/lib/whatsapp/templates"
+import { istDayRange, istDayKey, istTodayStr, fmtIstDate, fmtIstTime } from "@/lib/ist"
 
 const APPOINTMENT_INCLUDE = {
   patient: { select: { id: true, patientId: true, fullName: true, mobile: true, gender: true, dateOfBirth: true } },
@@ -13,17 +14,14 @@ const APPOINTMENT_INCLUDE = {
 
 export type AppointmentWithRelations = Prisma.AppointmentGetPayload<{ include: typeof APPOINTMENT_INCLUDE }>
 
+// Day boundaries and keys are IST-based (istDayRange / istDayKey) so an
+// appointment's day matches the wall-clock the clinic sees, not the UTC day.
 function dayRange(date: Date): { start: Date; end: Date } {
-  const start = new Date(date)
-  start.setHours(0, 0, 0, 0)
-  const end = new Date(date)
-  end.setHours(23, 59, 59, 999)
-  return { start, end }
+  return istDayRange(istDayKey(date))
 }
 
 function dayKey(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0")
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+  return istDayKey(d)
 }
 
 // Blocks bookings that collide with an existing SCHEDULED slot for the doctor.
@@ -45,13 +43,10 @@ async function assertNoClash(doctorId: string, start: Date, durationMins: number
   if (clash) throw new Error("The doctor already has an appointment in this time slot.")
 }
 
-function formatApptDate(d: Date): string {
-  return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
-}
-
-function formatApptTime(d: Date): string {
-  return d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })
-}
+// WhatsApp messages render server-side (UTC host) — force IST so patients see
+// the same time reception booked.
+const formatApptDate = fmtIstDate
+const formatApptTime = fmtIstTime
 
 export const appointmentService = {
   async create(

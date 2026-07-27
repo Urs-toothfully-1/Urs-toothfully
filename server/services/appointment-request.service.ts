@@ -15,6 +15,39 @@ async function nextPatientId(): Promise<string> {
   return `PAT-${year}-${String(next).padStart(5, "0")}`
 }
 
+/**
+ * Reuses an existing patient matched by mobile, otherwise creates a lightweight
+ * stub (unknown DOB/gender, flagged "Profile incomplete") for a phone/walk-in
+ * or online booking. Reception completes the real profile when the patient
+ * registers at the desk.
+ */
+export async function findOrCreateStubPatient(
+  input: { fullName: string; mobile: string; branchId: string; problem?: string | null; leadSource?: string },
+  createdById: string
+): Promise<{ id: string; created: boolean }> {
+  const existing = await prisma.patient.findFirst({
+    where: { mobile: input.mobile, isDeleted: false },
+    select: { id: true },
+  })
+  if (existing) return { id: existing.id, created: false }
+
+  const patient = await prisma.patient.create({
+    data: {
+      patientId: await nextPatientId(),
+      registrationBranchId: input.branchId,
+      fullName: input.fullName.trim(),
+      mobile: input.mobile.trim(),
+      dateOfBirth: UNKNOWN_DOB,
+      gender: "OTHER",
+      leadSource: input.leadSource ?? "Online Appointment Request",
+      reasonForVisit: input.problem?.trim() || undefined,
+      createdById,
+    },
+    select: { id: true },
+  })
+  return { id: patient.id, created: true }
+}
+
 export const appointmentRequestService = {
   async listPending(branchId?: string) {
     return prisma.appointmentRequest.findMany({
@@ -39,26 +72,10 @@ export const appointmentRequestService = {
     if (!request) throw new Error("Request not found")
     if (request.status !== "PENDING") throw new Error("This request has already been handled.")
 
-    let patient = await prisma.patient.findFirst({
-      where: { mobile: request.mobile, isDeleted: false },
-      select: { id: true },
-    })
-    if (!patient) {
-      patient = await prisma.patient.create({
-        data: {
-          patientId: await nextPatientId(),
-          registrationBranchId: request.branchId,
-          fullName: request.fullName,
-          mobile: request.mobile,
-          dateOfBirth: UNKNOWN_DOB,
-          gender: "OTHER",
-          leadSource: "Online Appointment Request",
-          reasonForVisit: request.problem ?? undefined,
-          createdById: handledById,
-        },
-        select: { id: true },
-      })
-    }
+    const patient = await findOrCreateStubPatient(
+      { fullName: request.fullName, mobile: request.mobile, branchId: request.branchId, problem: request.problem },
+      handledById
+    )
 
     // Record the opt-in captured on the public form against the real patient.
     // Must happen BEFORE create() — that is what fires the confirmation, and

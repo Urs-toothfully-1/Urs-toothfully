@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { createAppointmentAction } from "@/actions/appointments"
+import { createAppointmentAction, createUnregisteredAppointmentAction } from "@/actions/appointments"
+import { istTodayStr } from "@/lib/ist"
 import { useDebouncedCallback } from "@/lib/hooks/use-debounced-callback"
 import { BRAND_COLORS } from "@/lib/constants"
 import { Button } from "@/components/ui/button"
@@ -33,11 +34,7 @@ interface Props {
 
 const labelCls = "block text-sm font-medium mb-1"
 
-function todayStr(): string {
-  const d = new Date()
-  const pad = (n: number) => String(n).padStart(2, "0")
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
+const todayStr = istTodayStr
 
 export function NewAppointmentDialog({ doctors, defaultPatient = null }: Props) {
   const router = useRouter()
@@ -46,6 +43,10 @@ export function NewAppointmentDialog({ doctors, defaultPatient = null }: Props) 
   const [searching, setSearching] = useState(false)
   const [hits, setHits] = useState<PatientHit[]>([])
   const [patient, setPatient] = useState<PatientHit | null>(defaultPatient)
+  // "existing" = pick a registered patient; "new" = phone/walk-in not yet registered
+  const [mode, setMode] = useState<"existing" | "new">("existing")
+  const [newName, setNewName] = useState("")
+  const [newMobile, setNewMobile] = useState("")
   const [doctorId, setDoctorId] = useState("")
   const [date, setDate] = useState(todayStr())
   const [time, setTime] = useState("10:00")
@@ -72,6 +73,9 @@ export function NewAppointmentDialog({ doctors, defaultPatient = null }: Props) 
   function reset() {
     setPatient(defaultPatient)
     setHits([])
+    setMode("existing")
+    setNewName("")
+    setNewMobile("")
     setDoctorId("")
     setDate(todayStr())
     setTime("10:00")
@@ -79,19 +83,35 @@ export function NewAppointmentDialog({ doctors, defaultPatient = null }: Props) 
     setReason("")
   }
 
+  const readyPatient = mode === "existing" ? Boolean(patient) : newName.trim().length >= 2 && newMobile.trim().length >= 10
+  const canSubmit = readyPatient && Boolean(doctorId && date && time)
+
   function handleCreate() {
-    if (!patient || !doctorId || !date || !time) return
-    const fd = new FormData()
-    fd.set("patientId", patient.id)
-    fd.set("doctorId", doctorId)
-    fd.set("date", date)
-    fd.set("time", time)
-    fd.set("durationMins", durationMins)
-    fd.set("reason", reason)
+    if (!canSubmit) return
     startTransition(async () => {
-      const result = await createAppointmentAction({}, fd)
+      const result =
+        mode === "new"
+          ? await createUnregisteredAppointmentAction({
+              fullName: newName,
+              mobile: newMobile,
+              doctorId,
+              date,
+              time,
+              durationMins: parseInt(durationMins, 10) || 30,
+              reason,
+            })
+          : await (async () => {
+              const fd = new FormData()
+              fd.set("patientId", patient!.id)
+              fd.set("doctorId", doctorId)
+              fd.set("date", date)
+              fd.set("time", time)
+              fd.set("durationMins", durationMins)
+              fd.set("reason", reason)
+              return createAppointmentAction({}, fd)
+            })()
       if (result.success) {
-        toast.success("Appointment booked")
+        toast.success(mode === "new" ? "Appointment booked — patient added as unregistered" : "Appointment booked")
         reset()
         setOpen(false)
         router.refresh()
@@ -119,7 +139,40 @@ export function NewAppointmentDialog({ doctors, defaultPatient = null }: Props) 
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Patient picker */}
+            {/* Mode toggle: registered patient vs phone/walk-in */}
+            <div className="flex gap-1 p-1 rounded-lg" style={{ backgroundColor: BRAND_COLORS.lightBackground }}>
+              {([["existing", "Registered patient"], ["new", "New / phone booking"]] as const).map(([m, label]) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className="flex-1 py-1.5 text-sm font-semibold rounded-md transition-colors"
+                  style={mode === m ? { backgroundColor: BRAND_COLORS.primaryTeal, color: "#fff" } : { color: BRAND_COLORS.secondaryText }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {mode === "new" ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+                    Name <span className="text-red-500">*</span>
+                  </label>
+                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Caller's name" maxLength={200} className="border-[#E0E3E5] bg-[#F2F4F6]" />
+                </div>
+                <div>
+                  <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+                    Mobile <span className="text-red-500">*</span>
+                  </label>
+                  <Input value={newMobile} onChange={(e) => setNewMobile(e.target.value)} placeholder="10-digit number" maxLength={15} className="border-[#E0E3E5] bg-[#F2F4F6]" />
+                </div>
+                <p className="sm:col-span-2 text-xs" style={{ color: BRAND_COLORS.sidebarMuted }}>
+                  They&apos;ll be added as an unregistered patient — complete their profile when they visit and register.
+                </p>
+              </div>
+            ) : (
             <div>
               <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
                 Patient <span className="text-red-500">*</span>
@@ -169,6 +222,7 @@ export function NewAppointmentDialog({ doctors, defaultPatient = null }: Props) 
                 </div>
               )}
             </div>
+            )}
 
             {/* Doctor */}
             <div>
@@ -236,7 +290,7 @@ export function NewAppointmentDialog({ doctors, defaultPatient = null }: Props) 
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={isPending || !patient || !doctorId || !date || !time}
+              disabled={isPending || !canSubmit}
               className="text-white"
               style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
             >
