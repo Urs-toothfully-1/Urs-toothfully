@@ -21,9 +21,11 @@ const ORDER = [
   "Branch", "User", "DoctorAvailability", "TreatmentMaster", "TreatmentPackage", "TreatmentPackageItem",
   "PrescriptionTemplate", "ExaminationTemplate", "SystemSetting", "WhatsAppSettings", "WhatsAppTemplate",
   "Patient", "DentalHistory", "PatientVisit", "QueueEntry", "ClinicalNote", "PrescriptionRecord",
-  "Estimate", "EstimateItem", "PaymentAgreement", "Payment", "Receipt", "AccountingEntry",
+  "Estimate", "EstimateItem", "PaymentAgreement", "Payment", "Receipt",
+  // ExportBatch must precede AccountingEntry — an exported entry carries exportBatchId.
+  "ExportBatch", "AccountingEntry",
   "GeneratedDocument", "PatientDocument", "WhatsAppMessage", "WhatsAppConsent", "WhatsAppWebhookLog",
-  "IntakeAttempt", "Appointment", "AppointmentRequest", "AuditLog", "ExportBatch", "PatientMergeLog",
+  "IntakeAttempt", "Appointment", "AppointmentRequest", "AuditLog", "PatientMergeLog",
 ]
 
 const file = process.argv[2]
