@@ -15,6 +15,14 @@ export type EstimateFormState = {
   success?: boolean
 }
 
+// A custom treatment has no master row. Treatment IDs are slugs (not UUIDs), so
+// keep any real id but drop the "custom" sentinel and empty — otherwise Prisma
+// throws a foreign-key violation trying to connect a non-existent treatment.
+function treatmentIdOrNull(v: unknown): string | undefined {
+  const s = typeof v === "string" ? v.trim() : ""
+  return s && s !== "custom" ? s : undefined
+}
+
 export async function createEstimateAction(
   _prev: EstimateFormState,
   formData: FormData
@@ -68,7 +76,7 @@ export async function createEstimateAction(
         discountPercent: discountPercent ? parseFloat(discountPercent) : undefined,
         notes: notes || undefined,
         items: items.map((item, idx) => ({
-          treatmentId: item.treatmentId || undefined,
+          treatmentId: treatmentIdOrNull(item.treatmentId),
           treatmentName: (item.treatmentName ?? "").trim(),
           category: item.category || "OTHER",
           toothNumber: item.toothNumber || undefined,

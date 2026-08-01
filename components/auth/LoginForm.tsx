@@ -3,7 +3,10 @@
 import { useActionState, useState } from "react"
 import { useFormStatus } from "react-dom"
 import { loginAction, LoginState } from "@/actions/auth"
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton"
 import { Eye, EyeOff, Lock, Mail, AlertCircle, Loader2, ArrowRight } from "lucide-react"
+
+const GOOGLE_ENABLED = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
 
 function SubmitButton() {
   const { pending } = useFormStatus()
@@ -38,6 +41,7 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
 
   return (
+    <>
     <form action={formAction} className="space-y-5">
       {state.error && (
         <div
@@ -105,5 +109,17 @@ export function LoginForm() {
         <SubmitButton />
       </div>
     </form>
+
+    {GOOGLE_ENABLED && (
+      <div className="mt-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-px flex-1" style={{ backgroundColor: "#E0E3E5" }} />
+          <span className="text-xs" style={{ color: "#707882" }}>or</span>
+          <div className="h-px flex-1" style={{ backgroundColor: "#E0E3E5" }} />
+        </div>
+        <GoogleSignInButton />
+      </div>
+    )}
+    </>
   )
 }

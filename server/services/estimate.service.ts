@@ -5,9 +5,11 @@ import { createAuditLog } from "@/lib/audit"
 import { z } from "zod"
 
 export const estimateItemSchema = z.object({
-  treatmentId: z.string().uuid().optional(),
+  // Treatment IDs are slugs, not UUIDs. Absent = a custom treatment.
+  treatmentId: z.string().min(1).optional(),
   treatmentName: z.string().min(1).max(200),
-  category: z.string().min(1).max(100),
+  // Custom treatments carry no category — default to OTHER (column is NOT NULL).
+  category: z.string().max(100).default("OTHER"),
   toothNumber: z.string().max(120).optional(),
   quantity: z.number().int().positive().default(1),
   unitRate: z.number().positive(),

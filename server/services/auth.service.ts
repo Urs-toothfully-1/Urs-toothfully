@@ -50,4 +50,25 @@ export const authService = {
     const token = await createSession(payload)
     return { success: true, token, user: payload }
   },
+
+  /**
+   * Signs in a user by a Google-verified email. No password, no auto-provision:
+   * the email must already belong to an active staff account the admin created.
+   */
+  async loginWithGoogle(email: string): Promise<LoginResult> {
+    const user = await userRepository.findByEmail(email.toLowerCase().trim())
+    if (!user) return { success: false, error: "INVALID_CREDENTIALS" }
+    if (!user.isActive) return { success: false, error: "ACCOUNT_INACTIVE" }
+    if (user.lockedUntil && user.lockedUntil > new Date()) return { success: false, error: "ACCOUNT_LOCKED" }
+
+    await userRepository.resetLoginAttempts(user.id)
+    const payload = {
+      userId: user.id,
+      role: user.role as SessionPayload["role"],
+      branchId: user.branchId,
+      name: user.name,
+    }
+    const token = await createSession(payload)
+    return { success: true, token, user: payload }
+  },
 }

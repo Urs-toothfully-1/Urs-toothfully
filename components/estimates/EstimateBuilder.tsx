@@ -172,20 +172,25 @@ export function EstimateBuilder({
   const advanceRequired = (total * advancePercent) / 100
 
   function handleSelectTreatment(key: string, treatmentId: string) {
+    const isCustom = treatmentId === "custom"
     const t = treatments.find((x) => x.id === treatmentId)
     setItems((prev) =>
-      prev.map((item) =>
-        item._key === key
-          ? {
-              ...item,
-              treatmentId: t?.id ?? "",
-              treatmentName: t?.name ?? "",
-              category: t?.category ?? "",
-              unitRate: t?.defaultAmount ?? 0,
-              amount: (t?.defaultAmount ?? 0) * item.quantity,
-            }
-          : item
-      )
+      prev.map((item) => {
+        if (item._key !== key) return item
+        if (isCustom) {
+          // Keep whatever the user typed; just mark it custom with a category.
+          return { ...item, treatmentId: "custom", category: item.category || "OTHER" }
+        }
+        const rate = t?.defaultAmount ?? 0
+        return {
+          ...item,
+          treatmentId: t?.id ?? "",
+          treatmentName: t?.name ?? "",
+          category: t?.category ?? "",
+          unitRate: rate,
+          amount: rate * item.quantity,
+        }
+      })
     )
   }
 
