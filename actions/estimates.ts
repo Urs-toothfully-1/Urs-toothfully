@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/auth"
 import { estimateService } from "@/server/services/estimate.service"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
+import { treatmentIdOrNull } from "@/lib/estimate-item"
 import { Decimal } from "@prisma/client/runtime/library"
 import type { ItemStatus } from "@prisma/client"
 
@@ -13,14 +14,6 @@ export type EstimateFormState = {
   error?: string
   estimateId?: string
   success?: boolean
-}
-
-// A custom treatment has no master row. Treatment IDs are slugs (not UUIDs), so
-// keep any real id but drop the "custom" sentinel and empty — otherwise Prisma
-// throws a foreign-key violation trying to connect a non-existent treatment.
-function treatmentIdOrNull(v: unknown): string | undefined {
-  const s = typeof v === "string" ? v.trim() : ""
-  return s && s !== "custom" ? s : undefined
 }
 
 export async function createEstimateAction(
@@ -137,7 +130,7 @@ export async function updateEstimateAction(
       const rate = parseFloat(String(item.unitRate))
       return {
         id: item.id && !item.id.startsWith("new-") ? item.id : undefined,
-        treatmentId: item.treatmentId || undefined,
+        treatmentId: treatmentIdOrNull(item.treatmentId),
         treatmentName: (item.treatmentName ?? "").trim(),
         category: item.category || "OTHER",
         toothNumber: item.toothNumber || undefined,

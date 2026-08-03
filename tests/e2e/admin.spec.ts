@@ -26,9 +26,18 @@ test.describe("Admin pages load", () => {
 })
 
 test.describe("Admin API authorization", () => {
-  test("accounting write requires admin (403 for other roles)", async ({ baseURL }) => {
-    // Unauthenticated → 401, proving the endpoint is guarded.
-    const ctx = await pwRequest.newContext({ baseURL })
+  test("accounting is read-only over the API", async ({ baseURL }) => {
+    // The request context inherits the project's stored admin session, so this
+    // exercises the authorised path: /api/accounting exposes no POST handler —
+    // entries are written by the payment flow, never by a client. Hence 405.
+    const ctx = await pwRequest.newContext({ baseURL, storageState: "tests/e2e/.auth/admin.json" })
+    const res = await ctx.post("/api/accounting", { data: { amount: 100, type: "INCOME" } })
+    expect(res.status()).toBe(405)
+    await ctx.dispose()
+  })
+
+  test("accounting write is refused without a session", async ({ baseURL }) => {
+    const ctx = await pwRequest.newContext({ baseURL, storageState: { cookies: [], origins: [] } })
     const res = await ctx.post("/api/accounting", { data: { amount: 100, type: "INCOME" } })
     expect([401, 403]).toContain(res.status())
     await ctx.dispose()

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
 import { patientService, createPatientSchema } from "@/server/services/patient.service"
 import { patientRepository } from "@/server/repositories/patient.repository"
+import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,6 +44,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // A syntactically valid but non-existent branch id used to reach Prisma and
+    // come back as a 500. It's bad input, so answer 400.
+    const branch = await prisma.branch.findUnique({
+      where: { id: parsed.data.registrationBranchId },
+      select: { id: true, isActive: true },
+    })
+    if (!branch || !branch.isActive) {
+      return NextResponse.json(
+        { error: "Validation failed", details: { fieldErrors: { registrationBranchId: ["Unknown or inactive branch"] } } },
+        { status: 400 }
+      )
+    }
+
     const patient = await patientService.create(parsed.data, session.userId)
     return NextResponse.json({ patient }, { status: 201 })
   } catch (err) {
@@ -52,6 +66,7 @@ export async function POST(request: NextRequest) {
     if (err instanceof Error && err.message === "FORBIDDEN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
+    console.error("[POST /api/patients] unexpected error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

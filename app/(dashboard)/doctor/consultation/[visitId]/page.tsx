@@ -98,6 +98,7 @@ export default async function ConsultationPage({ params }: Props) {
       patientName={visit.patient.fullName}
       patientId={visit.patientId}
       visitId={visitId}
+      visitNo={visit.visitNo}
       branchId={visit.branchId}
       doctorName={visit.doctor?.name ?? session.name}
       branchName={visit.branch.name}

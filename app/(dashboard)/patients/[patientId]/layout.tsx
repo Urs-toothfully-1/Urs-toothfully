@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { requireSession } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 import { patientRepository } from "@/server/repositories/patient.repository"
 import { dentalHistoryRepository } from "@/server/repositories/dental-history.repository"
 import { HealthAlertBadges } from "@/components/patients/HealthAlertBadges"
+import { EditPatientDialog } from "@/components/patients/EditPatientDialog"
 import { ProfileTabs } from "@/components/patients/ProfileTabs"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatDate } from "@/lib/utils"
@@ -22,12 +24,13 @@ const GENDER_LABELS: Record<string, string> = {
 }
 
 export default async function PatientProfileLayout({ children, params }: Props) {
-  await requireSession()
+  const session = await requireSession()
   const { patientId } = await params
 
-  const [patient, dentalHistory] = await Promise.all([
+  const [patient, dentalHistory, branches] = await Promise.all([
     patientRepository.findById(patientId),
     dentalHistoryRepository.findLatestByPatient(patientId),
+    prisma.branch.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ])
 
   if (!patient) notFound()
@@ -116,9 +119,30 @@ export default async function PatientProfileLayout({ children, params }: Props) 
               </div>
             </div>
 
-            {/* Right — health alerts */}
-            <div className="md:text-right">
+            {/* Right — health alerts + profile actions */}
+            <div className="md:text-right space-y-2">
               <HealthAlertBadges history={dentalHistory as any} />
+              {(session.role === "ADMIN" || session.role === "RECEPTIONIST") && (
+                <div className="flex md:justify-end">
+                  <EditPatientDialog
+                    patient={{
+                      id: patient.id,
+                      fullName: patient.fullName,
+                      dateOfBirth: patient.dateOfBirth.toISOString(),
+                      gender: patient.gender,
+                      mobile: patient.mobile,
+                      email: patient.email,
+                      address: patient.address,
+                      leadSource: patient.leadSource,
+                      referenceName: patient.referenceName,
+                      reasonForVisit: patient.reasonForVisit,
+                      registrationBranchId: patient.registrationBranchId,
+                    }}
+                    branches={branches}
+                    canDelete={session.role === "ADMIN"}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

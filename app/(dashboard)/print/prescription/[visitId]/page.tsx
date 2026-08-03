@@ -85,6 +85,7 @@ export default async function PrintPrescriptionPage({ params, searchParams }: Pr
   const age = formatAge(visit.patient.dateOfBirth)
   // Chief complaint comes from the doctor's written entry, not receptionist's intake note
   const chiefComplaint = rx?.chiefComplaint ?? ""
+  const diagnosis = rx?.diagnosis ?? ""
   const medicalAlerts = rx?.medicalAlerts ?? []
   const onExamination = rx?.onExamination ?? []
   const treatments = rx?.treatments ?? []
@@ -107,8 +108,13 @@ export default async function PrintPrescriptionPage({ params, searchParams }: Pr
           /* Repeat the letterhead + footer on every printed page; content flows between */
           .print-doc thead { display: table-header-group; }
           .print-doc tfoot { display: table-footer-group; }
+          /* A4 (297mm) less the 6mm margins, the letterhead and the footer strip —
+             keeps the pad's proportions when the doctor writes only a line or two. */
+          .rx-body { min-height: 200mm; }
         }
         body { font-family: Arial, Helvetica, sans-serif; background: white; font-size: 15px; color: #000; }
+        /* Fixed pad template on screen too, so the preview matches the printout. */
+        .rx-body { min-height: 720px; }
         /* "Updates only" overprint: hide the whole sheet but keep its layout so ONLY
            the clinical notes print — landing in the blank space of the physical copy
            when it's fed back through the printer. Applies on screen + print to match. */
@@ -163,7 +169,7 @@ export default async function PrintPrescriptionPage({ params, searchParams }: Pr
           </td></tr>
         </tfoot>
         <tbody><tr><td style={{ padding: 0 }}>
-        <div className="flex items-stretch">
+        <div className="rx-body flex items-stretch">
           {/* ── Left grey column ─────────────────────────────── */}
           <div style={{ width: "38%", backgroundColor: GREY }} className="px-6 py-4">
             <div
@@ -196,11 +202,15 @@ export default async function PrintPrescriptionPage({ params, searchParams }: Pr
             )}
 
             <SectionLabel>DIAGNOSIS</SectionLabel>
-            <div className="min-h-[90px]" />
+            {diagnosis ? (
+              <p className="text-[14px] whitespace-pre-line min-h-[90px]">{diagnosis}</p>
+            ) : (
+              <div className="min-h-[90px]" />
+            )}
           </div>
 
           {/* ── Right white column ───────────────────────────── */}
-          <div style={{ width: "62%" }} className="px-8 py-4">
+          <div style={{ width: "62%" }} className="px-8 py-4 flex flex-col">
             {/* Patient name */}
             <div className="flex items-end gap-2 text-[15px]">
               <strong className="whitespace-nowrap">PATIENT NAME :</strong>
@@ -322,8 +332,9 @@ export default async function PrintPrescriptionPage({ params, searchParams }: Pr
               </div>
             )}
 
-            {/* Next visit + signature — kept last so it sits at the bottom */}
-            <div className="flex items-end justify-between mt-8" style={{ breakInside: "avoid" }}>
+            {/* Next visit + signature — pushed to the foot of the sheet, so a
+                short prescription still prints on the full pad template */}
+            <div className="flex items-end justify-between mt-8 pt-2" style={{ breakInside: "avoid", marginTop: "auto" }}>
               <div className="flex items-end gap-2 text-[15px]">
                 <span className="whitespace-nowrap">NEXT VISIT:</span>
                 <span style={{ borderBottom: `1px solid ${LINE}`, minWidth: 150, textAlign: "center" }} className="text-[16px]">

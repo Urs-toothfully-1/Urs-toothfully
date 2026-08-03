@@ -1,15 +1,14 @@
 "use client"
 
-import { useActionState, useState, useTransition } from "react"
+import { useActionState, useEffect, useState, useTransition } from "react"
 import { useFormStatus } from "react-dom"
-import { createTreatmentAction, deleteTreatmentAction, TreatmentFormState } from "@/actions/treatments"
+import { createTreatmentAction, deleteTreatmentAction, updateTreatmentAction, TreatmentFormState } from "@/actions/treatments"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Plus, Trash2, Loader2, CheckCircle2, AlertCircle, ChevronDown, ChevronRight } from "lucide-react"
+import { Plus, Trash2, Loader2, ChevronDown, ChevronRight, Pencil, Check } from "lucide-react"
 import { toast } from "sonner"
 
 interface Treatment { id: string; name: string; defaultAmount: number | string; isActive: boolean }
@@ -32,10 +31,15 @@ function AddBtn() {
 function AddTreatmentForm({ category, onSuccess }: { category: string; onSuccess: () => void }) {
   const [state, action] = useActionState(createTreatmentAction, {} as TreatmentFormState)
 
-  if (state.success) {
-    onSuccess()
-    return null
-  }
+  // Effect, not a render-time check: the old version unmounted itself on the
+  // stale success flag, so the form vanished the moment it was reopened.
+  useEffect(() => {
+    if (state.success) {
+      toast.success("Treatment added")
+      onSuccess()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state])
 
   return (
     <form action={action} className="flex gap-2 items-end mt-3 p-3 rounded-lg border border-dashed"
@@ -54,6 +58,72 @@ function AddTreatmentForm({ category, onSuccess }: { category: string; onSuccess
       <AddBtn />
       {state.error && <p className="text-xs text-red-500">{state.error}</p>}
     </form>
+  )
+}
+
+/** One master treatment — click Edit to rename or reprice it in place. */
+function TreatmentRow({ treatment: t, onDelete, disabled }: { treatment: Treatment; onDelete: () => void; disabled: boolean }) {
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(t.name)
+  const [amount, setAmount] = useState(String(Number(t.defaultAmount)))
+  const [saving, startSaving] = useTransition()
+
+  function save() {
+    const trimmed = name.trim()
+    const value = parseFloat(amount)
+    if (!trimmed || !(value > 0)) {
+      toast.error("Enter a name and an amount above zero")
+      return
+    }
+    startSaving(async () => {
+      const fd = new FormData()
+      fd.set("name", trimmed)
+      fd.set("defaultAmount", amount)
+      const result = await updateTreatmentAction(t.id, {}, fd)
+      if (result.success) {
+        toast.success("Treatment updated")
+        setEditing(false)
+      } else {
+        toast.error(result.error ?? "Failed to update")
+      }
+    })
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b last:border-0" style={{ borderColor: BRAND_COLORS.lightBackground }}>
+        <Input value={name} onChange={(e) => setName(e.target.value)}
+          className="h-8 text-sm flex-1 border-[#E0E3E5] bg-[#F2F4F6]" placeholder="Treatment name" />
+        <Input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" min={1} step={0.01}
+          className="h-8 text-sm w-28 border-[#E0E3E5] bg-[#F2F4F6]" placeholder="₹" />
+        <Button size="sm" onClick={save} disabled={saving} className="h-8 text-xs text-white"
+          style={{ backgroundColor: saving ? BRAND_COLORS.borderDivider : BRAND_COLORS.primaryTeal }}>
+          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Check className="h-3 w-3 mr-1" />Save</>}
+        </Button>
+        <Button size="sm" variant="outline" className="h-8 text-xs"
+          onClick={() => { setName(t.name); setAmount(String(Number(t.defaultAmount))); setEditing(false) }}>
+          Cancel
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-between px-4 py-2.5 border-b last:border-0 hover:bg-gray-50"
+      style={{ borderColor: BRAND_COLORS.lightBackground }}>
+      <p className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>{t.name}</p>
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-semibold" style={{ color: BRAND_COLORS.primaryTeal }}>
+          {formatCurrency(Number(t.defaultAmount))}
+        </span>
+        <button onClick={() => setEditing(true)} className="p-1 rounded hover:bg-gray-100" title="Edit name / price">
+          <Pencil className="h-3.5 w-3.5" style={{ color: BRAND_COLORS.borderDivider }} />
+        </button>
+        <button onClick={onDelete} disabled={disabled} className="p-1 rounded hover:bg-red-50" title="Delete">
+          {disabled ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5 text-red-400" />}
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -123,22 +193,12 @@ export function TreatmentsMgmt({ grouped, categories }: Props) {
                   </p>
                 )}
                 {items.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between px-4 py-2.5 border-b last:border-0 hover:bg-gray-50"
-                    style={{ borderColor: BRAND_COLORS.lightBackground }}>
-                    <p className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>{t.name}</p>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-semibold" style={{ color: BRAND_COLORS.primaryTeal }}>
-                        {formatCurrency(Number(t.defaultAmount))}
-                      </span>
-                      <button
-                        onClick={() => handleDelete(t.id, t.name)}
-                        disabled={isPending}
-                        className="p-1 rounded hover:bg-red-50"
-                      >
-                        {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5 text-red-400" />}
-                      </button>
-                    </div>
-                  </div>
+                  <TreatmentRow
+                    key={t.id}
+                    treatment={t}
+                    onDelete={() => handleDelete(t.id, t.name)}
+                    disabled={isPending}
+                  />
                 ))}
                 {addingIn === cat && (
                   <div className="px-4 pb-4">

@@ -18,9 +18,11 @@ test.describe("Estimate module", () => {
     expect(res.status()).not.toBe(401)
   })
 
-  test("create estimate rejects an invalid payload (400)", async ({ page }) => {
+  test("reception cannot create an estimate", async ({ page }) => {
+    // Estimates are written by ADMIN/DOCTOR only, so reception is refused before
+    // the payload is ever validated — 401, not 400.
     const res = await page.request.post("/api/estimates", { data: {} })
-    expect([400, 422]).toContain(res.status())
+    expect([401, 403]).toContain(res.status())
   })
 
   test("advance percentage over 100 is rejected", async ({ page }) => {

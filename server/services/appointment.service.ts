@@ -129,6 +129,25 @@ export const appointmentService = {
     })
   },
 
+  /**
+   * Past appointments still sitting at SCHEDULED — nobody marked them done or
+   * no-show before the day rolled over. Surfaced at the top of the day view so
+   * they can still be closed instead of being stranded on a date nobody visits.
+   */
+  async listOverdue(opts: { branchId?: string; doctorId?: string }): Promise<AppointmentWithRelations[]> {
+    return prisma.appointment.findMany({
+      where: {
+        status: "SCHEDULED",
+        scheduledAt: { lt: istDayRange(istTodayStr()).start },
+        ...(opts.branchId ? { branchId: opts.branchId } : {}),
+        ...(opts.doctorId ? { doctorId: opts.doctorId } : {}),
+      },
+      include: APPOINTMENT_INCLUDE,
+      orderBy: { scheduledAt: "desc" },
+      take: 25,
+    })
+  },
+
   /** SCHEDULED appointment count per local day for a date range (calendar dots). */
   async countsForRange(opts: { start: Date; end: Date; branchId?: string; doctorId?: string }): Promise<Record<string, number>> {
     const rows = await prisma.appointment.findMany({

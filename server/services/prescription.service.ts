@@ -35,6 +35,7 @@ export const clinicalNoteSchema = z.object({
 export const updatePrescriptionSchema = z.object({
   chiefComplaint: z.string().max(500).default(""),
   onExamination: z.array(examinationFindingSchema).max(20).default([]),
+  diagnosis: z.string().max(1000).default(""),
   treatments: z.array(treatmentPlanSchema).max(40).default([]),
   medicines: z.array(medicineSchema).max(30),
   advice: z.string().max(2000).default(""),
@@ -266,6 +267,7 @@ export const prescriptionService = {
       ...current,
       chiefComplaint: input.chiefComplaint || undefined,
       onExamination: (input.onExamination as ExaminationFinding[]).filter((f) => f.finding.trim()),
+      diagnosis: input.diagnosis || undefined,
       treatments: (input.treatments as PrescriptionTreatment[]).filter((t) => t.treatmentName.trim()),
       medicines: input.medicines as PrescriptionMedicine[],
       advice: input.advice,

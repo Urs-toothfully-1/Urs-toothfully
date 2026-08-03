@@ -32,7 +32,11 @@ export const webhookService = {
    */
   async verifySignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
     const settings = await whatsappSettingsRepository.get()
-    if (!settings?.webhookSecretEnc) return true // not configured — accept
+    // Fail closed. This endpoint is public (proxy PUBLIC_PATHS), so accepting
+    // unsigned posts when no secret is configured let anyone rewrite message
+    // statuses and flood the webhook log. Without a secret there is no genuine
+    // Meta traffic to accept anyway.
+    if (!settings?.webhookSecretEnc) return false
 
     if (!signatureHeader?.startsWith("sha256=")) return false
     try {

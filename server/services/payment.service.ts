@@ -63,6 +63,25 @@ export const paymentService = {
   },
 
   async create(input: CreatePaymentInput, collectedById: string) {
+    // Ledger guard, enforced here rather than in the caller: the reception form
+    // checked the outstanding balance but POST /api/payments did not, so the API
+    // happily booked ₹5,00,000 against an ₹8,000 estimate. Every write path goes
+    // through this method, so the rule belongs here.
+    if (input.paymentType === "TREATMENT" || input.paymentType === "ADVANCE") {
+      const estimate = await prisma.estimate.findUnique({
+        where: { id: input.estimateId },
+        select: { total: true, isDeleted: true },
+      })
+      if (!estimate || estimate.isDeleted) throw new Error("Estimate not found")
+      const outstanding = await this.getOutstandingByEstimate(input.estimateId, Number(estimate.total))
+      // Tolerance absorbs rounding on percentage-split instalments.
+      if (input.amount > outstanding + 0.01) {
+        throw new Error(
+          `Amount (₹${input.amount.toFixed(2)}) exceeds the outstanding balance (₹${outstanding.toFixed(2)}).`
+        )
+      }
+    }
+
     const receiptNo = await generateNextReceiptNo()
 
     const { payment, receipt } = await paymentRepository.createWithReceiptAndAccounting({

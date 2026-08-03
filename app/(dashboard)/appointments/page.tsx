@@ -51,11 +51,12 @@ export default async function AppointmentsPage({ searchParams }: Props) {
   const branchFilter = isReception && !allBranches ? session.branchId : undefined
   const doctorFilter = isDoctor ? session.userId : undefined
 
-  const [appointments, counts, doctors, pendingRequests] = await Promise.all([
+  const [appointments, counts, doctors, pendingRequests, overdue] = await Promise.all([
     appointmentService.listForDay({ date: dayDate, branchId: branchFilter, doctorId: doctorFilter }),
     appointmentService.countsForRange({ start: monthStart, end: monthEnd, branchId: branchFilter, doctorId: doctorFilter }),
     isDoctor ? Promise.resolve([]) : userRepository.findAllActiveDoctors(),
     isDoctor ? Promise.resolve([]) : appointmentRequestService.listPending(branchFilter),
+    appointmentService.listOverdue({ branchId: branchFilter, doctorId: doctorFilter }),
   ])
 
   const requestViews = pendingRequests.map((r) => ({
@@ -68,7 +69,7 @@ export default async function AppointmentsPage({ searchParams }: Props) {
     branch: { id: r.branch.id, name: r.branch.name },
   }))
 
-  const views: AppointmentView[] = appointments.map((a) => ({
+  const toView = (a: (typeof appointments)[number]): AppointmentView => ({
     id: a.id,
     scheduledAt: a.scheduledAt.toISOString(),
     durationMins: a.durationMins,
@@ -77,7 +78,10 @@ export default async function AppointmentsPage({ searchParams }: Props) {
     patient: { id: a.patient.id, patientId: a.patient.patientId, fullName: a.patient.fullName, mobile: a.patient.mobile },
     doctor: { id: a.doctor.id, name: a.doctor.name },
     branch: { id: a.branch.id, name: a.branch.name },
-  }))
+  })
+  const views: AppointmentView[] = appointments.map(toView)
+  // Shown on every day, not just their own — otherwise nobody finds them again.
+  const overdueViews: AppointmentView[] = overdue.map(toView)
   const scheduled = views.filter((v) => v.status === "SCHEDULED")
   const done = views.filter((v) => v.status !== "SCHEDULED")
 
@@ -183,6 +187,31 @@ export default async function AppointmentsPage({ searchParams }: Props) {
 
         {/* Day list */}
         <div className="space-y-3">
+          {overdueViews.length > 0 && (
+            <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: "#FCD34D", backgroundColor: "#FFFBEB" }}>
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4" style={{ color: "#B45309" }} />
+                <h2 className="text-sm font-semibold" style={{ color: "#92400E" }}>
+                  Still open from earlier days
+                </h2>
+                <span className="text-xs ml-auto" style={{ color: "#B45309" }}>
+                  {overdueViews.length} to close
+                </span>
+              </div>
+              <p className="text-xs" style={{ color: "#B45309" }}>
+                Mark each one Done, No Show or Cancelled — they stay here until you do.
+              </p>
+              {overdueViews.map((a) => (
+                <div key={a.id}>
+                  <p className="text-[11px] font-medium mb-1" style={{ color: "#B45309" }}>
+                    {new Date(a.scheduledAt).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: IST_TZ })}
+                  </p>
+                  <AppointmentCard appointment={a} canManage={true} />
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
             <h2 className="text-sm font-semibold" style={{ color: BRAND_COLORS.bodyText }}>{heading}</h2>

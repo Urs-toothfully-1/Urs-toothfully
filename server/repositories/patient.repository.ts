@@ -86,6 +86,7 @@ export const patientRepository = {
   async update(
     id: string,
     data: Partial<{
+      registrationBranchId: string
       fullName: string
       dateOfBirth: Date
       gender: Gender

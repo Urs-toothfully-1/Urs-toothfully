@@ -1,6 +1,31 @@
 import { prisma } from "@/lib/prisma"
 import { QueueStatus } from "@prisma/client"
 
+const OPEN_STATUSES: QueueStatus[] = ["WAITING", "WITH_DOCTOR", "ESTIMATE_CREATED", "PAYMENT_PENDING"]
+
+/** How far back an unfinished visit keeps following the queue forward. */
+const CARRY_OVER_DAYS = 14
+
+/**
+ * The day's entries PLUS anything still open from an earlier day. Without the
+ * carry-over an entry left unfinished at closing time vanished at midnight and
+ * could never be completed — reception had no screen that could reach it.
+ *
+ * ponytail: 14-day window keeps long-abandoned rows out of the live queue. If
+ * older ones need closing, give admin a "stale visits" screen rather than
+ * widening this.
+ */
+function dayOrStillOpen(start: Date, end: Date) {
+  const carryFrom = new Date(start)
+  carryFrom.setDate(carryFrom.getDate() - CARRY_OVER_DAYS)
+  return {
+    OR: [
+      { createdAt: { gte: start, lte: end } },
+      { createdAt: { gte: carryFrom, lt: start }, status: { in: OPEN_STATUSES } },
+    ],
+  }
+}
+
 export const queueRepository = {
   async findByBranchAndDate(branchId: string, date: Date) {
     const start = new Date(date)
@@ -11,7 +36,7 @@ export const queueRepository = {
     return prisma.queueEntry.findMany({
       where: {
         branchId,
-        createdAt: { gte: start, lte: end },
+        ...dayOrStillOpen(start, end),
         status: { not: "CANCELLED" },
       },
       include: {
@@ -32,7 +57,7 @@ export const queueRepository = {
     return prisma.queueEntry.findMany({
       where: {
         doctorId,
-        createdAt: { gte: start, lte: end },
+        ...dayOrStillOpen(start, end),
         status: { notIn: ["CANCELLED", "COMPLETED"] },
       },
       include: {
@@ -114,19 +139,20 @@ export const queueRepository = {
     return (last?.tokenNumber ?? 0) + 1
   },
 
-  async findActiveForPatientToday(patientId: string, branchId: string) {
-    const start = new Date()
-    start.setHours(0, 0, 0, 0)
-    const end = new Date()
-    end.setHours(23, 59, 59, 999)
-
+  /**
+   * The patient's open queue entry at this branch, whatever day it was opened.
+   * Deliberately not limited to today: an entry left open overnight still shows
+   * in the queue, so the profile must report it too or reception would queue the
+   * same patient twice.
+   */
+  async findActiveForPatient(patientId: string, branchId: string) {
     return prisma.queueEntry.findFirst({
       where: {
         patientId,
         branchId,
-        createdAt: { gte: start, lte: end },
         status: { notIn: ["COMPLETED", "CANCELLED"] },
       },
+      orderBy: { createdAt: "desc" },
       select: { id: true, status: true, tokenNumber: true },
     })
   },

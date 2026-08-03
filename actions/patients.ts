@@ -1,6 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
+import { revalidatePath } from "next/cache"
 import { requireRole } from "@/lib/auth"
 import { patientService, createPatientSchema } from "@/server/services/patient.service"
 import { extractDentalHistoryData } from "@/lib/dental-history-form"
@@ -159,26 +160,80 @@ export async function updatePatientAction(
   id: string,
   _prevState: PatientFormState,
   formData: FormData
-): Promise<PatientFormState> {
+): Promise<PatientFormState & { success?: boolean }> {
   const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   const raw = {
-    fullName: formData.get("fullName")?.toString(),
-    dateOfBirth: formData.get("dateOfBirth")?.toString(),
-    gender: formData.get("gender")?.toString(),
-    mobile: formData.get("mobile")?.toString(),
-    email: formData.get("email")?.toString(),
-    address: formData.get("address")?.toString(),
-    leadSource: formData.get("leadSource")?.toString(),
-    referenceName: formData.get("referenceName")?.toString(),
-    reasonForVisit: formData.get("reasonForVisit")?.toString(),
+    registrationBranchId: formData.get("registrationBranchId")?.toString() ?? "",
+    fullName: formData.get("fullName")?.toString() ?? "",
+    dateOfBirth: formData.get("dateOfBirth")?.toString() ?? "",
+    gender: formData.get("gender")?.toString() ?? "",
+    mobile: formData.get("mobile")?.toString() ?? "",
+    email: formData.get("email")?.toString() ?? "",
+    address: formData.get("address")?.toString() ?? "",
+    leadSource: formData.get("leadSource")?.toString() ?? "",
+    referenceName: formData.get("referenceName")?.toString() ?? "",
+    reasonForVisit: formData.get("reasonForVisit")?.toString() ?? "",
+  }
+
+  // Same rules as registration — an edit must not be able to write a value the
+  // registration form would have rejected.
+  const parsed = createPatientSchema.safeParse(raw)
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string[]> = {}
+    for (const [key, errs] of Object.entries(parsed.error.flatten().fieldErrors)) {
+      if (errs) fieldErrors[key] = errs
+    }
+    return { fieldErrors, fields: raw }
+  }
+
+  const phone = validateMobile(parsed.data.mobile)
+  if (!phone.valid) {
+    return { fieldErrors: { mobile: [phone.error ?? "Enter a valid mobile number"] }, fields: raw }
+  }
+
+  // Someone else already on this number = the two profiles are the same person.
+  const duplicates = await patientService.findDuplicates({
+    mobile: parsed.data.mobile,
+    fullName: parsed.data.fullName,
+    dateOfBirth: parsed.data.dateOfBirth,
+  })
+  if (duplicates.mobileMatch && duplicates.mobileMatch.id !== id) {
+    return {
+      fields: raw,
+      fieldErrors: { mobile: [`${duplicates.mobileMatch.fullName} (${duplicates.mobileMatch.patientId}) already uses this number`] },
+    }
   }
 
   try {
-    await patientService.update(id, raw as Parameters<typeof patientService.update>[1], session.userId)
-    return {}
+    await patientService.update(id, parsed.data, session.userId)
+    revalidatePath(`/patients/${id}`, "layout")
+    revalidatePath("/patients")
+    return { success: true }
   } catch {
     return { error: "Failed to update patient. Please try again." }
+  }
+}
+
+/**
+ * Soft delete — the row, its visits, estimates and payments all stay in the
+ * database (and therefore in every backup); the patient just stops appearing in
+ * search, queues and reports. Recoverable by clearing isDeleted.
+ */
+export async function deletePatientAction(
+  id: string,
+  reason: string
+): Promise<{ success: boolean; error?: string }> {
+  const session = await requireRole(["ADMIN"]).catch(() => null)
+  if (!session) return { success: false, error: "Only an administrator can delete a patient." }
+  if (!reason?.trim()) return { success: false, error: "A reason is required." }
+
+  try {
+    await patientService.softDelete(id, session.userId, reason.trim())
+    revalidatePath("/patients")
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Failed to delete patient." }
   }
 }

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ToothSelector } from "@/components/dental/ToothSelector"
+import { CUSTOM_TREATMENT } from "@/lib/estimate-item"
 import {
   AlertCircle, BookOpen, CheckCircle2, Loader2,
   Plus, Save, Trash2, X,
@@ -56,6 +57,8 @@ const emptyMed: PrescriptionMedicine = { name: "", dosage: "", frequency: "", du
 const emptyFinding: ExaminationFinding = { toothNumbers: "", finding: "" }
 const emptyTreatment: PrescriptionTreatment = { treatmentName: "", category: "OTHER", toothNumber: "", quantity: 1 }
 const cellCls = "h-9 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white"
+/** Sentinel for a treatment that isn't in the master list — never persisted. */
+const CUSTOM = CUSTOM_TREATMENT
 
 export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(function PrescriptionEditor(
   { prescriptionId, data, canEdit, initialTemplates, treatments = [], submitLabel, onSaveSuccess, onTreatmentsChange, previousData, newForVisitId }: Props,
@@ -70,6 +73,7 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
   const [findings, setFindings] = useState<ExaminationFinding[]>(
     data.onExamination && data.onExamination.length > 0 ? data.onExamination : [{ ...emptyFinding }]
   )
+  const [diagnosis, setDiagnosis] = useState(data.diagnosis ?? "")
   const [treatmentPlan, setTreatmentPlan] = useState<PrescriptionTreatment[]>(
     data.treatments && data.treatments.length > 0 ? data.treatments : [{ ...emptyTreatment }]
   )
@@ -163,16 +167,20 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
     setTreatmentPlan((prev) => prev.map((t, i) => (i === idx ? { ...t, [key]: val } : t)))
   }
   function selectTreatmentMaster(idx: number, treatmentId: string) {
+    // "custom" = not in the master list; keep whatever the doctor typed and let
+    // them name it freely. The sentinel is stripped again in cleanTreatments.
     const t = treatments.find((x) => x.id === treatmentId)
     setTreatmentPlan((prev) =>
       prev.map((row, i) =>
         i === idx
-          ? {
-              ...row,
-              treatmentId: t?.id ?? undefined,
-              treatmentName: t?.name ?? row.treatmentName,
-              category: t?.category ?? row.category,
-            }
+          ? treatmentId === CUSTOM
+            ? { ...row, treatmentId: CUSTOM, category: row.category || "OTHER" }
+            : {
+                ...row,
+                treatmentId: t?.id ?? undefined,
+                treatmentName: t?.name ?? row.treatmentName,
+                category: t?.category ?? row.category,
+              }
           : row
       )
     )
@@ -188,7 +196,7 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
   const cleanTreatments = treatmentPlan
     .filter((t) => t.treatmentName.trim())
     .map((t) => ({
-      treatmentId: t.treatmentId || undefined,
+      treatmentId: t.treatmentId && t.treatmentId !== CUSTOM ? t.treatmentId : undefined,
       treatmentName: t.treatmentName.trim(),
       category: t.category || "OTHER",
       toothNumber: t.toothNumber || undefined,
@@ -198,6 +206,7 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
   const payload = JSON.stringify({
     chiefComplaint: chiefComplaint.trim(),
     onExamination: findings.filter((f) => f.finding.trim()),
+    diagnosis: diagnosis.trim(),
     treatments: cleanTreatments,
     medicines: medicines.filter((m) => m.name.trim()),
     advice,
@@ -447,7 +456,19 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
         </button>
       </div>
 
-      {/* ── 3. Treatment Plan ────────────────────────────────── */}
+      {/* ── 3. Diagnosis ─────────────────────────────────────── */}
+      <div className="space-y-2">
+        {sectionHeader("Diagnosis")}
+        <Textarea
+          value={diagnosis}
+          onChange={(e) => setDiagnosis(e.target.value)}
+          placeholder="e.g. Irreversible pulpitis w.r.t. 46, chronic generalised gingivitis…"
+          rows={3}
+          className="border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white resize-none"
+        />
+      </div>
+
+      {/* ── 4. Treatment Plan ────────────────────────────────── */}
       <div className="space-y-3">
         {sectionHeader("Treatment Plan")}
         <p className="text-xs -mt-1" style={{ color: BRAND_COLORS.borderDivider }}>
@@ -463,7 +484,7 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
                     {treatments.length > 0 && (
                       <select
                         className="w-full h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE]"
-                        value={t.treatmentId ?? ""}
+                        value={t.treatmentId ?? (t.treatmentName.trim() ? CUSTOM : "")}
                         onChange={(e) => selectTreatmentMaster(idx, e.target.value)}
                       >
                         <option value="">— Select treatment —</option>
@@ -476,6 +497,7 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
                             ))}
                           </optgroup>
                         ))}
+                        <option value={CUSTOM}>Custom Treatment (type the name below)</option>
                       </select>
                     )}
                     <Input

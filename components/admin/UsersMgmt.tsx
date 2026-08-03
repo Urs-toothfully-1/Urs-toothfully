@@ -39,7 +39,15 @@ export function UsersMgmt({ users, branches, currentUserId }: { users: User[]; b
   const [state, formAction] = useActionState(createUserAction, {} as UserFormState)
   const [isPending, startTransition] = useTransition()
 
-  if (state.success && showForm) setShowForm(false)
+  // Close the form once per successful create. The old `if (state.success)
+  // setShowForm(false)` had no such guard: useActionState keeps the success flag
+  // forever, so from the second user onwards the form slammed shut the instant
+  // it was reopened and no further account could be added.
+  const [handled, setHandled] = useState<UserFormState | null>(null)
+  if (state.success && handled !== state) {
+    setHandled(state)
+    setShowForm(false)
+  }
 
   function handleToggle(userId: string, name: string, isActive: boolean) {
     startTransition(async () => {

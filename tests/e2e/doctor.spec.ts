@@ -43,7 +43,9 @@ test.describe("Clinical notes API", () => {
   })
 
   test("is not publicly writable", async ({ browser }) => {
-    const ctx = await browser.newContext() // no stored auth
+    // browser.newContext() still picks up the project's storageState, so the
+    // session has to be cleared explicitly for this to test anything.
+    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } })
     const page = await ctx.newPage()
     const res = await page.request.post("/api/clinical-notes", {
       data: { visitId: "x", body: "test" },

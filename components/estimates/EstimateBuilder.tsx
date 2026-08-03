@@ -11,6 +11,7 @@ import { AlertCircle, Loader2, Plus, Trash2, Save } from "lucide-react"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
 import { ToothSelector } from "@/components/dental/ToothSelector"
+import { CUSTOM_TREATMENT } from "@/lib/estimate-item"
 
 interface Treatment {
   id: string
@@ -122,7 +123,15 @@ export function EstimateBuilder({
   const [wizardError, setWizardError] = useState<string | null>(null)
   const [items, setItems] = useState<EstimateItem[]>(() =>
     initialItems && initialItems.length > 0
-      ? initialItems.map((i) => ({ ...i, plannedSittings: i.plannedSittings ?? 1, amount: i.quantity * i.unitRate, _key: makeRowKey() }))
+      ? initialItems.map((i) => ({
+          ...i,
+          // A named treatment with no master id (typed in the prescription) is a
+          // custom one — select it as such so the row isn't stuck on the placeholder.
+          treatmentId: i.treatmentId || (i.treatmentName.trim() ? CUSTOM_TREATMENT : ""),
+          plannedSittings: i.plannedSittings ?? 1,
+          amount: i.quantity * i.unitRate,
+          _key: makeRowKey(),
+        }))
       : [newItem()]
   )
   const [discountPercent, setDiscountPercent] = useState(initialDiscountPercent ?? 0)
@@ -172,14 +181,14 @@ export function EstimateBuilder({
   const advanceRequired = (total * advancePercent) / 100
 
   function handleSelectTreatment(key: string, treatmentId: string) {
-    const isCustom = treatmentId === "custom"
+    const isCustom = treatmentId === CUSTOM_TREATMENT
     const t = treatments.find((x) => x.id === treatmentId)
     setItems((prev) =>
       prev.map((item) => {
         if (item._key !== key) return item
         if (isCustom) {
           // Keep whatever the user typed; just mark it custom with a category.
-          return { ...item, treatmentId: "custom", category: item.category || "OTHER" }
+          return { ...item, treatmentId: CUSTOM_TREATMENT, category: item.category || "OTHER" }
         }
         const rate = t?.defaultAmount ?? 0
         return {
@@ -320,7 +329,7 @@ export function EstimateBuilder({
                         ))}
                       </optgroup>
                     ))}
-                    <option value="custom">Custom Treatment</option>
+                    <option value={CUSTOM_TREATMENT}>Custom Treatment</option>
                   </select>
                   {/* Editable name — shown always, pre-filled from master */}
                   <Input

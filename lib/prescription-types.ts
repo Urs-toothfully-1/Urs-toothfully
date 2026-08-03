@@ -52,6 +52,8 @@ export interface PrescriptionData {
   chiefComplaint?: string
   /** Doctor's clinical examination findings, each optionally linked to tooth numbers */
   onExamination?: ExaminationFinding[]
+  /** Doctor's diagnosis — printed in the DIAGNOSIS block of the pad */
+  diagnosis?: string
   medicines: PrescriptionMedicine[]
   advice: string
   followUpDate?: string

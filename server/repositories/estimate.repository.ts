@@ -9,6 +9,7 @@ export const estimateRepository = {
         patient: { select: { id: true, patientId: true, fullName: true, mobile: true, email: true } },
         doctor: { select: { id: true, name: true, signatureData: true } },
         branch: { select: { id: true, name: true } },
+        visit: { select: { id: true, visitNo: true } },
         items: { orderBy: { sortOrder: "asc" } },
         payments: {
           where: { isDeleted: false, paymentType: { in: ["ADVANCE", "TREATMENT"] } },

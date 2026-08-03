@@ -102,7 +102,7 @@ export default async function PatientOverviewPage({ params }: Props) {
     ? await Promise.all([
         userRepository.findAllActiveDoctors(),
         settingsRepository.get("queue_assignment_mode", session.branchId),
-        queueRepository.findActiveForPatientToday(patientId, session.branchId),
+        queueRepository.findActiveForPatient(patientId, session.branchId),
       ])
     : [[], null, null]
 
@@ -201,7 +201,7 @@ export default async function PatientOverviewPage({ params }: Props) {
                 <>
                   <div>
                     <p className="text-sm font-semibold text-amber-700">
-                      Already in today&apos;s queue
+                      Already in the queue
                     </p>
                     <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
                       Token #{activeQueueEntry.tokenNumber} · Status: {activeQueueEntry.status.replace(/_/g, " ")}

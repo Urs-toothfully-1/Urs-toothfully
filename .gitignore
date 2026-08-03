@@ -49,4 +49,7 @@ next-env.d.ts
 
 # Playwright generated output
 tests/e2e/.report/
+tests/e2e/.results/
+tests/e2e/.results-qa/
+tests/e2e/.auth/
 test-results/

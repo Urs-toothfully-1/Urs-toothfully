@@ -10,6 +10,7 @@ import { Loader2, Stethoscope, CheckCircle2, CreditCard, XCircle, UserCheck, Fil
 import { toast } from "sonner"
 import type { QueueStatus } from "@prisma/client"
 import type { Role } from "@/lib/session"
+import { fmtIstDate, istDayKey, istTodayStr } from "@/lib/ist"
 
 interface QueueEntry {
   id: string
@@ -17,6 +18,8 @@ interface QueueEntry {
   tokenNumber: number
   status: QueueStatus
   sentAt: Date | string
+  /** Day the patient was queued — an entry left open overnight carries over */
+  createdAt?: Date | string
   patient: { id: string; patientId: string; fullName: string; mobile: string }
   doctor: { id: string; name: string } | null
   visit: { id: string; visitNo: string; visitType: string; chiefComplaint?: string | null }
@@ -54,6 +57,9 @@ export function QueueEntryCard({ entry, role, currentUserId, treatmentItems = []
   const isMyPatient = entry.doctorId === currentUserId
   const isActive = !["COMPLETED", "CANCELLED"].includes(entry.status)
   const tokenColors = TOKEN_COLORS[entry.status] ?? TOKEN_COLORS.WAITING
+  // Carried over from an earlier day (reception forgot to close it at the desk).
+  const queuedOn = entry.createdAt ? new Date(entry.createdAt) : null
+  const isCarriedOver = !!queuedOn && istDayKey(queuedOn) !== istTodayStr()
 
   function handleStatusUpdate(newStatus: string) {
     startTransition(async () => {
@@ -116,6 +122,15 @@ export function QueueEntryCard({ entry, role, currentUserId, treatmentItems = []
               <span className="text-xs" style={{ color: "#707882" }}>
                 {getTimeSince(entry.sentAt)}
               </span>
+              {isCarriedOver && (
+                <span
+                  className="text-xs font-semibold px-1.5 py-0.5 rounded-md"
+                  style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}
+                  title="Left open from an earlier day — close it here"
+                >
+                  {fmtIstDate(queuedOn!)}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1.5 mt-1">
               <Phone className="h-3 w-3" style={{ color: "#707882" }} />
@@ -198,7 +213,9 @@ export function QueueEntryCard({ entry, role, currentUserId, treatmentItems = []
               <CreditCard className="h-3.5 w-3.5" />Collect
             </Link>
           )}
-          {entry.status === "PAYMENT_PENDING" && isReception && (
+          {/* Reception/admin can close any open visit, on its own day or later —
+              the desk is the only place a forgotten visit can be finished. */}
+          {isReception && isActive && (
             <button
               onClick={() => handleStatusUpdate("COMPLETED")}
               className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg"

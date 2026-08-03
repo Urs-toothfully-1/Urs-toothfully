@@ -86,11 +86,13 @@ export function ToothSelector({ value, onChange, compact }: Props) {
 
   return (
     <>
+      {/* Grows to fit every selected tooth — a long list wraps onto more lines
+          instead of spilling out of the table cell. */}
       <button
         type="button"
         onClick={openDialog}
-        className={`w-full rounded border text-left transition-colors hover:border-[#0077BE] ${
-          compact ? "h-8 px-2 text-sm" : "h-9 px-3 text-sm"
+        className={`w-full rounded border text-left transition-colors hover:border-[#0077BE] leading-tight break-words whitespace-normal py-1 ${
+          compact ? "min-h-8 px-2 text-sm" : "min-h-9 px-3 text-sm"
         }`}
         style={{
           borderColor: "#E0E3E5",

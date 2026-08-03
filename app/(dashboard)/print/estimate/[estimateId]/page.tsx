@@ -50,8 +50,15 @@ export default async function PrintEstimatePage({ params }: Props) {
           aside, header, nav { display: none !important; }
           * { overflow: visible !important; height: auto !important; max-height: none !important; }
           .print-doc { max-width: 100% !important; padding: 0 !important; margin: 0 auto !important; }
+          /* A4 minus the 10mm @page margins — a half-empty estimate still fills
+             the sheet so the footer lands at the bottom, not under the content. */
+          .sheet { min-height: 277mm !important; }
         }
         body { font-family: Arial, Helvetica, sans-serif; background: white; }
+        /* Fixed sheet template: content column grows, footer is pinned to the
+           bottom edge. Same on screen so the preview matches the printout. */
+        .sheet { display: flex; flex-direction: column; min-height: 1040px; }
+        .sheet-footer { margin-top: auto; }
       `}</style>
 
       <PrintButtons />
@@ -70,6 +77,7 @@ export default async function PrintEstimatePage({ params }: Props) {
 
       {/* Printable document */}
       <div className="print-doc max-w-[800px] mx-auto p-6">
+        <div className="sheet">
         {/* Header */}
         <div className="mb-6">
           <img src="/Header.jpg" alt="Ur's Toothfully Header" className="w-full" />
@@ -262,7 +270,7 @@ export default async function PrintEstimatePage({ params }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="mt-8 relative">
+        <div className="sheet-footer pt-8 relative">
           <img src="/fotter2.jpg" alt="Footer" className="w-full" />
           <div style={{
             position: "absolute", bottom: 0, right: 0,
@@ -271,9 +279,10 @@ export default async function PrintEstimatePage({ params }: Props) {
             clipPath: "polygon(12px 0%, 100% 0%, 100% 100%, 0% 100%)",
           }} />
         </div>
+        </div>
 
         {/* ── PAYMENT AGREEMENT — new page on print ─────────── */}
-        <div style={{ pageBreakBefore: "always", paddingTop: "0" }}>
+        <div className="sheet" style={{ pageBreakBefore: "always", paddingTop: "0" }}>
           {/* Header repeated */}
           <div className="mb-4">
             <img src="/Header.jpg" alt="Ur's Toothfully Header" className="w-full" />
@@ -408,7 +417,7 @@ export default async function PrintEstimatePage({ params }: Props) {
           </div>
 
           {/* Footer */}
-          <div className="mt-8 relative">
+          <div className="sheet-footer pt-8 relative">
             <img src="/fotter2.jpg" alt="Footer" className="w-full" />
             <div style={{
               position: "absolute", bottom: 0, right: 0,

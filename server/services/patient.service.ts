@@ -176,6 +176,9 @@ export const patientService = {
     if (!before) throw new Error("Patient not found")
 
     const patient = await patientRepository.update(id, {
+      // Registered at the wrong branch is the single most common intake mistake,
+      // so the branch is editable like any other field.
+      ...(input.registrationBranchId && { registrationBranchId: input.registrationBranchId }),
       ...(input.fullName && { fullName: input.fullName.trim() }),
       ...(input.dateOfBirth && { dateOfBirth: new Date(input.dateOfBirth) }),
       ...(input.gender && { gender: input.gender as Gender }),
@@ -192,8 +195,16 @@ export const patientService = {
       entityId: id,
       action: "UPDATE",
       changedById: updatedById,
-      previousValues: { fullName: before.fullName, mobile: before.mobile },
-      newValues: { fullName: patient.fullName, mobile: patient.mobile },
+      previousValues: {
+        fullName: before.fullName,
+        mobile: before.mobile,
+        registrationBranchId: before.registrationBranchId,
+      },
+      newValues: {
+        fullName: patient.fullName,
+        mobile: patient.mobile,
+        registrationBranchId: patient.registrationBranchId,
+      },
     })
 
     return patient

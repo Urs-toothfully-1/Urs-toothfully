@@ -65,6 +65,7 @@ export async function saveNewVisitPrescriptionAction(
   const hasContent =
     (payload.chiefComplaint?.trim?.() ?? "") !== "" ||
     (payload.onExamination?.length ?? 0) > 0 ||
+    (payload.diagnosis?.trim?.() ?? "") !== "" ||
     (payload.treatments?.length ?? 0) > 0 ||
     (payload.medicines?.length ?? 0) > 0 ||
     (payload.advice?.trim?.() ?? "") !== ""

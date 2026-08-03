@@ -39,6 +39,8 @@ interface Props {
   patientName: string
   patientId: string
   visitId: string
+  /** Human-readable VISIT-YYYY-NNNNN — the raw uuid must never reach the UI */
+  visitNo: string
   branchId: string
   doctorName: string
   branchName: string
@@ -65,7 +67,7 @@ const STEPS = [
 export function EstimateWizard({
   estimateId, estimateNo,
   estimateItems, estimateNotes, estimateDiscount,
-  patientName, patientId, visitId, branchId, doctorName, branchName,
+  patientName, patientId, visitId, visitNo, branchId, doctorName, branchName,
   prescriptionId, prescriptionData, previousPrescription, initialTemplates,
   treatments, advancePercent, allowDiscount,
   paymentAgreementStages, paymentAgreementRep, paymentAgreementTermsAccepted, paymentAgreementSignedAt,
@@ -275,7 +277,7 @@ export function EstimateWizard({
               visitId={visitId}
               branchId={branchId}
               patientName={patientName}
-              visitNo={estimateNo ?? visitId}
+              visitNo={visitNo}
               doctorName={doctorName}
               treatments={treatments}
               advancePercent={advancePercent}
