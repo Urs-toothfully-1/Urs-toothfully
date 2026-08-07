@@ -133,7 +133,9 @@ export function EstimateBuilder({
         }))
       : [newItem()]
   )
-  const [discountPercent, setDiscountPercent] = useState(initialDiscountPercent ?? 0)
+  // Read-only here — owned by the Payment Plan step. Derived from the prop so a
+  // discount applied there shows up as soon as the page data refreshes.
+  const discountPercent = initialDiscountPercent ?? 0
   const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({})
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -451,27 +453,18 @@ export function EstimateBuilder({
             <span style={{ color: BRAND_COLORS.bodyText }}>{formatCurrency(subtotal)}</span>
           </div>
 
-          {allowDiscount && (
+          {/* The discount is set in the Payment Plan step now. It is still shown
+              here, read-only, so the total makes sense — and still submitted, so
+              editing the treatment rows later cannot silently wipe it. */}
+          {allowDiscount && discountPercent > 0 && (
             <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2">
-                <span style={{ color: BRAND_COLORS.borderDivider }}>Discount</span>
-                <div className="flex items-center gap-1">
-                  <Input
-                    name="discountPercent"
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={0.5}
-                    value={discountPercent}
-                    onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
-                    className="h-6 w-16 border-[#E0E3E5] text-xs text-center px-1 bg-[#F2F4F6]"
-                  />
-                  <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>%</span>
-                </div>
-              </div>
+              <span style={{ color: BRAND_COLORS.borderDivider }}>
+                Discount ({discountPercent}%) · set in Payment Plan
+              </span>
               <span className="text-red-500">-{formatCurrency(discountAmount)}</span>
             </div>
           )}
+          <input type="hidden" name="discountPercent" value={discountPercent} />
 
           <div
             className="flex justify-between text-base font-bold pt-2 border-t"

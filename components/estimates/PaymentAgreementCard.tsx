@@ -24,10 +24,18 @@ import {
   PAYMENT_TERMS,
 } from "@/lib/payment-agreement"
 import { savePaymentAgreementAction, SavePaymentAgreementState } from "@/actions/payment-agreement"
+import { updateEstimateDiscountAction } from "@/actions/estimates"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 interface Props {
   estimateId: string
   estimateTotal: number
+  /** Pre-discount sum of the treatment rows — the discount is taken off this. */
+  estimateSubtotal: number
+  initialDiscountPercent: number
+  /** Branch setting: when false the discount control is hidden. */
+  allowDiscount: boolean
   initialStages: PaymentStage[]
   initialRep: string | null
   initialTermsAccepted: boolean
@@ -51,6 +59,9 @@ function formatAmt(n: number) {
 export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props>(function PaymentAgreementCard({
   estimateId,
   estimateTotal,
+  estimateSubtotal,
+  initialDiscountPercent,
+  allowDiscount,
   initialStages,
   initialRep,
   initialTermsAccepted,
@@ -59,6 +70,7 @@ export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props
   patientName,
   doctorName,
 }: Props, ref) {
+  const router = useRouter()
   const [stages, setStages] = useState<PaymentStage[]>(initialStages)
   const [rep, setRep] = useState(initialRep ?? "")
   const [termsAccepted, setTermsAccepted] = useState(initialTermsAccepted)
@@ -71,8 +83,49 @@ export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props
     {}
   )
 
+  // The discount lives here now, so the total is editable on this screen. Track
+  // it locally and re-sync if the server sends a fresh one after a refresh.
+  const [total, setTotal] = useState(estimateTotal)
+  const [seenTotal, setSeenTotal] = useState(estimateTotal)
+  if (estimateTotal !== seenTotal) {
+    setSeenTotal(estimateTotal)
+    setTotal(estimateTotal)
+  }
+  const [discount, setDiscount] = useState(String(initialDiscountPercent || 0))
+  const [discountError, setDiscountError] = useState<string | null>(null)
+  const [applyingDiscount, startApplyDiscount] = useTransition()
+
+  /**
+   * Applies the discount to the estimate itself, then re-suggests the schedule
+   * so the instalments add up to the new total instead of the old one.
+   */
+  function applyDiscount() {
+    const pct = Number(discount)
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+      setDiscountError("Enter a discount between 0 and 100.")
+      return
+    }
+    setDiscountError(null)
+    startApplyDiscount(async () => {
+      const result = await updateEstimateDiscountAction(estimateId, pct)
+      if (!result.success || result.total === undefined) {
+        setDiscountError(result.error ?? "Could not apply the discount.")
+        return
+      }
+      setTotal(result.total)
+      setStages(suggestPaymentSchedule(result.total))
+      toast.success(
+        pct > 0
+          ? `${pct}% discount applied — ${formatCurrency(result.discountAmount ?? 0)} off`
+          : "Discount removed"
+      )
+      router.refresh()
+    })
+  }
+
+
   function resetToSuggested() {
-    setStages(suggestPaymentSchedule(estimateTotal))
+    setStages(suggestPaymentSchedule(total))
   }
 
   // Keep the schedule summing to the estimate total: received stages and the
@@ -84,7 +137,7 @@ export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props
     }
     if (absorber === -1) return list
     const sumOthers = list.reduce((s, st, i) => (i === absorber ? s : s + st.amount), 0)
-    const amount = Math.max(0, Math.round(estimateTotal - sumOthers))
+    const amount = Math.max(0, Math.round(total - sumOthers))
     return list.map((s, i) => (i === absorber ? { ...s, amount } : s))
   }
 
@@ -123,7 +176,7 @@ export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props
 
   const received = totalReceived(stages)
   const scheduled = totalScheduled(stages)
-  const balance = Math.max(0, estimateTotal - received)
+  const balance = Math.max(0, total - received)
 
   return (
     <Card className="border-[#E0E3E5] bg-white overflow-hidden">
@@ -134,7 +187,7 @@ export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props
             <FileSignature className="h-4 w-4" style={{ color: BRAND_COLORS.secondaryGreen }} />
             Payment Agreement
             <span className="text-xs font-normal px-2 py-0.5 rounded" style={{ backgroundColor: "#EFF9F4", color: BRAND_COLORS.secondaryGreen }}>
-              {getTierLabel(estimateTotal)}
+              {getTierLabel(total)}
             </span>
           </CardTitle>
           <Button
@@ -159,8 +212,64 @@ export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props
           <div><p style={{ color: BRAND_COLORS.borderDivider }}>Patient</p><p className="font-semibold" style={{ color: BRAND_COLORS.bodyText }}>{patientName}</p></div>
           <div><p style={{ color: BRAND_COLORS.borderDivider }}>Estimate</p><p className="font-semibold" style={{ color: BRAND_COLORS.bodyText }}>{estimateNo}</p></div>
           <div><p style={{ color: BRAND_COLORS.borderDivider }}>Doctor</p><p className="font-semibold" style={{ color: BRAND_COLORS.bodyText }}>{doctorName}</p></div>
-          <div><p style={{ color: BRAND_COLORS.borderDivider }}>Treatment Cost</p><p className="font-semibold" style={{ color: BRAND_COLORS.primaryTeal }}>{formatCurrency(estimateTotal)}</p></div>
+          <div><p style={{ color: BRAND_COLORS.borderDivider }}>Treatment Cost</p><p className="font-semibold" style={{ color: BRAND_COLORS.primaryTeal }}>{formatCurrency(total)}</p></div>
         </div>
+
+        {/* Discount — set here, where the rest of the money is decided. Applying
+            it rewrites the estimate total and re-suggests the instalments. */}
+        {allowDiscount && (
+          <div className="rounded-md border p-3" style={{ borderColor: BRAND_COLORS.lightBackground }}>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium block" style={{ color: BRAND_COLORS.borderDivider }}>
+                  Discount (%)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.5}
+                  value={discount}
+                  onChange={(e) => setDiscount(e.target.value)}
+                  className={`${inputCls} w-24 text-center`}
+                  disabled={applyingDiscount}
+                />
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={applyDiscount}
+                disabled={applyingDiscount}
+                className="h-8 text-xs gap-1.5"
+              >
+                {applyingDiscount ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Apply Discount
+              </Button>
+
+              <div className="text-xs ml-auto text-right leading-relaxed" style={{ color: BRAND_COLORS.borderDivider }}>
+                <div>
+                  Treatment total{" "}
+                  <span className="font-semibold" style={{ color: BRAND_COLORS.bodyText }}>
+                    {formatCurrency(estimateSubtotal)}
+                  </span>
+                </div>
+                {total < estimateSubtotal && (
+                  <div style={{ color: BRAND_COLORS.secondaryGreen }}>
+                    Less discount{" "}
+                    <span className="font-semibold">−{formatCurrency(estimateSubtotal - total)}</span>
+                    {" → "}
+                    <span className="font-semibold">{formatCurrency(total)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            {discountError && <p className="text-xs text-red-500 mt-2">{discountError}</p>}
+            <p className="text-xs mt-2" style={{ color: BRAND_COLORS.borderDivider }}>
+              Applying a discount updates the estimate and rebuilds the instalments below.
+            </p>
+          </div>
+        )}
 
         {/* Payment schedule table */}
         <div className="overflow-x-auto">
@@ -260,8 +369,8 @@ export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props
               <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>Total Scheduled</p>
               <p className="font-semibold" style={{ color: BRAND_COLORS.bodyText }}>
                 ₹{formatAmt(scheduled)}
-                {scheduled !== estimateTotal && (
-                  <span className="ml-1 text-xs text-amber-600">(estimate: ₹{formatAmt(estimateTotal)})</span>
+                {scheduled !== total && (
+                  <span className="ml-1 text-xs text-amber-600">(estimate: ₹{formatAmt(total)})</span>
                 )}
               </p>
             </div>

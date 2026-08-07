@@ -128,6 +128,12 @@ export function EstimateWizard({
    * discount, so a discounted estimate produced a payment schedule for the
    * full, pre-discount amount.
    */
+  /** Pre-discount sum of the treatment rows, for the discount box in step 3. */
+  const estimateSubtotal = useMemo(
+    () => estimateInitialItems.reduce((s, i) => s + i.quantity * i.unitRate, 0),
+    [estimateInitialItems]
+  )
+
   const agreementTotal = useMemo(() => {
     if (estimateTotal !== null && Number.isFinite(estimateTotal)) return estimateTotal
     const subtotal = estimateInitialItems.reduce((s, i) => s + i.quantity * i.unitRate, 0)
@@ -313,6 +319,9 @@ export function EstimateWizard({
             ref={agreementRef}
             estimateId={currentEstimateId!}
             estimateTotal={agreementTotal}
+            estimateSubtotal={estimateSubtotal}
+            initialDiscountPercent={estimateDiscount ?? 0}
+            allowDiscount={allowDiscount}
             initialStages={paymentAgreementStages}
             initialRep={paymentAgreementRep}
             initialTermsAccepted={paymentAgreementTermsAccepted}

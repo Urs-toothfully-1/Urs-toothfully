@@ -8,6 +8,7 @@ import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
 import { treatmentIdOrNull } from "@/lib/estimate-item"
 import { numericSetting } from "@/lib/settings-value"
+import { createAuditLog } from "@/lib/audit"
 import { Decimal } from "@prisma/client/runtime/library"
 import type { ItemStatus } from "@prisma/client"
 
@@ -174,6 +175,66 @@ export async function updateEstimateAction(
   } catch (err) {
     if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) throw err
     return { error: "Failed to update estimate. Please try again." }
+  }
+}
+
+/**
+ * Applies a discount from the Payment Plan step, where all the money is now
+ * decided. Recomputes the estimate's totals from its saved items — the rows
+ * themselves are untouched, so treatment progress is preserved.
+ */
+export async function updateEstimateDiscountAction(
+  estimateId: string,
+  discountPercent: number
+): Promise<{ success?: boolean; error?: string; subtotal?: number; total?: number; discountAmount?: number }> {
+  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  if (!session) return { error: "Unauthorized" }
+
+  if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) {
+    return { error: "Discount must be between 0 and 100." }
+  }
+
+  try {
+    const estimate = await estimateRepository.findById(estimateId)
+    if (!estimate) return { error: "Estimate not found." }
+
+    const allowDiscount = await settingsRepository.get("allow_discount", estimate.branchId)
+    if ((allowDiscount ?? "true") !== "true" && discountPercent > 0) {
+      return { error: "Discounts are turned off for this branch." }
+    }
+
+    const subtotal = (estimate.items as { amount: unknown }[]).reduce((s, i) => s + Number(i.amount), 0)
+    const discountAmount = (subtotal * discountPercent) / 100
+    const total = subtotal - discountAmount
+
+    const advancePct = await settingsRepository.get("advance_percent", estimate.branchId)
+    const advanceRequired = total * (numericSetting("advance_percent", advancePct) / 100)
+    if (![subtotal, total, advanceRequired].every(Number.isFinite)) {
+      return { error: "The estimate totals could not be calculated." }
+    }
+
+    await estimateRepository.updateTotals(estimateId, {
+      subtotal: new Decimal(subtotal),
+      total: new Decimal(total),
+      advanceRequired: new Decimal(advanceRequired),
+      discountPercent: discountPercent > 0 ? new Decimal(discountPercent) : null,
+      discountAmount: discountAmount > 0 ? new Decimal(discountAmount) : null,
+    })
+
+    await createAuditLog({
+      entityType: "Estimate",
+      entityId: estimateId,
+      action: "UPDATE",
+      changedById: session.userId,
+      previousValues: { discountPercent: estimate.discountPercent ? Number(estimate.discountPercent) : 0, total: Number(estimate.total) },
+      newValues: { discountPercent, total },
+      branchId: estimate.branchId,
+    })
+
+    revalidatePath(`/patients/${estimate.patientId}/estimates`)
+    return { success: true, subtotal, total, discountAmount }
+  } catch {
+    return { error: "Failed to apply the discount. Please try again." }
   }
 }
 

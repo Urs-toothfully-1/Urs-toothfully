@@ -193,6 +193,25 @@ export const estimateRepository = {
     })
   },
 
+  /**
+   * Rewrites only the money fields. Used when the discount is changed from the
+   * payment plan, where the treatment rows themselves are not being edited — so
+   * the item reconcile in update() (and the treatment progress it preserves) is
+   * left well alone.
+   */
+  async updateTotals(
+    id: string,
+    data: {
+      subtotal: Prisma.Decimal
+      total: Prisma.Decimal
+      advanceRequired: Prisma.Decimal
+      discountPercent: Prisma.Decimal | null
+      discountAmount: Prisma.Decimal | null
+    }
+  ) {
+    return prisma.estimate.update({ where: { id }, data })
+  },
+
   /** Creates an empty ACTIVE estimate for a visit (prescription-first flow). Reuses an existing one. */
   async createEmpty(data: {
     estimateNo: string
