@@ -44,14 +44,13 @@ export default async function ConsultationPage({ params }: Props) {
   const existing = await estimateRepository.findByVisit(visitId)
   const estimate = existing ? await estimateRepository.findById(existing.id) : null
 
-  const [paymentAgreement, queueEntry, examTemplates, treatments, advPct, allowDisc] = await Promise.all([
+  const [paymentAgreement, queueEntry, examTemplates, treatments, allowDisc] = await Promise.all([
     estimate ? paymentAgreementService.getOrSuggest(estimate.id) : Promise.resolve(null),
     queueRepository.findByVisit(visitId),
     prisma.examinationTemplate
       .findMany({ where: { doctorId: session.userId }, orderBy: { name: "asc" }, select: { id: true, name: true, finding: true } })
       .catch(() => []),
     treatmentRepository.findAll(),
-    settingsRepository.get("advance_percent", visit.branchId),
     settingsRepository.get("allow_discount", visit.branchId),
   ])
 
@@ -95,6 +94,7 @@ export default async function ConsultationPage({ params }: Props) {
       })) : []}
       estimateNotes={estimate?.notes ?? null}
       estimateDiscount={estimate?.discountPercent ? Number(estimate.discountPercent) : null}
+      estimateTotal={estimate ? Number(estimate.total) : null}
       patientName={visit.patient.fullName}
       patientId={visit.patientId}
       visitId={visitId}
@@ -109,7 +109,6 @@ export default async function ConsultationPage({ params }: Props) {
       treatments={(treatments as any[]).map((t) => ({
         id: t.id, category: t.category, name: t.name, defaultAmount: Number(t.defaultAmount),
       }))}
-      advancePercent={parseFloat(advPct ?? "20")}
       allowDiscount={(allowDisc ?? "true") === "true"}
       paymentAgreementStages={(paymentAgreement?.stages ?? []) as PaymentStage[]}
       paymentAgreementRep={paymentAgreement?.clinicRepresentative ?? null}

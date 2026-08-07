@@ -29,12 +29,8 @@ export default async function EditEstimatePage({ params }: Props) {
 
   if (!visit) notFound()
 
-  const [advPct, allowDisc] = await Promise.all([
-    settingsRepository.get("advance_percent", estimate.branchId),
-    settingsRepository.get("allow_discount", estimate.branchId),
-  ])
+  const allowDisc = await settingsRepository.get("allow_discount", estimate.branchId)
 
-  const advancePercent = parseFloat(advPct ?? "20")
   const allowDiscount = (allowDisc ?? "true") === "true"
 
   return (
@@ -83,7 +79,6 @@ export default async function EditEstimatePage({ params }: Props) {
               name: t.name,
               defaultAmount: Number(t.defaultAmount),
             }))}
-            advancePercent={advancePercent}
             allowDiscount={allowDiscount}
             estimateId={estimateId}
             initialItems={(estimate.items as any[]).map((i) => ({

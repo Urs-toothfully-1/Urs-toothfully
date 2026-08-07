@@ -1,7 +1,7 @@
 "use client"
 
-import { useActionState, useState, useTransition } from "react"
-import { useFormStatus } from "react-dom"
+import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { createUserAction, toggleUserActiveAction, resetPasswordAction, UserFormState } from "@/actions/users"
 import { BRAND_COLORS } from "@/lib/constants"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,32 +21,37 @@ const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
   RECEPTIONIST: { bg: "#D1FAE5", color: "#065F46" },
 }
 
-function SubmitBtn() {
-  const { pending } = useFormStatus()
-  return (
-    <Button type="submit" disabled={pending} className="h-10 px-5 font-semibold text-white"
-      style={{ backgroundColor: pending ? BRAND_COLORS.borderDivider : BRAND_COLORS.primaryTeal }}>
-      {pending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating…</> : "Create User"}
-    </Button>
-  )
-}
-
 const selectCls = "h-10 w-full rounded-md border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE]"
 
 export function UsersMgmt({ users, branches, currentUserId }: { users: User[]; branches: Branch[]; currentUserId: string }) {
+  const router = useRouter()
   const [showForm, setShowForm] = useState(false)
   const [role, setRole] = useState("RECEPTIONIST")
-  const [state, formAction] = useActionState(createUserAction, {} as UserFormState)
+  const [state, setState] = useState<UserFormState>({})
+  const [creating, startCreating] = useTransition()
   const [isPending, startTransition] = useTransition()
 
-  // Close the form once per successful create. The old `if (state.success)
-  // setShowForm(false)` had no such guard: useActionState keeps the success flag
-  // forever, so from the second user onwards the form slammed shut the instant
-  // it was reopened and no further account could be added.
-  const [handled, setHandled] = useState<UserFormState | null>(null)
-  if (state.success && handled !== state) {
-    setHandled(state)
-    setShowForm(false)
+  /**
+   * Awaited directly rather than through useActionState. That hook left this
+   * form broken twice over: its success flag is sticky, so the form slammed shut
+   * the moment it was reopened; and because createUserAction called
+   * revalidatePath, the follow-up RSC fetch could be aborted by the sidebar's
+   * prefetching, leaving the button stuck on "Creating…" forever even though the
+   * user had already been created. Handling the result in the same callback
+   * sidesteps both.
+   */
+  function handleCreate(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    startCreating(async () => {
+      const result = await createUserAction({}, fd)
+      setState(result)
+      if (result.success) {
+        setShowForm(false)
+        toast.success("User created")
+        router.refresh()
+      }
+    })
   }
 
   function handleToggle(userId: string, name: string, isActive: boolean) {
@@ -92,7 +97,7 @@ export function UsersMgmt({ users, branches, currentUserId }: { users: User[]; b
             {state.error && (
               <p className="text-sm text-red-500 mb-3">{state.error}</p>
             )}
-            <form action={formAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>Full Name *</Label>
                 <Input name="name" required placeholder="Dr. / Mr. / Ms." className="h-10 border-[#E0E3E5] bg-[#F2F4F6] text-sm" />
@@ -132,7 +137,10 @@ export function UsersMgmt({ users, branches, currentUserId }: { users: User[]; b
                 </>
               )}
               <div className="md:col-span-2 pt-1">
-                <SubmitBtn />
+                <Button type="submit" disabled={creating} className="h-10 px-5 font-semibold text-white"
+                  style={{ backgroundColor: creating ? BRAND_COLORS.borderDivider : BRAND_COLORS.primaryTeal }}>
+                  {creating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating…</> : "Create User"}
+                </Button>
               </div>
             </form>
           </CardContent>

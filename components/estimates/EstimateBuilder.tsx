@@ -52,7 +52,6 @@ interface Props {
   visitNo: string
   doctorName: string
   treatments: Treatment[]
-  advancePercent: number
   allowDiscount: boolean
   // Edit mode
   estimateId?: string
@@ -107,7 +106,7 @@ const inputCls = "h-8 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-w
 
 export function EstimateBuilder({
   patientId, visitId, branchId, patientName, visitNo, doctorName,
-  treatments, advancePercent, allowDiscount,
+  treatments, allowDiscount,
   estimateId, initialItems, initialNotes, initialDiscountPercent,
   mode = "page", onSaved, submitLabel,
 }: Props) {
@@ -178,7 +177,6 @@ export function EstimateBuilder({
   const subtotal = items.reduce((s, i) => s + i.amount, 0)
   const discountAmount = allowDiscount ? (subtotal * discountPercent) / 100 : 0
   const total = subtotal - discountAmount
-  const advanceRequired = (total * advancePercent) / 100
 
   function handleSelectTreatment(key: string, treatmentId: string) {
     const isCustom = treatmentId === CUSTOM_TREATMENT
@@ -483,14 +481,11 @@ export function EstimateBuilder({
             <span style={{ color: BRAND_COLORS.primaryTeal }}>{formatCurrency(total)}</span>
           </div>
 
-          <div className="flex justify-between text-sm">
-            <span style={{ color: BRAND_COLORS.borderDivider }}>
-              Advance Required ({advancePercent}%)
-            </span>
-            <span className="font-semibold" style={{ color: BRAND_COLORS.secondaryGreen }}>
-              {formatCurrency(advanceRequired)}
-            </span>
-          </div>
+          {/* Advance and the rest of the money talk live in the Payment Plan
+              step, so the estimate stays a plain statement of the work. */}
+          <p className="text-xs pt-1" style={{ color: BRAND_COLORS.borderDivider }}>
+            Payment schedule is set in the Payment Plan step.
+          </p>
         </div>
       </div>
 

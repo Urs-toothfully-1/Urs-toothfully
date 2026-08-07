@@ -208,7 +208,9 @@ test.describe("Admin masters", () => {
       // The regression: the form used to close itself again the instant it was
       // reopened, so no second account could be created without a page reload.
       // No reload happens between the two iterations — that is the point.
-      await expect(form).toBeHidden({ timeout: 15_000 })
+      // The toggle reads "Cancel" while the form is open and "Add User" once it
+      // closes, which is a steadier signal than the form's own visibility.
+      await expect(page.getByRole("button", { name: /^add user$/i })).toBeVisible({ timeout: 20_000 })
     }
 
     // Both accounts really exist.

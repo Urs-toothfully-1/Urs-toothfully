@@ -7,6 +7,7 @@ import { estimateService } from "@/server/services/estimate.service"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
 import { treatmentIdOrNull } from "@/lib/estimate-item"
+import { numericSetting } from "@/lib/settings-value"
 import { Decimal } from "@prisma/client/runtime/library"
 import type { ItemStatus } from "@prisma/client"
 
@@ -148,7 +149,10 @@ export async function updateEstimateAction(
     const total = subtotal - discountAmount
 
     const advancePct = await settingsRepository.get("advance_percent", branchId)
-    const advanceRequired = total * (parseFloat(advancePct ?? "20") / 100)
+    const advanceRequired = total * (numericSetting("advance_percent", advancePct) / 100)
+    if (!Number.isFinite(total) || !Number.isFinite(advanceRequired)) {
+      return { error: "The estimate totals could not be calculated. Check the branch settings." }
+    }
 
     await estimateRepository.update(estimateId, {
       subtotal: new Decimal(subtotal),

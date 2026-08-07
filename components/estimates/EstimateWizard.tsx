@@ -36,6 +36,8 @@ interface Props {
   estimateItems: WizardEstimateItem[]
   estimateNotes: string | null
   estimateDiscount: number | null
+  /** Total the server stored (already discounted); null before the estimate exists */
+  estimateTotal: number | null
   patientName: string
   patientId: string
   visitId: string
@@ -49,7 +51,6 @@ interface Props {
   previousPrescription: Pick<PrescriptionData, "chiefComplaint" | "onExamination" | "treatments" | "medicines" | "advice"> | null
   initialTemplates: ExamTemplate[]
   treatments: TreatmentOption[]
-  advancePercent: number
   allowDiscount: boolean
   paymentAgreementStages: PaymentStage[]
   paymentAgreementRep: string | null
@@ -66,10 +67,10 @@ const STEPS = [
 
 export function EstimateWizard({
   estimateId, estimateNo,
-  estimateItems, estimateNotes, estimateDiscount,
+  estimateItems, estimateNotes, estimateDiscount, estimateTotal,
   patientName, patientId, visitId, visitNo, branchId, doctorName, branchName,
   prescriptionId, prescriptionData, previousPrescription, initialTemplates,
-  treatments, advancePercent, allowDiscount,
+  treatments, allowDiscount,
   paymentAgreementStages, paymentAgreementRep, paymentAgreementTermsAccepted, paymentAgreementSignedAt,
   queueId,
 }: Props) {
@@ -119,6 +120,20 @@ export function EstimateWizard({
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, estimateItems, liveTreatments, treatments])
+
+  /**
+   * What the patient actually owes, for the payment plan. Prefer the total the
+   * server stored — it is the one the estimate and the printout show. The
+   * previous version summed quantity × rate on the client and ignored the
+   * discount, so a discounted estimate produced a payment schedule for the
+   * full, pre-discount amount.
+   */
+  const agreementTotal = useMemo(() => {
+    if (estimateTotal !== null && Number.isFinite(estimateTotal)) return estimateTotal
+    const subtotal = estimateInitialItems.reduce((s, i) => s + i.quantity * i.unitRate, 0)
+    const pct = estimateDiscount ?? 0
+    return pct > 0 ? subtotal - (subtotal * pct) / 100 : subtotal
+  }, [estimateTotal, estimateInitialItems, estimateDiscount])
 
   async function savePrescriptionThen(next: () => void) {
     if (!prescriptionId) { next(); return }
@@ -280,7 +295,6 @@ export function EstimateWizard({
               visitNo={visitNo}
               doctorName={doctorName}
               treatments={treatments}
-              advancePercent={advancePercent}
               allowDiscount={allowDiscount}
               initialItems={estimateInitialItems}
               initialNotes={estimateNotes ?? ""}
@@ -298,7 +312,7 @@ export function EstimateWizard({
           <PaymentAgreementCard
             ref={agreementRef}
             estimateId={currentEstimateId!}
-            estimateTotal={estimateInitialItems.reduce((s, i) => s + i.quantity * i.unitRate, 0)}
+            estimateTotal={agreementTotal}
             initialStages={paymentAgreementStages}
             initialRep={paymentAgreementRep}
             initialTermsAccepted={paymentAgreementTermsAccepted}

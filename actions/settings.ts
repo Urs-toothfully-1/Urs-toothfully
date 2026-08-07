@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { requireRole } from "@/lib/auth"
 import { settingsRepository } from "@/server/repositories/settings.repository"
+import { assertNumericSetting } from "@/lib/settings-value"
 import { createAuditLog } from "@/lib/audit"
 
 export type SettingsFormState = { success?: boolean; error?: string }
@@ -25,6 +26,11 @@ export async function updateSettingAction(
 
   if (!ALLOWED_SETTING_KEYS.has(key)) return { error: "Unknown setting key." }
   if (value === undefined || value === null) return { error: "Value is required." }
+
+  // Clearing a numeric field used to store "" — which read back as NaN and broke
+  // every estimate save at that branch with an unrelated-looking error.
+  const numericError = assertNumericSetting(key, value)
+  if (numericError) return { error: numericError }
 
   try {
     const before = await settingsRepository.get(key, branchId)

@@ -1,6 +1,7 @@
 import { Decimal } from "@prisma/client/runtime/library"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
+import { numericSetting } from "@/lib/settings-value"
 import { createAuditLog } from "@/lib/audit"
 import { z } from "zod"
 
@@ -68,7 +69,13 @@ export const estimateService = {
     }
 
     const advancePercent = await settingsRepository.get("advance_percent", input.branchId)
-    const advanceRequired = total * (parseFloat(advancePercent ?? "20") / 100)
+    const advanceRequired = total * (numericSetting("advance_percent", advancePercent) / 100)
+
+    // Nothing non-finite may reach a Decimal column — that is what turned a bad
+    // setting into "Failed to save estimate" instead of a visible problem.
+    for (const [label, n] of [["subtotal", subtotal], ["total", total], ["advance", advanceRequired]] as const) {
+      if (!Number.isFinite(n)) throw new Error(`Estimate ${label} is not a valid number (${n}).`)
+    }
 
     const estimate = await estimateRepository.create({
       estimateNo,

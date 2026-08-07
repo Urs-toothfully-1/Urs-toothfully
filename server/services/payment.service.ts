@@ -2,6 +2,7 @@ import { PaymentMode, PaymentType } from "@prisma/client"
 import { Decimal } from "@prisma/client/runtime/library"
 import { paymentRepository } from "@/server/repositories/payment.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
+import { settingNumber } from "@/lib/settings-value"
 import { createAuditLog } from "@/lib/audit"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
@@ -164,7 +165,9 @@ export const paymentService = {
   },
 
   async getConsultationFee(branchId: string): Promise<number> {
+    // A blank/garbled setting used to return NaN here too, which would have
+    // shown "₹NaN" on the collect-payment screen.
     const fee = await settingsRepository.get("consultation_fee", branchId)
-    return fee ? parseFloat(fee) : 1000
+    return settingNumber(fee, 1000)
   },
 }

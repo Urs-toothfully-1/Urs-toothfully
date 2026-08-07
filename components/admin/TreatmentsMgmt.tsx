@@ -1,8 +1,8 @@
 "use client"
 
-import { useActionState, useEffect, useState, useTransition } from "react"
-import { useFormStatus } from "react-dom"
-import { createTreatmentAction, deleteTreatmentAction, updateTreatmentAction, TreatmentFormState } from "@/actions/treatments"
+import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import { createTreatmentAction, deleteTreatmentAction, updateTreatmentAction } from "@/actions/treatments"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
@@ -18,31 +18,31 @@ interface Props {
   categories: string[]
 }
 
-function AddBtn() {
-  const { pending } = useFormStatus()
-  return (
-    <Button type="submit" disabled={pending} size="sm" className="h-8 text-xs text-white"
-      style={{ backgroundColor: pending ? BRAND_COLORS.borderDivider : BRAND_COLORS.primaryTeal }}>
-      {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Plus className="h-3 w-3 mr-1" />Add</>}
-    </Button>
-  )
-}
-
 function AddTreatmentForm({ category, onSuccess }: { category: string; onSuccess: () => void }) {
-  const [state, action] = useActionState(createTreatmentAction, {} as TreatmentFormState)
+  const router = useRouter()
+  const [error, setError] = useState<string | null>(null)
+  const [adding, startAdding] = useTransition()
 
-  // Effect, not a render-time check: the old version unmounted itself on the
-  // stale success flag, so the form vanished the moment it was reopened.
-  useEffect(() => {
-    if (state.success) {
-      toast.success("Treatment added")
-      onSuccess()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state])
+  // Awaited directly, like the other admin forms: useActionState's success flag
+  // is sticky, and its revalidatePath round-trip can be aborted by the sidebar
+  // prefetching, which leaves the button spinning after the row was saved.
+  function handleAdd(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    startAdding(async () => {
+      const result = await createTreatmentAction({}, fd)
+      if (result.success) {
+        toast.success("Treatment added")
+        onSuccess()
+        router.refresh()
+      } else {
+        setError(result.error ?? "Failed to add treatment")
+      }
+    })
+  }
 
   return (
-    <form action={action} className="flex gap-2 items-end mt-3 p-3 rounded-lg border border-dashed"
+    <form onSubmit={handleAdd} className="flex gap-2 items-end mt-3 p-3 rounded-lg border border-dashed"
       style={{ borderColor: BRAND_COLORS.primaryTeal }}>
       <input type="hidden" name="category" value={category} />
       <div className="flex-1 space-y-1">
@@ -55,8 +55,11 @@ function AddTreatmentForm({ category, onSuccess }: { category: string; onSuccess
         <Input name="defaultAmount" type="number" min={1} step={0.01} placeholder="0"
           className="h-8 text-sm border-[#E0E3E5] bg-[#F2F4F6]" required />
       </div>
-      <AddBtn />
-      {state.error && <p className="text-xs text-red-500">{state.error}</p>}
+      <Button type="submit" disabled={adding} size="sm" className="h-8 text-xs text-white"
+        style={{ backgroundColor: adding ? BRAND_COLORS.borderDivider : BRAND_COLORS.primaryTeal }}>
+        {adding ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Plus className="h-3 w-3 mr-1" />Add</>}
+      </Button>
+      {error && <p className="text-xs text-red-500">{error}</p>}
     </form>
   )
 }

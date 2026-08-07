@@ -9,7 +9,13 @@ import { Role } from "@prisma/client"
 import { z } from "zod"
 import { createAuditLog } from "@/lib/audit"
 
-export type UserFormState = { success?: boolean; error?: string }
+/**
+ * `createdUserId` exists so the client can tell two successful creations apart.
+ * A bare `{ success: true }` deserializes to an equal value every time and React
+ * may hand back the same object, so an identity check on the state cannot see
+ * the second success — which left the "New Staff Account" form stuck open.
+ */
+export type UserFormState = { success?: boolean; error?: string; createdUserId?: string }
 
 const createUserSchema = z.object({
   branchId: z.string().min(1),
@@ -43,7 +49,7 @@ export async function createUserAction(
 
   try {
     const passwordHash = await bcrypt.hash(parsed.data.password, BCRYPT_COST_FACTOR)
-    await userRepository.create({
+    const created = await userRepository.create({
       branchId: parsed.data.branchId,
       name: parsed.data.name,
       email: parsed.data.email,
@@ -53,7 +59,7 @@ export async function createUserAction(
       doctorQualification: parsed.data.doctorQualification,
     })
     revalidatePath("/admin/users")
-    return { success: true }
+    return { success: true, createdUserId: created.id }
   } catch (err) {
     if (err instanceof Error && err.message.includes("Unique constraint")) {
       return { error: "Email address already in use." }
