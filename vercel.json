@@ -8,6 +8,14 @@
     {
       "path": "/api/cron/daily",
       "schedule": "30 15 * * *"
+    },
+    {
+      "path": "/api/cron/backup",
+      "schedule": "0 20 * * *"
+    },
+    {
+      "path": "/api/cron/keepalive",
+      "schedule": "0 3 * * *"
     }
   ]
 }
