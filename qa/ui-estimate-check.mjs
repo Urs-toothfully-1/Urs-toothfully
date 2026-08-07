@@ -21,8 +21,8 @@ async function api(path, opts) {
 
 // 1. Log in as the doctor through the real form.
 await page.goto(`${BASE}/login`)
-await page.getByLabel(/email/i).fill("dr.jashwant@toothfully.in")
-await page.getByLabel(/^password$/i).fill("Doctor@123")
+await page.getByLabel(/email/i).fill(process.env.LOGIN_EMAIL ?? "dr.jashwant@toothfully.in")
+await page.getByLabel(/^password$/i).fill(process.env.LOGIN_PASSWORD ?? "Doctor@123")
 await Promise.all([page.waitForURL((u) => !u.pathname.startsWith("/login")), page.getByRole("button", { name: /sign in/i }).click()])
 console.log("1. logged in as doctor            ✓")
 
@@ -68,9 +68,12 @@ const outcome = await Promise.race([
 console.log(`5. estimate save                   ${outcome === "SAVED" ? "✓ SAVED" : "✗ " + (outcome ?? "no response")}`)
 if (outcome !== "SAVED") problems.push("estimate did not save: " + (await page.locator("body").innerText()).match(/Failed[^\n]*/)?.[0])
 
-// 6. Confirm the estimates endpoint is healthy.
-const est = await api(`/api/estimates?patientId=${process.env.PATIENT_ID ?? ""}`)
-console.log(`6. estimates readable via API      ${est.status === 200 ? "✓" : "✗ " + est.status}`)
+// 6. Optional: confirm the estimates endpoint is healthy for a known patient.
+if (process.env.PATIENT_ID) {
+  const est = await api(`/api/estimates?patientId=${process.env.PATIENT_ID}`)
+  console.log(`6. estimates readable via API      ${est.status === 200 ? "✓" : "✗ " + est.status}`)
+  if (est.status !== 200) problems.push(`/api/estimates returned ${est.status}`)
+}
 
 console.log(problems.length ? "\nPROBLEMS:\n  " + problems.join("\n  ") : "\nALL GOOD — the estimate saves.")
 await browser.close()
