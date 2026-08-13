@@ -13,7 +13,7 @@ import { APP_NAME, APP_TAGLINE } from "@/lib/constants"
 // (project-2yxjv-scale-x2.vercel.app), which then leaks into every canonical
 // tag and preview image. Only an EXPLICIT NEXT_PUBLIC_SITE_URL overrides it —
 // set that to the real domain once one is attached.
-const CANONICAL_URL = "https://urs-toothfully-scale-x2.vercel.app"
+const CANONICAL_URL = "https://urstoothfully.org"
 
 function resolveSiteUrl(): string {
   const override = process.env.NEXT_PUBLIC_SITE_URL?.trim()
