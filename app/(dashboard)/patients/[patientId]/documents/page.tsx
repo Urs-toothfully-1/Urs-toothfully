@@ -7,7 +7,7 @@ import { BRAND_COLORS } from "@/lib/constants"
 import { formatDate } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ShareActions } from "@/components/share/ShareActions"
-import { ClipboardList, FileText, FolderOpen, Printer, Receipt } from "lucide-react"
+import { ClipboardList, FileText, FolderOpen, Pencil, Printer, Receipt } from "lucide-react"
 import type { DocumentType } from "@/server/services/pdf.service"
 
 export const metadata: Metadata = { title: "Documents" }
@@ -15,8 +15,14 @@ export const metadata: Metadata = { title: "Documents" }
 type Props = { params: Promise<{ patientId: string }> }
 
 export default async function DocumentsPage({ params }: Props) {
-  await requireSession()
+  const session = await requireSession()
   const { patientId } = await params
+
+  // Editing is open to any doctor/admin from here, with no queue involved — the
+  // point of this page is reaching a document without the patient being in a
+  // live visit. Receipts stay read-only: payments are corrected by adjustment,
+  // never by editing history.
+  const canEdit = session.role === "ADMIN" || session.role === "DOCTOR"
 
   const patient = await prisma.patient.findUnique({
     where: { id: patientId, isDeleted: false },
@@ -50,9 +56,15 @@ export default async function DocumentsPage({ params }: Props) {
     date: Date
     branchName: string
     printHref: string
+    /** Omitted for documents that are not editable (receipts). */
+    editHref?: string
     shareId: string
     icon: React.ReactNode
   }
+
+  // Editors return here rather than to the estimate wizard, so the trail back
+  // from this page is not a dead end.
+  const backHere = encodeURIComponent(`/patients/${patientId}/documents`)
 
   const rows: Row[] = [
     ...estimates.map((e): Row => ({
@@ -63,6 +75,7 @@ export default async function DocumentsPage({ params }: Props) {
       date: e.createdAt,
       branchName: e.branch.name,
       printHref: `/print/estimate/${e.id}`,
+      editHref: `/doctor/estimate/${e.id}/edit?return=${backHere}`,
       shareId: e.id,
       icon: <FileText className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />,
     })),
@@ -85,6 +98,7 @@ export default async function DocumentsPage({ params }: Props) {
       date: p.createdAt,
       branchName: p.visit.branch.name,
       printHref: `/print/prescription/${p.visitId}`,
+      editHref: `/doctor/prescription/${p.id}`,
       shareId: p.id,
       icon: <ClipboardList className="h-4 w-4" style={{ color: "#7C3AED" }} />,
     })),
@@ -141,6 +155,16 @@ export default async function DocumentsPage({ params }: Props) {
                     </td>
                     <td className="py-2.5 px-2">
                       <div className="flex items-center gap-2">
+                        {canEdit && row.editHref && (
+                          <Link
+                            href={row.editHref}
+                            className="flex items-center justify-center h-8 w-8 rounded-md border hover:bg-slate-50"
+                            style={{ borderColor: BRAND_COLORS.borderLight, color: BRAND_COLORS.primaryTeal }}
+                            title="Edit"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Link>
+                        )}
                         <Link
                           href={row.printHref}
                           target="_blank"

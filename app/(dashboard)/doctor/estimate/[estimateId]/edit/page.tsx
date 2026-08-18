@@ -13,11 +13,17 @@ import { ChevronRight } from "lucide-react"
 
 export const metadata: Metadata = { title: "Edit Estimate" }
 
-type Props = { params: Promise<{ estimateId: string }> }
+type Props = {
+  params: Promise<{ estimateId: string }>
+  searchParams: Promise<{ return?: string }>
+}
 
-export default async function EditEstimatePage({ params }: Props) {
+export default async function EditEstimatePage({ params, searchParams }: Props) {
   const session = await requireRole(["ADMIN", "DOCTOR"])
   const { estimateId } = await params
+  const { return: rawReturn } = await searchParams
+  // Only accept internal absolute paths — never an off-site or protocol-relative URL.
+  const returnHref = rawReturn?.startsWith("/") && !rawReturn.startsWith("//") ? rawReturn : undefined
 
   const estimate = await estimateRepository.findById(estimateId)
   if (!estimate) notFound()
@@ -93,6 +99,7 @@ export default async function EditEstimatePage({ params }: Props) {
             }))}
             initialNotes={estimate.notes ?? ""}
             initialDiscountPercent={estimate.discountPercent ? Number(estimate.discountPercent) : 0}
+            returnHref={returnHref}
           />
         </div>
       </div>

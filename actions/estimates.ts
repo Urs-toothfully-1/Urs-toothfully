@@ -111,6 +111,9 @@ export async function updateEstimateAction(
   const discountPercent = formData.get("discountPercent")?.toString()
   const notes = formData.get("notes")?.toString()
   const stayInWizard = formData.get("stayInWizard")?.toString() === "true"
+  const rawReturn = formData.get("returnHref")?.toString()
+  // Only internal absolute paths — never off-site / protocol-relative.
+  const returnHref = rawReturn?.startsWith("/") && !rawReturn.startsWith("//") ? rawReturn : undefined
 
   if (!estimateId || !patientId || !itemsJson) return { error: "Missing required fields." }
 
@@ -171,7 +174,7 @@ export async function updateEstimateAction(
       revalidatePath(`/doctor/estimate/${estimateId}/wizard`)
       return { success: true, estimateId }
     }
-    redirect(`/doctor/estimate/${estimateId}/wizard`)
+    redirect(returnHref ?? `/doctor/estimate/${estimateId}/wizard`)
   } catch (err) {
     if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) throw err
     return { error: "Failed to update estimate. Please try again." }

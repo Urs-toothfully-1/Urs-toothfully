@@ -58,6 +58,8 @@ interface Props {
   initialItems?: InitialItem[]
   initialNotes?: string
   initialDiscountPercent?: number
+  // Page mode: where to go after saving / cancelling (default: the estimate wizard)
+  returnHref?: string
   // Wizard-embedded mode: save without redirect, then call onSaved
   mode?: "page" | "wizard"
   onSaved?: (estimateId: string) => void
@@ -108,7 +110,7 @@ export function EstimateBuilder({
   patientId, visitId, branchId, patientName, visitNo, doctorName,
   treatments, allowDiscount,
   estimateId, initialItems, initialNotes, initialDiscountPercent,
-  mode = "page", onSaved, submitLabel,
+  returnHref, mode = "page", onSaved, submitLabel,
 }: Props) {
   const isEdit = !!estimateId
   const isWizard = mode === "wizard"
@@ -240,6 +242,7 @@ export function EstimateBuilder({
       <input type="hidden" name="visitId" value={visitId} />
       <input type="hidden" name="branchId" value={branchId} />
       {estimateId && <input type="hidden" name="estimateId" value={estimateId} />}
+      {returnHref && <input type="hidden" name="returnHref" value={returnHref} />}
       <input type="hidden" name="itemsJson" defaultValue="" />
 
       {(isWizard ? wizardError : state.error) && (
@@ -505,7 +508,7 @@ export function EstimateBuilder({
           <>
             <SubmitButton isEdit={!!estimateId} />
             <a
-              href={estimateId ? `/doctor/estimate/${estimateId}/wizard` : "/doctor"}
+              href={returnHref ?? (estimateId ? `/doctor/estimate/${estimateId}/wizard` : "/doctor")}
               className="text-sm font-medium hover:underline"
               style={{ color: BRAND_COLORS.borderDivider }}
             >
