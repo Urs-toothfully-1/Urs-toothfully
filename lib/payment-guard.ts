@@ -1,7 +1,7 @@
 import type { Role } from "@/lib/session"
 
 export interface PaymentInput {
-  paymentType: "CONSULTATION" | "TREATMENT" | "ADVANCE" | "ADJUSTMENT"
+  paymentType: "CONSULTATION" | "TREATMENT" | "ADVANCE" | "ADJUSTMENT" | "PRODUCT"
   visitId?: string
   estimateId?: string
   amount: number
@@ -32,6 +32,12 @@ export function validatePaymentInput(input: PaymentInput, role: Role): void {
 
   if (input.paymentType === "TREATMENT" || input.paymentType === "ADVANCE") {
     if (!input.estimateId) throw new Error("estimateId is required for TREATMENT / ADVANCE payment")
+  }
+
+  // Product sales stand alone — attaching one to an estimate would double-count
+  // it against that estimate's outstanding balance.
+  if (input.paymentType === "PRODUCT") {
+    if (input.estimateId) throw new Error("estimateId must not be set for PRODUCT payment")
   }
 
   if (input.paymentType === "ADJUSTMENT") {

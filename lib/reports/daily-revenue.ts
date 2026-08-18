@@ -15,6 +15,7 @@ export interface DailySummary {
   treatmentTotal: number
   advanceTotal: number
   adjustmentTotal: number
+  productTotal: number
   grandTotal: number
   byCashTotal: number
   byUpiTotal: number
@@ -59,6 +60,7 @@ export async function getDailyRevenue(date: Date, branchId?: string): Promise<Da
     treatmentTotal: sum("TREATMENT"),
     advanceTotal: sum("ADVANCE"),
     adjustmentTotal: sum("ADJUSTMENT"),
+    productTotal: sum("PRODUCT"),
     grandTotal: sum(),
     byCashTotal: sum(undefined, "CASH"),
     byUpiTotal: sum(undefined, "UPI"),

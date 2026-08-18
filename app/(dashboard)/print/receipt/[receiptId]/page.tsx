@@ -16,6 +16,7 @@ const PAYMENT_TYPE_LABELS: Record<string, string> = {
   TREATMENT: "Treatment Payment",
   ADVANCE: "Advance Payment",
   ADJUSTMENT: "Adjustment",
+  PRODUCT: "Products & Services",
 }
 
 const MODE_LABELS: Record<string, string> = {

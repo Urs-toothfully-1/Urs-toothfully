@@ -29,7 +29,7 @@ export default async function DailyRevenueReportPage({ searchParams }: Props) {
     getDailyRevenue(new Date(date), branchId),
   ])
 
-  const paymentTypes = ["CONSULTATION", "TREATMENT", "ADVANCE", "ADJUSTMENT"]
+  const paymentTypes = ["CONSULTATION", "TREATMENT", "ADVANCE", "ADJUSTMENT", "PRODUCT"]
   const modes = ["CASH", "UPI", "CARD", "BANK_TRANSFER"]
 
   return (

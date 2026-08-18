@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BookOpen, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 type AccountingStatus = "PENDING_REVIEW" | "APPROVED" | "EXPORTED"
-type PaymentType = "CONSULTATION" | "TREATMENT" | "ADVANCE" | "ADJUSTMENT"
+type PaymentType = "CONSULTATION" | "TREATMENT" | "ADVANCE" | "ADJUSTMENT" | "PRODUCT"
 
 export const metadata: Metadata = { title: "Accounting Ledger" }
 export const dynamic = "force-dynamic"
@@ -146,6 +146,7 @@ export default async function AccountingPage({ searchParams }: Props) {
                 <option value="TREATMENT">Treatment</option>
                 <option value="ADVANCE">Advance</option>
                 <option value="ADJUSTMENT">Adjustment</option>
+                <option value="PRODUCT">Products &amp; Services</option>
               </select>
             </div>
             <button type="submit" className="h-9 px-4 rounded text-sm font-medium text-white"

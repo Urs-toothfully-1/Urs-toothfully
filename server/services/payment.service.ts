@@ -41,6 +41,18 @@ export const createPaymentSchema = z.discriminatedUnion("paymentType", [
     transactionRef: z.string().max(100).optional(),
     notes: z.string().min(1, "Reason required for adjustments"),
   }),
+  // Non-treatment items (X-ray, lab, supplies) — stands alone, no estimate.
+  z.object({
+    paymentType: z.literal("PRODUCT"),
+    estimateId: z.undefined().optional(),
+    visitId: z.string().uuid().optional(),
+    patientId: z.string().uuid(),
+    branchId: z.string().uuid(),
+    amount: z.number().positive(),
+    mode: z.enum(["CASH", "UPI", "CARD", "BANK_TRANSFER"]),
+    transactionRef: z.string().max(100).optional(),
+    notes: z.string().max(500).optional(),
+  }),
 ])
 
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>

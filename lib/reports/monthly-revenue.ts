@@ -5,6 +5,7 @@ export interface MonthlyDayRow {
   consultation: number
   treatment: number
   advance: number
+  product: number
   total: number
 }
 
@@ -16,6 +17,7 @@ export interface MonthlyRevenueSummary {
   consultationTotal: number
   treatmentTotal: number
   advanceTotal: number
+  productTotal: number
   grandTotal: number
 }
 
@@ -43,7 +45,7 @@ export async function getMonthlyRevenue(
   for (const g of groups) {
     const date = g.entryDate.toISOString().split("T")[0]
     if (!dayMap.has(date)) {
-      dayMap.set(date, { date, consultation: 0, treatment: 0, advance: 0, total: 0 })
+      dayMap.set(date, { date, consultation: 0, treatment: 0, advance: 0, product: 0, total: 0 })
     }
     const row = dayMap.get(date)!
     const amount = Number(g._sum.amount ?? 0)
@@ -51,6 +53,7 @@ export async function getMonthlyRevenue(
     if (g.paymentType === "CONSULTATION") row.consultation += amount
     else if (g.paymentType === "TREATMENT") row.treatment += amount
     else if (g.paymentType === "ADVANCE") row.advance += amount
+    else if (g.paymentType === "PRODUCT") row.product += amount
   }
 
   const daily = Array.from(dayMap.values()).sort((a, b) => a.date.localeCompare(b.date))
@@ -63,6 +66,7 @@ export async function getMonthlyRevenue(
     consultationTotal: daily.reduce((s, d) => s + d.consultation, 0),
     treatmentTotal: daily.reduce((s, d) => s + d.treatment, 0),
     advanceTotal: daily.reduce((s, d) => s + d.advance, 0),
+    productTotal: daily.reduce((s, d) => s + d.product, 0),
     grandTotal: daily.reduce((s, d) => s + d.total, 0),
   }
 }

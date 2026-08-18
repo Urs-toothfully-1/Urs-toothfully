@@ -10,6 +10,7 @@ import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CalendarClock, CheckCircle2, CreditCard, PlusCircle } from "lucide-react"
+import { QuickInvoiceButton } from "@/components/payments/QuickInvoiceButton"
 
 export const metadata: Metadata = { title: "Payments" }
 
@@ -69,7 +70,13 @@ export default async function PaymentsPage({ params }: Props) {
     .filter((p: P) => ["TREATMENT", "ADVANCE"].includes(p.paymentType) && !p.isDeleted)
     .reduce((s: number, p: P) => s + Number(p.amount), 0)
 
-  const total = consultation + treatment
+  // X-ray / lab / supplies — billed on their own, so they get their own line
+  // rather than being folded into treatment revenue.
+  const products = payments
+    .filter((p: P) => p.paymentType === "PRODUCT" && !p.isDeleted)
+    .reduce((s: number, p: P) => s + Number(p.amount), 0)
+
+  const total = consultation + treatment + products
   const canCollect = session.role === "RECEPTIONIST" || session.role === "ADMIN"
 
   // Estimates with agreements that have at least one pending stage
@@ -93,10 +100,11 @@ export default async function PaymentsPage({ params }: Props) {
   return (
     <div className="space-y-4">
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "Consultation Fees", value: consultation, color: "#1D4ED8" },
           { label: "Treatment Paid", value: treatment, color: BRAND_COLORS.secondaryGreen },
+          { label: "Products & Services", value: products, color: "#C2410C" },
           { label: "Total Collected", value: total, color: BRAND_COLORS.primaryTeal },
         ].map((s) => (
           <Card key={s.label} className="border-[#E0E3E5] bg-white">
@@ -112,9 +120,10 @@ export default async function PaymentsPage({ params }: Props) {
         ))}
       </div>
 
-      {/* Collect Payment CTA */}
+      {/* Collect Payment & Product Invoice CTA */}
       {canCollect && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-3">
+          <QuickInvoiceButton patientId={patientId} branchId={session.branchId} size="sm" />
           <Link
             href={`/reception/collect-payment?patientId=${patientId}`}
             className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-white"

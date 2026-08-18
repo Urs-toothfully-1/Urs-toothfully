@@ -23,6 +23,7 @@ const TYPE_STYLE: Record<string, { label: string; bg: string; color: string }> =
   TREATMENT: { label: "Treatment", bg: "#D1FAE5", color: "#065F46" },
   ADVANCE: { label: "Advance", bg: "#EDE9FE", color: "#6D28D9" },
   ADJUSTMENT: { label: "Adjustment", bg: "#FEF3C7", color: "#B45309" },
+  PRODUCT: { label: "Products", bg: "#FFEDD5", color: "#C2410C" },
 }
 
 const MODE_ICONS: Record<string, string> = {
