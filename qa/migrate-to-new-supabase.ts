@@ -11,9 +11,12 @@
  * 34 tables — standard technique for a same-shape full database copy.
  *
  *   TARGET_DATABASE_URL=... TARGET_DIRECT_URL=... \
- *   npx ts-node --transpile-only -r tsconfig-paths/register qa/migrate-to-new-supabase.ts [--write]
+ *   npx ts-node --transpile-only -r tsconfig-paths/register qa/migrate-to-new-supabase.ts [--write] [--reset]
  *
  * Dry-run by default: reports source row counts only. --write performs the copy.
+ * --reset truncates every app table on the target first (cascading, but never
+ * touching _prisma_migrations) so a second run doesn't collide with rows the
+ * first run already inserted — used for a final pre-cutover resync.
  */
 import { PrismaClient, Prisma } from "@prisma/client"
 
@@ -38,6 +41,15 @@ async function main() {
 
   if (write) {
     await target.$executeRawUnsafe(`SET session_replication_role = 'replica'`)
+
+    if (process.argv.includes("--reset")) {
+      console.log("Resetting target tables before resync…\n")
+      for (const model of models) {
+        // Table names in Postgres follow Prisma's @@map when present, else the model name.
+        const table = (model.dbName as string | undefined) ?? model.name
+        await target.$executeRawUnsafe(`TRUNCATE TABLE "${table}" RESTART IDENTITY CASCADE`)
+      }
+    }
   }
 
   let totalRows = 0
