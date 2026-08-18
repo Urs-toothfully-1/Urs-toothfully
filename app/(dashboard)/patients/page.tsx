@@ -2,8 +2,15 @@ import { Metadata } from "next"
 import { Suspense } from "react"
 import Link from "next/link"
 import { requireSession } from "@/lib/auth"
-import { patientRepository, SEARCH_PAGE_SIZE } from "@/server/repositories/patient.repository"
+import {
+  patientRepository,
+  patientListRepository,
+  SEARCH_PAGE_SIZE,
+  PATIENT_PAGE_SIZE,
+  PATIENT_STAGES,
+} from "@/server/repositories/patient.repository"
 import { PatientSearchInput } from "@/components/patients/PatientSearchInput"
+import { PatientDateFilter } from "@/components/patients/PatientDateFilter"
 import { BranchBadge } from "@/components/shared/BranchBadge"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatDate } from "@/lib/utils"
@@ -17,19 +24,8 @@ export const dynamic = "force-dynamic"
 
 const GENDER_SHORT: Record<string, string> = { MALE: "M", FEMALE: "F", OTHER: "O" }
 
-type PatientRow = Awaited<ReturnType<typeof patientRepository.findAllWithTreatmentStatus>>[0]
+type PatientRow = Awaited<ReturnType<typeof patientListRepository.findPage>>[0]
 type StageKey = "pre-consultation" | "awaiting-treatment" | "ongoing" | "completed"
-
-function categorize(p: PatientRow): StageKey {
-  const hasConsultation = p.payments.length > 0
-  const hasOngoing = p.estimates.some((e: { status: string }) => e.status === "ACTIVE" || e.status === "DRAFT")
-  const hasCompleted = p.estimates.some((e: { status: string }) => e.status === "COMPLETED")
-
-  if (!hasConsultation) return "pre-consultation"
-  if (hasOngoing) return "ongoing"
-  if (hasCompleted) return "completed"
-  return "awaiting-treatment"
-}
 
 interface SectionConfig {
   key: StageKey
@@ -145,21 +141,19 @@ function PatientCard({ p, badgeLabel, badgeBg, badgeColor }: {
 function StageFilterCards({
   counts,
   activeStage,
-  scopeAll,
+  params,
 }: {
   counts: Record<StageKey, number>
   activeStage: StageKey | null
-  scopeAll: boolean
+  params: PatientListParams
 }) {
-  const scopeQs = scopeAll ? "scope=all" : ""
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {SECTIONS.map((s) => {
         const Icon = s.icon
         const isActive = activeStage === s.key
-        const href = isActive
-          ? `/patients${scopeQs ? `?${scopeQs}` : ""}`
-          : `/patients?stage=${s.key}${scopeQs ? `&${scopeQs}` : ""}`
+        // Clicking the active card clears the stage; page always resets to 1.
+        const href = pageHref(params, { stage: isActive ? null : s.key, page: 1 })
 
         return (
           <Link key={s.key} href={href}>
@@ -196,153 +190,157 @@ function StageFilterCards({
 
 // ── Main list logic ───────────────────────────────────────────────────────────
 
-async function PatientListView({ stage, branchId, scopeAll }: { stage: StageKey | null; branchId?: string; scopeAll: boolean }) {
-  const allPatients = await patientRepository.findAllWithTreatmentStatus(branchId)
-  const scopeQs = scopeAll ? "scope=all" : ""
+function pageHref(base: PatientListParams, overrides: Partial<PatientListParams> = {}) {
+  const merged = { ...base, ...overrides }
+  const qs = new URLSearchParams()
+  if (merged.stage) qs.set("stage", merged.stage)
+  if (merged.scopeAll) qs.set("scope", "all")
+  if (merged.from) qs.set("from", merged.from)
+  if (merged.to) qs.set("to", merged.to)
+  if (merged.page && merged.page > 1) qs.set("page", String(merged.page))
+  const query = qs.toString()
+  return `/patients${query ? `?${query}` : ""}`
+}
 
-  const buckets: Record<StageKey, PatientRow[]> = {
-    "pre-consultation": [],
-    "awaiting-treatment": [],
-    ongoing: [],
-    completed: [],
-  }
-  for (const p of allPatients) {
-    buckets[categorize(p)].push(p)
-  }
+interface PatientListParams {
+  stage: StageKey | null
+  scopeAll: boolean
+  from?: string
+  to?: string
+  page: number
+}
 
-  const counts: Record<StageKey, number> = {
-    "pre-consultation": buckets["pre-consultation"].length,
-    "awaiting-treatment": buckets["awaiting-treatment"].length,
-    ongoing: buckets["ongoing"].length,
-    completed: buckets["completed"].length,
-  }
+async function PatientListView({
+  params,
+  branchId,
+}: {
+  params: PatientListParams
+  branchId?: string
+}) {
+  const { stage, page } = params
+  // Dates arrive as YYYY-MM-DD; widen `to` to the end of that day so a
+  // single-day range includes everyone registered during it.
+  const from = params.from ? new Date(`${params.from}T00:00:00`) : undefined
+  const to = params.to ? new Date(`${params.to}T23:59:59.999`) : undefined
+  const filters = { branchId, from, to }
 
-  const totalPatients = allPatients.length
+  // Two indexed queries, both bounded: the counts behind the stage cards and a
+  // single page of rows. Nothing else is read, so the page size no longer grows
+  // with the size of the patient list.
+  const [counts, patients] = await Promise.all([
+    patientListRepository.countByStage(filters),
+    patientListRepository.findPage(filters, stage, page),
+  ])
 
-  if (totalPatients === 0) {
-    return (
-      <>
-        <StageFilterCards counts={counts} activeStage={stage} scopeAll={scopeAll} />
-        <div className="text-center py-12">
-          <Users className="h-12 w-12 mx-auto mb-3" style={{ color: BRAND_COLORS.lightBackground }} />
-          <p className="text-sm" style={{ color: BRAND_COLORS.borderDivider }}>No patients registered yet.</p>
-          <Link href="/patients/new" className="inline-flex items-center gap-1.5 mt-4 text-sm font-medium" style={{ color: BRAND_COLORS.primaryTeal }}>
-            <UserPlus className="h-4 w-4" /> Register first patient
-          </Link>
-        </div>
-      </>
-    )
-  }
+  const total = stage
+    ? counts[stage]
+    : PATIENT_STAGES.reduce((sum, key) => sum + counts[key], 0)
+  const totalPages = Math.max(1, Math.ceil(total / PATIENT_PAGE_SIZE))
+  const first = total === 0 ? 0 : (page - 1) * PATIENT_PAGE_SIZE + 1
+  const last = Math.min(page * PATIENT_PAGE_SIZE, total)
+  const section = stage ? SECTIONS.find((s) => s.key === stage)! : null
 
   return (
     <>
-      <StageFilterCards counts={counts} activeStage={stage} scopeAll={scopeAll} />
+      <StageFilterCards counts={counts} activeStage={stage} params={params} />
 
-      {/* Active filter: show only that stage */}
-      {stage ? (() => {
-        const section = SECTIONS.find((s) => s.key === stage)!
-        const Icon = section.icon
-        const patients = buckets[stage]
-        return (
-          <Card className="border-[#E0E3E5]">
-            <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
-                  <Icon className="h-4 w-4" style={{ color: section.accentColor }} />
+      <Card className="border-[#E0E3E5]">
+        <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
+              {section ? (
+                <>
+                  <section.icon className="h-4 w-4" style={{ color: section.accentColor }} />
                   {section.title}
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full font-normal"
-                    style={{ backgroundColor: `${section.accentColor}18`, color: section.accentColor }}
-                  >
-                    {patients.length}
-                  </span>
-                </CardTitle>
-                <Link
-                  href={`/patients${scopeQs ? `?${scopeQs}` : ""}`}
-                  className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#E0E3E5] hover:bg-gray-50"
-                  style={{ color: BRAND_COLORS.borderDivider }}
-                >
-                  <X className="h-3 w-3" />
-                  Clear filter
-                </Link>
-              </div>
-              <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
-                {section.subtitle}
-              </p>
-            </CardHeader>
-            <CardContent className="pt-3">
-              {patients.length === 0 ? (
-                <p className="text-xs py-4 text-center" style={{ color: BRAND_COLORS.borderDivider }}>
-                  {section.emptyText}
-                </p>
+                </>
               ) : (
-                <div className="space-y-2">
-                  {patients.map((p) => (
+                <>
+                  <Users className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
+                  All Patients
+                </>
+              )}
+              <span
+                className="text-xs px-2 py-0.5 rounded-full font-normal"
+                style={{
+                  backgroundColor: `${section?.accentColor ?? BRAND_COLORS.primaryTeal}18`,
+                  color: section?.accentColor ?? BRAND_COLORS.primaryTeal,
+                }}
+              >
+                {total}
+              </span>
+            </CardTitle>
+            {stage && (
+              <Link
+                href={pageHref(params, { stage: null, page: 1 })}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[#E0E3E5] hover:bg-gray-50"
+                style={{ color: BRAND_COLORS.borderDivider }}
+              >
+                <X className="h-3 w-3" />
+                Clear filter
+              </Link>
+            )}
+          </div>
+          {section && (
+            <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>{section.subtitle}</p>
+          )}
+        </CardHeader>
+        <CardContent className="pt-3">
+          {patients.length === 0 ? (
+            <div className="text-center py-10">
+              <Users className="h-10 w-10 mx-auto mb-3" style={{ color: BRAND_COLORS.lightBackground }} />
+              <p className="text-sm" style={{ color: BRAND_COLORS.borderDivider }}>
+                {section ? section.emptyText : "No patients match these filters."}
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs pb-2" style={{ color: BRAND_COLORS.borderDivider }}>
+                Showing {first}–{last} of {total}
+              </p>
+              <div className="space-y-2">
+                {patients.map((p) => {
+                  const s = SECTIONS.find((x) => x.key === p.stage)!
+                  return (
                     <PatientCard
                       key={p.id}
                       p={p}
-                      badgeLabel={section.badgeLabel}
-                      badgeBg={`${section.accentColor}18`}
-                      badgeColor={section.accentColor}
+                      badgeLabel={s.badgeLabel}
+                      badgeBg={`${s.accentColor}18`}
+                      badgeColor={s.accentColor}
                     />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )
-      })() : (
-        /* No filter: show all 4 sections */
-        <div className="space-y-4">
-          {SECTIONS.map((s) => {
-            const Icon = s.icon
-            const patients = buckets[s.key]
-            return (
-              <Card key={s.key} className="border-[#E0E3E5]">
-                <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
-                  <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
-                    <Icon className="h-4 w-4" style={{ color: s.accentColor }} />
-                    {s.title}
-                    <span
-                      className="text-xs px-2 py-0.5 rounded-full font-normal"
-                      style={{ backgroundColor: `${s.accentColor}18`, color: s.accentColor }}
-                    >
-                      {patients.length}
-                    </span>
+                  )
+                })}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-3">
+                  {page > 1 ? (
                     <Link
-                      href={`/patients?stage=${s.key}${scopeQs ? `&${scopeQs}` : ""}`}
-                      className="ml-auto text-xs font-normal hover:underline"
+                      href={pageHref(params, { page: page - 1 })}
+                      className="text-sm font-medium px-3 py-1.5 rounded-md border border-[#E0E3E5] bg-white hover:bg-gray-50"
                       style={{ color: BRAND_COLORS.primaryTeal }}
                     >
-                      View only →
+                      ← Previous
                     </Link>
-                  </CardTitle>
-                  <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>{s.subtitle}</p>
-                </CardHeader>
-                <CardContent className="pt-3">
-                  {patients.length === 0 ? (
-                    <p className="text-xs py-2" style={{ color: BRAND_COLORS.borderDivider }}>
-                      {s.emptyText}
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {patients.map((p) => (
-                        <PatientCard
-                          key={p.id}
-                          p={p}
-                          badgeLabel={s.badgeLabel}
-                          badgeBg={`${s.accentColor}18`}
-                          badgeColor={s.accentColor}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
+                  ) : <span />}
+                  <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+                    Page {page} of {totalPages}
+                  </span>
+                  {page < totalPages ? (
+                    <Link
+                      href={pageHref(params, { page: page + 1 })}
+                      className="text-sm font-medium px-3 py-1.5 rounded-md border border-[#E0E3E5] bg-white hover:bg-gray-50"
+                      style={{ color: BRAND_COLORS.primaryTeal }}
+                    >
+                      Next →
+                    </Link>
+                  ) : <span />}
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
     </>
   )
 }
@@ -417,14 +415,20 @@ async function SearchResults({ query, page, branchId, scopeAll }: { query: strin
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  searchParams: Promise<{ q?: string; stage?: string; page?: string; scope?: string }>
+  searchParams: Promise<{ q?: string; stage?: string; page?: string; scope?: string; from?: string; to?: string }>
 }
 
 const VALID_STAGES = new Set<StageKey>(["pre-consultation", "awaiting-treatment", "ongoing", "completed"])
 
+/** Accepts only a real YYYY-MM-DD date; anything else is ignored. */
+function validDate(value?: string): string | undefined {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined
+  return Number.isNaN(new Date(`${value}T00:00:00`).getTime()) ? undefined : value
+}
+
 export default async function PatientsPage({ searchParams }: Props) {
   const session = await requireSession()
-  const { q = "", stage: rawStage, page: rawPage, scope } = await searchParams
+  const { q = "", stage: rawStage, page: rawPage, scope, from, to } = await searchParams
 
   const isSearching = q.trim().length >= 2
   const page = Math.max(1, parseInt(rawPage ?? "1", 10) || 1)
@@ -491,6 +495,13 @@ export default async function PatientsPage({ searchParams }: Props) {
         <PatientSearchInput defaultValue={q} placeholder="Search by name, mobile, ID, email…" />
       </Suspense>
 
+      {/* Registration-date filter — applies to the staged list, not to search */}
+      {!isSearching && (
+        <Suspense fallback={null}>
+          <PatientDateFilter from={validDate(from)} to={validDate(to)} />
+        </Suspense>
+      )}
+
       {/* Content */}
       <Suspense
         fallback={
@@ -501,7 +512,12 @@ export default async function PatientsPage({ searchParams }: Props) {
       >
         {isSearching
           ? <SearchResults query={q} page={page} branchId={branchFilter} scopeAll={scopeAll} />
-          : <PatientListView stage={activeStage} branchId={branchFilter} scopeAll={scopeAll} />
+          : (
+            <PatientListView
+              params={{ stage: activeStage, scopeAll, from: validDate(from), to: validDate(to), page }}
+              branchId={branchFilter}
+            />
+          )
         }
       </Suspense>
     </div>
