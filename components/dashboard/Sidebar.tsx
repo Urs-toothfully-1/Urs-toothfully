@@ -10,6 +10,7 @@ import {
   LayoutDashboard, Users, ClipboardList,
   BookOpen, BarChart2, Stethoscope, Settings, UserCog,
   CalendarClock, CalendarDays, Shield, FileSpreadsheet, UserPlus, MessageCircle, PenLine,
+  LibraryBig,
 } from "lucide-react"
 
 interface NavItem {
@@ -28,6 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Reception", href: "/reception", icon: LayoutDashboard, roles: ["RECEPTIONIST"] },
   { label: "My Queue", href: "/doctor", icon: Stethoscope, roles: ["DOCTOR"] },
   { label: "My Signature", href: "/doctor/signature", icon: PenLine, roles: ["DOCTOR"] },
+  { label: "Templates", href: "/templates", icon: LibraryBig, roles: ["DOCTOR"] },
   { label: "Patients", href: "/patients", icon: Users, roles: ["ADMIN", "DOCTOR", "RECEPTIONIST"] },
   { label: "Appointments", href: "/appointments", icon: CalendarDays, roles: ["ADMIN", "DOCTOR", "RECEPTIONIST"] },
   { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle, roles: ["RECEPTIONIST"], matchPrefix: true },
@@ -42,6 +44,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Tally Export", href: "/admin/tally", icon: FileSpreadsheet, roles: ["ADMIN"], section: "Insights" },
   { label: "Audit Log", href: "/admin/audit", icon: Shield, roles: ["ADMIN"], section: "Insights" },
   // Manage (admin)
+  { label: "Templates", href: "/templates", icon: LibraryBig, roles: ["ADMIN"], section: "Manage" },
   { label: "Users", href: "/admin/users", icon: UserCog, roles: ["ADMIN"], section: "Manage" },
   { label: "Settings", href: "/admin/settings", icon: Settings, roles: ["ADMIN"], section: "Manage" },
 ]

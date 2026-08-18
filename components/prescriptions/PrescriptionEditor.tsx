@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ToothSelector } from "@/components/dental/ToothSelector"
+import { MedicineTemplateSelector, type MedicineTemplate } from "./MedicineTemplateSelector"
+import { LibraryPickerDialog, type LibraryItem } from "./LibraryPickerDialog"
+import { createCustomDiagnosisAction } from "@/actions/diagnoses"
+import { DOSAGE_OPTIONS, DURATION_OPTIONS, FREQUENCY_OPTIONS, INSTRUCTION_OPTIONS } from "@/lib/dosage-options"
 import { CUSTOM_TREATMENT } from "@/lib/estimate-item"
 import {
   AlertCircle, BookOpen, CheckCircle2, Loader2,
@@ -80,6 +84,9 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
   const [medicines, setMedicines] = useState<PrescriptionMedicine[]>(
     data.medicines.length > 0 ? data.medicines : [{ ...emptyMed }]
   )
+  const [showMedicineTemplates, setShowMedicineTemplates] = useState(false)
+  // Which section's library picker is open, if any.
+  const [picker, setPicker] = useState<null | "complaint" | "examination" | "diagnosis" | "medicine">(null)
   const [advice, setAdvice] = useState(data.advice ?? "")
   const [followUpDate, setFollowUpDate] = useState(data.followUpDate ?? "")
   const [clinicalNotes, setClinicalNotes] = useState<ClinicalNoteEntry[]>(data.clinicalNotes ?? [])
@@ -193,6 +200,83 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
     setMedicines((prev) => prev.map((m, i) => i === idx ? { ...m, [key]: val } : m))
   }
 
+  // ── Library picker handlers ───────────────────────────────────
+  // Each section appends rather than replaces, so picks accumulate while the
+  // list stays open and nothing the doctor already typed is lost.
+
+  /** Appends a line to a free-text block, skipping wording already present. */
+  function appendLine(current: string, line: string): string | null {
+    const lines = current.split("\n").map((l) => l.trim()).filter(Boolean)
+    if (lines.some((l) => l.toLowerCase() === line.toLowerCase())) return null
+    return [...lines, line].join("\n")
+  }
+
+  function pickComplaint(item: LibraryItem) {
+    setChiefComplaint((prev) => appendLine(prev, item.name) ?? prev)
+  }
+
+  function pickDiagnosis(item: LibraryItem) {
+    setDiagnosis((prev) => appendLine(prev, item.name) ?? prev)
+  }
+
+  /** An examination pick becomes its own finding row so teeth can be tagged to it. */
+  function pickExamination(item: LibraryItem) {
+    setFindings((prev) => {
+      if (prev.some((f) => f.finding.trim().toLowerCase() === item.name.toLowerCase())) return prev
+      // Consume the blank starter row rather than leaving it dangling above.
+      const kept = prev.filter((f) => f.finding.trim() || f.toothNumbers.trim())
+      return [...kept, { toothNumbers: "", finding: item.name }]
+    })
+  }
+
+  function pickMedicine(item: LibraryItem) {
+    setMedicines((prev) => {
+      if (prev.some((m) => m.name.trim().toLowerCase() === item.name.toLowerCase())) return prev
+      const kept = prev.filter((m) => m.name.trim())
+      return [...kept, { ...emptyMed, name: item.name }]
+    })
+  }
+
+  /** Saves a newly typed phrase to the branch library so it is there next time. */
+  async function createPhrase(section: "COMPLAINT" | "DIAGNOSIS", specialty: string, name: string) {
+    const result = await createCustomDiagnosisAction(name, specialty, section)
+    if (!result.success || !result.diagnosis) {
+      toast.error(result.error ?? "Could not save to library")
+      return
+    }
+    const item = { id: result.diagnosis.id, name: result.diagnosis.name, group: specialty }
+    if (section === "COMPLAINT") pickComplaint(item)
+    else if (picker === "examination") pickExamination(item)
+    else pickDiagnosis(item)
+    toast.success(`"${result.diagnosis.name}" saved to the library`)
+  }
+
+  // A template tops up the list rather than replacing it, so two protocols can
+  // be combined. Duplicates by name are skipped, and the blank starter row the
+  // editor opens with is consumed rather than left dangling.
+  function applyMedicineTemplate(template: MedicineTemplate) {
+    setMedicines((prev) => {
+      const existing = prev.filter((m) => m.name.trim())
+      const seen = new Set(existing.map((m) => m.name.trim().toLowerCase()))
+      const added = template.items
+        .filter((i) => i.medicine.trim() && !seen.has(i.medicine.trim().toLowerCase()))
+        .map((i) => ({
+          name: i.medicine,
+          dosage: "",
+          frequency: i.frequency,
+          duration: i.duration,
+          instructions: "",
+        }))
+      if (added.length === 0) {
+        toast.info("Those medicines are already on the list")
+        return prev
+      }
+      toast.success(`Added ${added.length} from ${template.name}`)
+      return [...existing, ...added]
+    })
+    setShowMedicineTemplates(false)
+  }
+
   const cleanTreatments = treatmentPlan
     .filter((t) => t.treatmentName.trim())
     .map((t) => ({
@@ -275,13 +359,28 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
 
   if (!canEdit) return null
 
-  const sectionHeader = (label: string) => (
+  // `action` renders the section's library button inside the header bar, so
+  // every section offers its list in the same place.
+  const sectionHeader = (label: string, action?: React.ReactNode) => (
     <h3
-      className="text-xs font-bold uppercase tracking-wider py-2 px-3 rounded mb-3"
+      className="text-xs font-bold uppercase tracking-wider py-2 px-3 rounded mb-3 flex items-center justify-between gap-3"
       style={{ backgroundColor: `${BRAND_COLORS.primaryTeal}15`, color: BRAND_COLORS.primaryTeal }}
     >
       {label}
+      {action}
     </h3>
+  )
+
+  const libraryButton = (target: NonNullable<typeof picker>, label = "Choose from list") => (
+    <button
+      type="button"
+      onClick={() => setPicker(target)}
+      className="flex items-center gap-1 text-[11px] font-semibold normal-case tracking-normal rounded-full border px-2 py-0.5 bg-white hover:bg-slate-50"
+      style={{ borderColor: BRAND_COLORS.primaryTeal, color: BRAND_COLORS.primaryTeal }}
+    >
+      <BookOpen className="h-3 w-3" />
+      {label}
+    </button>
   )
 
   return (
@@ -313,7 +412,7 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
 
       {/* ── 1. Chief Complaint ────────────────────────────────── */}
       <div className="space-y-2">
-        {sectionHeader("Chief Complaint")}
+        {sectionHeader("Chief Complaint", libraryButton("complaint"))}
         <Textarea
           value={chiefComplaint}
           onChange={(e) => setChiefComplaint(e.target.value)}
@@ -325,7 +424,7 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
 
       {/* ── 2. On Examination ────────────────────────────────── */}
       <div className="space-y-3">
-        {sectionHeader("On Examination")}
+        {sectionHeader("On Examination", libraryButton("examination"))}
 
         {/* Template picker */}
         {templates.length > 0 && (
@@ -458,7 +557,7 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
 
       {/* ── 3. Diagnosis ─────────────────────────────────────── */}
       <div className="space-y-2">
-        {sectionHeader("Diagnosis")}
+        {sectionHeader("Diagnosis", libraryButton("diagnosis"))}
         <Textarea
           value={diagnosis}
           onChange={(e) => setDiagnosis(e.target.value)}
@@ -555,7 +654,21 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
 
       {/* ── 4. Medicines ─────────────────────────────────────── */}
       <div className="space-y-2">
-        {sectionHeader("℞ Medicines")}
+        {sectionHeader("℞ Medicines", libraryButton("medicine", "Choose medicine"))}
+        {/* Suggestions only — native datalists leave every field free-text, so an
+            unusual regimen is never blocked by the dropdown. */}
+        <datalist id="rx-dosage-options">
+          {DOSAGE_OPTIONS.map((o) => <option key={o} value={o} />)}
+        </datalist>
+        <datalist id="rx-frequency-options">
+          {FREQUENCY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </datalist>
+        <datalist id="rx-duration-options">
+          {DURATION_OPTIONS.map((o) => <option key={o} value={o} />)}
+        </datalist>
+        <datalist id="rx-instruction-options">
+          {INSTRUCTION_OPTIONS.map((o) => <option key={o} value={o} />)}
+        </datalist>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -577,19 +690,19 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
                   </td>
                   <td className="py-1 px-1.5 min-w-[90px]">
                     <Input value={m.dosage} onChange={(e) => setMed(idx, "dosage", e.target.value)}
-                      placeholder="1 tab" className={cellCls} />
+                      list="rx-dosage-options" placeholder="1 tab" className={cellCls} />
                   </td>
                   <td className="py-1 px-1.5 min-w-[110px]">
                     <Input value={m.frequency} onChange={(e) => setMed(idx, "frequency", e.target.value)}
-                      placeholder="1-0-1" className={cellCls} />
+                      list="rx-frequency-options" placeholder="1-0-1" className={cellCls} />
                   </td>
                   <td className="py-1 px-1.5 min-w-[90px]">
                     <Input value={m.duration} onChange={(e) => setMed(idx, "duration", e.target.value)}
-                      placeholder="5 days" className={cellCls} />
+                      list="rx-duration-options" placeholder="5 days" className={cellCls} />
                   </td>
                   <td className="py-1 px-1.5 min-w-[140px]">
                     <Input value={m.instructions ?? ""} onChange={(e) => setMed(idx, "instructions", e.target.value)}
-                      placeholder="After food" className={cellCls} />
+                      list="rx-instruction-options" placeholder="After food" className={cellCls} />
                   </td>
                   <td className="py-1 px-1.5">
                     <button type="button" onClick={() => setMedicines((prev) => prev.filter((_, i) => i !== idx))}
@@ -602,12 +715,74 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
             </tbody>
           </table>
         </div>
-        <button type="button" onClick={() => setMedicines((prev) => [...prev, { ...emptyMed }])}
-          className="flex items-center gap-1.5 text-sm font-medium hover:underline"
-          style={{ color: BRAND_COLORS.primaryTeal }}>
-          <Plus className="h-4 w-4" />Add medicine
-        </button>
+        <div className="flex items-center gap-4">
+          <button type="button" onClick={() => setMedicines((prev) => [...prev, { ...emptyMed }])}
+            className="flex items-center gap-1.5 text-sm font-medium hover:underline"
+            style={{ color: BRAND_COLORS.primaryTeal }}>
+            <Plus className="h-4 w-4" />Add medicine
+          </button>
+          <button type="button" onClick={() => setShowMedicineTemplates(true)}
+            className="flex items-center gap-1.5 text-sm font-medium hover:underline"
+            style={{ color: BRAND_COLORS.primaryTeal }}>
+            <BookOpen className="h-4 w-4" />Use template
+          </button>
+        </div>
       </div>
+
+      {showMedicineTemplates && (
+        <MedicineTemplateSelector
+          onSelect={applyMedicineTemplate}
+          onClose={() => setShowMedicineTemplates(false)}
+        />
+      )}
+
+      {picker === "complaint" && (
+        <LibraryPickerDialog
+          title="Chief Complaints"
+          endpoint="/api/clinical-library?section=COMPLAINT"
+          chosen={chiefComplaint.split("\n").map((l) => l.trim()).filter(Boolean)}
+          onPick={pickComplaint}
+          onCreate={(name) => createPhrase("COMPLAINT", "Other", name)}
+          createHint="Type to search — anything not listed can be added to the library."
+          onClose={() => setPicker(null)}
+        />
+      )}
+
+      {/* Examination and Diagnosis share one terminology library — the clinic's
+          reference sheet marks those terms as applying to both. */}
+      {picker === "examination" && (
+        <LibraryPickerDialog
+          title="Examination Findings"
+          endpoint="/api/clinical-library?section=DIAGNOSIS"
+          chosen={findings.map((f) => f.finding)}
+          onPick={pickExamination}
+          onCreate={(name) => createPhrase("DIAGNOSIS", "General Dentistry / Restorative", name)}
+          createHint="Each pick becomes its own row, so you can tag teeth to it."
+          onClose={() => setPicker(null)}
+        />
+      )}
+
+      {picker === "diagnosis" && (
+        <LibraryPickerDialog
+          title="Diagnosis"
+          endpoint="/api/clinical-library?section=DIAGNOSIS"
+          chosen={diagnosis.split("\n").map((l) => l.trim()).filter(Boolean)}
+          onPick={pickDiagnosis}
+          onCreate={(name) => createPhrase("DIAGNOSIS", "General Dentistry / Restorative", name)}
+          createHint="Type to search — anything not listed can be added to the library."
+          onClose={() => setPicker(null)}
+        />
+      )}
+
+      {picker === "medicine" && (
+        <LibraryPickerDialog
+          title="Medicines"
+          endpoint="/api/medicines"
+          chosen={medicines.map((m) => m.name)}
+          onPick={pickMedicine}
+          onClose={() => setPicker(null)}
+        />
+      )}
 
       {/* ── 4. Advice + follow-up ─────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
