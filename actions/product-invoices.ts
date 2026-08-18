@@ -13,9 +13,13 @@ const productItemSchema = z.object({
   unitPrice: z.number().positive("Price must be greater than 0").max(1_000_000),
 })
 
+// IDs are validated as non-empty, not as UUIDs: branch ids in this system are
+// readable keys like "branch-outram-0000-0000-000000000001", so a uuid()
+// constraint rejects every real branch. The database enforces the references,
+// and the branch is re-checked against the session below.
 const productInvoiceSchema = z.object({
-  patientId: z.string().uuid(),
-  branchId: z.string().uuid(),
+  patientId: z.string().min(1),
+  branchId: z.string().min(1),
   items: z.array(productItemSchema).min(1, "Add at least one product").max(20),
   mode: z.enum(["CASH", "UPI", "CARD", "BANK_TRANSFER"]),
   transactionRef: z.string().trim().max(100).optional(),

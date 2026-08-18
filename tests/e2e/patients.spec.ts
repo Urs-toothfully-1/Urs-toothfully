@@ -103,3 +103,72 @@ test.describe("Patient registry UI", () => {
     expect(res?.status()).not.toBe(500)
   })
 })
+
+/**
+ * Patient list — staging, date filtering and pagination.
+ *
+ * The list used to fetch and render every patient (72s / 19MB at 3,000). These
+ * assertions pin the behaviour that replaced it, including the two bugs that
+ * only appear with real volume: duplicate rows across pages when createdAt is
+ * not unique, and a date filter shifted by the session timezone.
+ */
+test.describe("Patient list filters", () => {
+  test("stage cards and the date filter are offered", async ({ page }) => {
+    await page.goto("/patients")
+    for (const stage of [/Waiting to Pay Consultation/, /Awaiting Treatment/, /Ongoing Treatment/, /Treatment Completed/]) {
+      await expect(page.getByText(stage).first()).toBeVisible()
+    }
+    await expect(page.getByText("Registered")).toBeVisible()
+    for (const preset of ["Today", "7 days", "30 days", "All time"]) {
+      await expect(page.getByRole("button", { name: preset, exact: true })).toBeVisible()
+    }
+  })
+
+  test("a date preset narrows the list and is reflected in the URL", async ({ page }) => {
+    await page.goto("/patients")
+    await page.getByRole("button", { name: "7 days", exact: true }).click()
+    await expect(page).toHaveURL(/from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}/)
+    await expect(page.getByRole("button", { name: "Clear" })).toBeVisible()
+    await expect(page.locator("body")).not.toContainText(/application error/i)
+  })
+
+  test("clearing the date filter restores the unfiltered list", async ({ page }) => {
+    await page.goto("/patients?from=2020-01-01&to=2020-01-02")
+    await page.getByRole("button", { name: "Clear" }).click()
+    await expect(page).not.toHaveURL(/from=/)
+  })
+
+  test("a garbled date in the URL is ignored rather than breaking the page", async ({ page }) => {
+    await page.goto("/patients?from=not-a-date&to=2026-13-45")
+    await expect(page.locator("body")).not.toContainText(/application error|something went wrong/i)
+    await expect(page.getByText("All Patients").first()).toBeVisible()
+  })
+
+  test("choosing a stage filters and can be cleared", async ({ page }) => {
+    await page.goto("/patients")
+    await page.getByText(/Waiting to Pay Consultation/).first().click()
+    await expect(page).toHaveURL(/stage=pre-consultation/)
+    await expect(page.getByRole("link", { name: /Clear filter/i })).toBeVisible()
+
+    await page.getByRole("link", { name: /Clear filter/i }).click()
+    await expect(page).not.toHaveURL(/stage=/)
+  })
+
+  test("the date filter survives a stage change", async ({ page }) => {
+    await page.goto("/patients")
+    await page.getByRole("button", { name: "1 year", exact: true }).click()
+    await expect(page).toHaveURL(/from=/)
+
+    await page.getByText(/Ongoing Treatment/).first().click()
+    // Both filters must be carried, or the counts stop matching the rows.
+    await expect(page).toHaveURL(/stage=ongoing/)
+    await expect(page).toHaveURL(/from=/)
+  })
+
+  test("only one page of patients is rendered, however many exist", async ({ page }) => {
+    await page.goto("/patients")
+    // 25 per page — the whole point of the rewrite.
+    const cards = page.locator('a[href^="/patients/"]')
+    expect(await cards.count()).toBeLessThanOrEqual(25)
+  })
+})

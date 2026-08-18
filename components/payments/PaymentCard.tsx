@@ -14,6 +14,8 @@ interface Payment {
   estimate?: { estimateNo: string } | null
   visit?: { visitNo: string } | null
   receipt?: { id: string; receiptNo: string } | null
+  /** What was billed — the itemisation of a product sale, or a free-text note. */
+  notes?: string | null
   /** e.g. "1st Installment" / stage name — shown next to the Treatment badge */
   installmentLabel?: string | null
 }
@@ -70,6 +72,14 @@ export function PaymentCard({ payment }: { payment: Payment }) {
             {payment.visit && !payment.estimate && <span>→ {payment.visit.visitNo}</span>}
             {payment.transactionRef && <span>Ref: {payment.transactionRef}</span>}
           </div>
+
+          {/* Without this a product sale reads only as "Products ₹1,500" —
+              what was actually billed would be stored but never shown. */}
+          {payment.notes && (
+            <p className="text-xs mt-1" style={{ color: BRAND_COLORS.bodyText }}>
+              {payment.notes}
+            </p>
+          )}
 
           {payment.receipt && (
             <p className="text-xs mt-1" style={{ color: BRAND_COLORS.primaryTeal }}>

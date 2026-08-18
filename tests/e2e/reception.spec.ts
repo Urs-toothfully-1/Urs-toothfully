@@ -12,9 +12,11 @@ test.describe("Reception dashboard", () => {
     await expect(page.locator("body")).not.toContainText(/unhandled|application error/i)
   })
 
-  test("collect-payment page loads", async ({ page }) => {
+  // Collecting payment needs a patient; without one the page sends the
+  // receptionist to the patient list to pick someone first.
+  test("collect-payment without a patient redirects to the patient list", async ({ page }) => {
     await page.goto("/reception/collect-payment")
-    await expect(page).toHaveURL(/collect-payment/)
+    await expect(page).toHaveURL(/\/patients/)
   })
 })
 

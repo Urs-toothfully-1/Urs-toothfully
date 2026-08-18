@@ -261,6 +261,7 @@ export default async function PaymentsPage({ params }: Props) {
                   payment={{
                     ...payment,
                     amount: Number(payment.amount),
+                    notes: (payment as any).notes ?? null,
                     collectedBy: (payment as any).collectedBy ?? { name: "—" },
                     estimate: (payment as any).estimate,
                     visit: (payment as any).visit,

@@ -52,7 +52,7 @@ export const quickRxSchema = z.object({
   diagnoses: z
     .array(
       z.object({
-        diagnosisId: z.string().uuid().optional(),
+        diagnosisId: z.string().min(1).optional(),
         diagnosisText: z.string().min(1).max(500),
         toothNumbers: z.array(fdiToothSchema).max(32).default([]),
       })
