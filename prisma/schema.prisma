@@ -52,6 +52,9 @@ enum PaymentType {
   TREATMENT
   ADVANCE
   ADJUSTMENT
+  // Non-treatment items billed on their own: X-ray, lab tests, supplies.
+  // Kept separate so they never inflate treatment revenue in the reports.
+  PRODUCT
 }
 
 enum PaymentMode {
@@ -173,6 +176,10 @@ model Branch {
   whatsappMessages      WhatsAppMessage[]
   appointments          Appointment[]
   appointmentRequests   AppointmentRequest[]
+  diagnoses             Diagnosis[]
+  diagnosisUsages       DiagnosisUsage[]
+  medicines             Medicine[]
+  medicineTemplates     MedicineTemplate[]
 }
 
 model User {
@@ -226,6 +233,7 @@ model User {
   createdAppointments   Appointment[]          @relation("AppointmentCreatedBy")
   examinationTemplates  ExaminationTemplate[]  @relation("DoctorExaminationTemplates")
   handledRequests       AppointmentRequest[]
+  diagnosisUsages       DiagnosisUsage[]       @relation("DoctorDiagnosisUsage")
 }
 
 model DoctorAvailability {
@@ -452,6 +460,7 @@ model PrescriptionRecord {
   printedAt        DateTime?
   createdAt        DateTime              @default(now())
 
+  diagnoses         PrescriptionDiagnosis[]
   generatedDocument GeneratedDocument?
 
   @@index([patientId, createdAt])
@@ -603,6 +612,9 @@ model Payment {
   @@index([visitId])
   @@index([patientId, paymentDate])
   @@index([branchId, paymentDate])
+  // Drives the "has this patient paid a consultation?" test behind the patient
+  // list's stage buckets — without it that is a sequential scan per patient.
+  @@index([patientId, paymentType, isDeleted])
 }
 
 model Receipt {
@@ -939,6 +951,130 @@ model AppointmentRequest {
 
   @@index([status, createdAt])
   @@index([branchId, status])
+}
+
+// ─── CLINICAL PHRASE LIBRARY ─────────────────────────────────────────────
+// Reusable clinical text, picked from and reused across visits. Despite the
+// model name it backs more than diagnoses — `section` says which part of the
+// prescription a phrase belongs to. The clinical terminology reference is
+// deliberately shared between DIAGNOSIS and On Examination (the source list is
+// marked as applying to both), so only chief complaints need their own section.
+model Diagnosis {
+  id           String   @id @default(uuid())
+  branchId     String
+  branch       Branch   @relation(fields: [branchId], references: [id])
+
+  name         String   @db.VarChar(300)
+  specialty    String   @db.VarChar(100)
+  /// DIAGNOSIS (also used for On Examination) | COMPLAINT
+  section      String   @default("DIAGNOSIS") @db.VarChar(20)
+
+  isStandard   Boolean  @default(true)  // From the clinic's reference list
+  isActive     Boolean  @default(true)
+
+  createdBy    String?
+  createdAt    DateTime @default(now())
+
+  prescriptionDiagnoses PrescriptionDiagnosis[]
+  diagnosisUsages       DiagnosisUsage[]
+
+  // Scoped by section so a complaint and a diagnosis may share wording.
+  @@unique([branchId, section, name])
+  @@index([branchId, section, specialty, isActive])
+}
+
+// NOT IN USE — do not read this as the source of truth.
+// The per-visit editable diagnosis snapshot lives in
+// PrescriptionRecord.prescriptionData (`diagnosis` + `onExamination[]`), which
+// is what the print pad and the prescription editor both render. This table is
+// kept only as a migrated placeholder for future structured reporting; wire it
+// up as a derived copy, never as a second source of truth.
+model PrescriptionDiagnosis {
+  id              String   @id @default(uuid())
+  prescriptionId  String
+  prescription    PrescriptionRecord @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  diagnosisId     String?
+  diagnosis       Diagnosis? @relation(fields: [diagnosisId], references: [id], onDelete: SetNull)
+
+  diagnosisText   String   @db.VarChar(500)  // Editable snapshot
+  specialty       String?  @db.VarChar(100)
+  toothNumbers    String?  @db.VarChar(120)  // "16,15,14" comma-separated FDI
+
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  @@index([prescriptionId])
+  @@index([diagnosisId])
+  @@index([prescriptionId, createdAt])
+}
+
+// Track diagnosis usage for "Recent" list
+model DiagnosisUsage {
+  id          String   @id @default(uuid())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id])
+
+  doctorId    String
+  doctor      User     @relation("DoctorDiagnosisUsage", fields: [doctorId], references: [id])
+
+  diagnosisId String
+  diagnosis   Diagnosis @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+
+  usedAt      DateTime @default(now())
+
+  @@unique([doctorId, diagnosisId])
+  @@index([doctorId, usedAt])
+}
+
+// ─── MEDICINE SYSTEM ────────────────────────────────────────────────────
+// Master medicine list — reserved for autocomplete; not populated or read yet.
+model Medicine {
+  id        String   @id @default(uuid())
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id])
+
+  name      String   @db.VarChar(300)  // "Tab Augmentin 625mg"
+  category  String   @db.VarChar(100)  // "Antibiotics", "Analgesics", etc.
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@unique([branchId, name])
+  @@index([branchId, category, isActive])
+}
+
+// Doctor-created medicine templates
+model MedicineTemplate {
+  id          String   @id @default(uuid())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id])
+
+  name        String   @db.VarChar(200)  // "Post-extraction pain"
+  description String?  @db.VarChar(500)
+
+  items       MedicineTemplateItem[]
+
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  @@unique([branchId, name])
+  @@index([branchId])
+}
+
+// Items in a medicine template
+model MedicineTemplateItem {
+  id         String   @id @default(uuid())
+  templateId String
+  template   MedicineTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  medicine   String   @db.VarChar(300)  // "Tab Augmentin 625mg"
+  frequency  String   @db.VarChar(20)   // "1-0-1", "0-0-1", "S.O.S"
+  duration   String   @db.VarChar(50)   // "5 days", "7 days"
+
+  sortOrder  Int      @default(0)
+
+  @@unique([templateId, medicine])
 }
 
 model ExaminationTemplate {
