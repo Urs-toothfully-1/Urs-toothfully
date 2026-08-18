@@ -45,6 +45,96 @@ export const updatePrescriptionSchema = z.object({
 
 export type UpdatePrescriptionInput = z.infer<typeof updatePrescriptionSchema>
 
+/** FDI permanent teeth: quadrants 1-4, positions 1-8 (11-18, 21-28, 31-38, 41-48). */
+const fdiToothSchema = z.string().regex(/^[1-4][1-8]$/, "Invalid FDI tooth number")
+
+export const quickRxSchema = z.object({
+  diagnoses: z
+    .array(
+      z.object({
+        diagnosisId: z.string().uuid().optional(),
+        diagnosisText: z.string().min(1).max(500),
+        toothNumbers: z.array(fdiToothSchema).max(32).default([]),
+      })
+    )
+    .max(20)
+    .default([]),
+  medicines: z.array(medicineSchema).max(30).default([]),
+})
+
+export type QuickRxInput = z.infer<typeof quickRxSchema>
+
+/**
+ * Folds Quick Rx picks into existing prescription data.
+ *
+ * Pure so the merge rules can be checked without a database — see
+ * qa/check-quick-rx-merge.ts. Additive and de-duplicated: the estimate flow may
+ * already have populated the record and the doctor may have typed into the full
+ * form first, so nothing here is allowed to overwrite existing content.
+ */
+export function mergeQuickRx(
+  current: PrescriptionData,
+  input: QuickRxInput
+): { data: PrescriptionData; findingsAdded: number; medicinesAdded: number } {
+  // Each diagnosis becomes an examination finding carrying its FDI teeth —
+  // the per-tooth structure the pad already prints.
+  const existingFindings = current.onExamination ?? []
+  const findingKey = (f: ExaminationFinding) => `${f.toothNumbers}|${f.finding.trim().toLowerCase()}`
+  const seenFindings = new Set(existingFindings.map(findingKey))
+  const newFindings: ExaminationFinding[] = []
+
+  // DIAGNOSIS block: one readable line per diagnosis, teeth in brackets.
+  const diagnosisLines = (current.diagnosis ?? "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+  const seenLines = new Set(diagnosisLines.map((l) => l.toLowerCase()))
+
+  for (const dx of input.diagnoses) {
+    const text = dx.diagnosisText.trim()
+    if (!text) continue
+
+    const finding: ExaminationFinding = { toothNumbers: dx.toothNumbers.join(","), finding: text }
+    if (!seenFindings.has(findingKey(finding))) {
+      seenFindings.add(findingKey(finding))
+      newFindings.push(finding)
+    }
+
+    const line = `${text}${dx.toothNumbers.length ? ` (${dx.toothNumbers.join(", ")})` : ""}`
+    if (!seenLines.has(line.toLowerCase())) {
+      seenLines.add(line.toLowerCase())
+      diagnosisLines.push(line)
+    }
+  }
+
+  const existingMedicines = current.medicines ?? []
+  const seenMedicines = new Set(existingMedicines.map((m) => m.name.trim().toLowerCase()))
+  const newMedicines: PrescriptionMedicine[] = []
+  for (const med of input.medicines) {
+    const name = med.name.trim()
+    if (!name || seenMedicines.has(name.toLowerCase())) continue
+    seenMedicines.add(name.toLowerCase())
+    newMedicines.push({
+      name,
+      dosage: med.dosage ?? "",
+      frequency: med.frequency ?? "",
+      duration: med.duration ?? "",
+      instructions: med.instructions,
+    })
+  }
+
+  return {
+    data: {
+      ...current,
+      onExamination: [...existingFindings, ...newFindings],
+      diagnosis: diagnosisLines.join("\n") || undefined,
+      medicines: [...existingMedicines, ...newMedicines],
+    },
+    findingsAdded: newFindings.length,
+    medicinesAdded: newMedicines.length,
+  }
+}
+
 /** Summarises the clinically significant flags of a dental history. */
 export function buildMedicalAlerts(h: DentalHistory | null): string[] {
   if (!h) return []
@@ -286,5 +376,34 @@ export const prescriptionService = {
     })
 
     return result
+  },
+
+  /**
+   * Quick Rx: merges tooth-linked diagnoses and template medicines into the
+   * visit's prescription. Writes the same prescriptionData the print page and
+   * the full editor read, so a Quick Rx prescription is just a normal
+   * prescription the doctor can open and refine.
+   *
+   * Merge, never clobber: the estimate flow may have already populated this
+   * record, and the doctor may have typed into the full form first. Entries are
+   * de-duplicated, so re-running Quick Rx with the same picks is a no-op.
+   */
+  async applyQuickRx(visitId: string, input: QuickRxInput, doctorId: string) {
+    const prescription = await this.ensureForVisit(visitId, doctorId)
+    const current = (prescription.prescriptionData ?? {}) as unknown as PrescriptionData
+
+    const { data, findingsAdded, medicinesAdded } = mergeQuickRx(current, input)
+
+    await prescriptionRepository.updateData(prescription.id, JSON.parse(JSON.stringify(data)))
+
+    await createAuditLog({
+      entityType: "PrescriptionRecord",
+      entityId: prescription.id,
+      action: "UPDATE",
+      changedById: doctorId,
+      newValues: { source: "QUICK_RX", findingsAdded, medicinesAdded },
+    })
+
+    return prescription
   },
 }

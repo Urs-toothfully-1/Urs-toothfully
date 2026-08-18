@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache"
 import { requireRole } from "@/lib/auth"
-import { prescriptionService, updatePrescriptionSchema } from "@/server/services/prescription.service"
+import { prescriptionService, updatePrescriptionSchema, quickRxSchema } from "@/server/services/prescription.service"
+import { diagnosisService } from "@/server/services/diagnosis.service"
 
 export type PrescriptionFormState = {
   success?: boolean
@@ -111,5 +112,48 @@ export async function updatePrescriptionAction(
     return { success: true }
   } catch {
     return { error: "Failed to save prescription. Please try again." }
+  }
+}
+
+/**
+ * Quick Rx: saves tooth-linked diagnoses + template medicines onto the visit's
+ * prescription in one shot, then records diagnosis usage so the picker's
+ * "Recent" list stays useful.
+ */
+export async function saveQuickRxAction(
+  visitId: string,
+  input: unknown
+): Promise<{ success: boolean; prescriptionId?: string; error?: string }> {
+  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  if (!session) return { success: false, error: "Only doctors can write prescriptions." }
+
+  const parsed = quickRxSchema.safeParse(input)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Please check the entries." }
+  }
+  if (parsed.data.diagnoses.length === 0 && parsed.data.medicines.length === 0) {
+    return { success: false, error: "Add at least one diagnosis or medicine before saving." }
+  }
+
+  try {
+    const prescription = await prescriptionService.applyQuickRx(visitId, parsed.data, session.userId)
+
+    // Usage tracking is a convenience, not part of the clinical record — a
+    // failure here must not lose the prescription the doctor just saved.
+    await Promise.all(
+      parsed.data.diagnoses
+        .map((d) => d.diagnosisId)
+        .filter((id): id is string => !!id)
+        .map((id) =>
+          diagnosisService
+            .trackDiagnosisUsage(session.userId, id, session.branchId)
+            .catch(() => undefined)
+        )
+    )
+
+    revalidatePath(`/doctor/prescription/${prescription.id}`, "page")
+    return { success: true, prescriptionId: prescription.id }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Failed to save prescription." }
   }
 }
