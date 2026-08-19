@@ -46,10 +46,22 @@ export async function GET(request: NextRequest) {
       exportedAt: new Date().toISOString(),
       tables: {},
     }
+    // Binary columns are excluded: GeneratedDocument.content holds cached PDF
+    // bytes that are rebuildable from the source record, and including them
+    // would bloat the nightly backup email for no recovery value.
+    const OMIT_COLUMNS: Record<string, Record<string, boolean>> = {
+      GeneratedDocument: { content: true },
+    }
+
     let total = 0
     for (const model of Prisma.dmmf.datamodel.models) {
       const delegate = model.name.charAt(0).toLowerCase() + model.name.slice(1)
-      const rows = await (prisma as unknown as Record<string, { findMany: () => Promise<unknown[]> }>)[delegate].findMany()
+      const omit = OMIT_COLUMNS[model.name]
+      const client = prisma as unknown as Record<
+        string,
+        { findMany: (args?: { omit?: Record<string, boolean> }) => Promise<unknown[]> }
+      >
+      const rows = await client[delegate].findMany(omit ? { omit } : undefined)
       dump.tables[model.name] = rows
       total += rows.length
     }

@@ -1,10 +1,24 @@
 import path from "path"
 import fs from "fs/promises"
 import { existsSync } from "fs"
+import { createHash } from "crypto"
 import type { Browser } from "puppeteer-core"
 import { prisma } from "@/lib/prisma"
 
 export type DocumentType = "estimate" | "receipt" | "prescription"
+
+/**
+ * How long a rendered PDF is kept. Documents are almost always shared within
+ * days of being created, so a short window catches nearly every re-request
+ * while keeping the table small enough for a 500MB database. The daily cron
+ * clears anything older — see prunePdfCache().
+ */
+export const CACHE_TTL_DAYS = 30
+
+/** Fingerprints the source record, so an edited document is never served stale. */
+function fingerprint(parts: unknown[]): string {
+  return createHash("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 64)
+}
 
 // On Vercel the filesystem is read-only outside /tmp. Locally, keep the
 // original path so generated files aren't inside public/.
@@ -63,6 +77,8 @@ export interface GeneratedPdf {
   buffer: Buffer
   fileName: string
   filePath: string
+  /** True when served from the stored copy, i.e. no browser was launched. */
+  fromCache?: boolean
 }
 
 /**
@@ -88,36 +104,66 @@ export async function generateDocumentPdf(opts: {
   let patientId: string
   let linkIds: { estimateId?: string; receiptId?: string; prescriptionId?: string } = {}
 
+  let sourceHash: string
+
   if (type === "estimate") {
     const est = await prisma.estimate.findUnique({
       where: { id, isDeleted: false },
-      select: { id: true, estimateNo: true, patientId: true },
+      select: { id: true, estimateNo: true, patientId: true, updatedAt: true, status: true, total: true },
     })
     if (!est) throw new Error("Estimate not found")
     printPath = `/print/estimate/${est.id}`
     docNo = est.estimateNo
     patientId = est.patientId
     linkIds = { estimateId: est.id }
+    // updatedAt moves whenever the estimate or its items change.
+    sourceHash = fingerprint([est.id, est.updatedAt, est.status, String(est.total)])
   } else if (type === "receipt") {
     const rcp = await prisma.receipt.findUnique({
       where: { id },
-      select: { id: true, receiptNo: true, patientId: true },
+      select: { id: true, receiptNo: true, patientId: true, issuedAt: true },
     })
     if (!rcp) throw new Error("Receipt not found")
     printPath = `/print/receipt/${rcp.id}`
     docNo = rcp.receiptNo
     patientId = rcp.patientId
     linkIds = { receiptId: rcp.id }
+    // Receipts are never edited, so identity alone is a stable fingerprint.
+    sourceHash = fingerprint([rcp.id, rcp.issuedAt])
   } else {
     const rx = await prisma.prescriptionRecord.findUnique({
       where: { id },
-      select: { id: true, visitId: true, patientId: true, patient: { select: { patientId: true } } },
+      select: {
+        id: true, visitId: true, patientId: true, prescriptionData: true,
+        patient: { select: { patientId: true } },
+      },
     })
     if (!rx) throw new Error("Prescription not found")
     printPath = `/print/prescription/${rx.visitId}`
     docNo = `RX-${rx.patient.patientId}`
     patientId = rx.patientId
     linkIds = { prescriptionId: rx.id }
+    // PrescriptionRecord has no updatedAt, and the doctor edits prescriptionData
+    // in place — so the content itself is what has to be fingerprinted.
+    sourceHash = fingerprint([rx.id, rx.prescriptionData])
+  }
+
+  const fileName = `${type === "prescription" ? "Prescription" : type === "receipt" ? "Receipt" : "Estimate"}-${docNo}.pdf`
+
+  // Cache hit: return the stored bytes without launching a browser. This is the
+  // whole point — a render costs a Chromium launch plus a second full render of
+  // the print route, and the same document is often shared more than once.
+  const cached = await prisma.generatedDocument.findFirst({
+    where: { documentType: type, ...linkIds, sourceHash, content: { not: null } },
+    select: { id: true, content: true, filePath: true },
+  })
+  if (cached?.content) {
+    return {
+      buffer: Buffer.from(cached.content),
+      fileName,
+      filePath: cached.filePath ?? "",
+      fromCache: true,
+    }
   }
 
   const browser = await getBrowser()
@@ -138,7 +184,6 @@ export async function generateDocumentPdf(opts: {
     await page.close().catch(() => {})
   }
 
-  const fileName = `${type === "prescription" ? "Prescription" : type === "receipt" ? "Receipt" : "Estimate"}-${docNo}.pdf`
   await fs.mkdir(OUTPUT_DIR, { recursive: true })
   const filePath = path.join(OUTPUT_DIR, `${type}-${id}.pdf`)
   await fs.writeFile(filePath, buffer)
@@ -151,7 +196,14 @@ export async function generateDocumentPdf(opts: {
   if (existing) {
     await prisma.generatedDocument.update({
       where: { id: existing.id },
-      data: { generatedById, generatedAt: new Date(), filePath, fileSize: buffer.length },
+      data: {
+        generatedById,
+        generatedAt: new Date(),
+        filePath,
+        fileSize: buffer.length,
+        content: buffer,
+        sourceHash,
+      },
     })
   } else {
     await prisma.generatedDocument.create({
@@ -163,9 +215,25 @@ export async function generateDocumentPdf(opts: {
         filePath,
         fileSize: buffer.length,
         mimeType: "application/pdf",
+        content: buffer,
+        sourceHash,
       },
     })
   }
 
   return { buffer, fileName, filePath }
+}
+
+/**
+ * Drops cached PDF bytes older than CACHE_TTL_DAYS, keeping the tracking row
+ * (and therefore the audit trail) intact. Without this the table grows with
+ * every document ever shared, which a 500MB database will not tolerate.
+ */
+export async function prunePdfCache(): Promise<{ cleared: number }> {
+  const cutoff = new Date(Date.now() - CACHE_TTL_DAYS * 24 * 60 * 60 * 1000)
+  const { count } = await prisma.generatedDocument.updateMany({
+    where: { generatedAt: { lt: cutoff }, content: { not: null } },
+    data: { content: null, sourceHash: null },
+  })
+  return { cleared: count }
 }

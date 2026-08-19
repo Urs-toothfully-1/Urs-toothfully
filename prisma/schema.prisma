@@ -681,6 +681,14 @@ model GeneratedDocument {
   fileSize       Int?
   mimeType       String?              @db.VarChar(50) @default("application/pdf")
 
+  /// Cached PDF bytes. Rendering one costs a headless-Chromium launch plus a
+  /// full re-render of the print route, so the same document must not be built
+  /// twice. Pruned by the daily cron — see CACHE_TTL_DAYS in pdf.service.
+  content        Bytes?
+  /// Fingerprint of the source record. Any mismatch means the document changed
+  /// underneath the cache and the PDF has to be rebuilt.
+  sourceHash     String?              @db.VarChar(64)
+
   @@index([patientId, documentType, generatedAt])
   @@index([estimateId])
 }

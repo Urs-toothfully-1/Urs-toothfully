@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { appointmentService } from "@/server/services/appointment.service"
 import { digestService } from "@/server/services/whatsapp/digest.service"
 import { whatsappQueueService } from "@/server/services/whatsapp/queue.service"
+import { prunePdfCache } from "@/server/services/pdf.service"
 
 export const maxDuration = 60
 
@@ -38,6 +39,12 @@ export async function GET(request: NextRequest) {
     results.queue = await whatsappQueueService.processQueue()
   } catch (err) {
     results.queue = { error: err instanceof Error ? err.message : "failed" }
+  }
+  // Keeps the PDF cache from growing with every document ever shared.
+  try {
+    results.pdfCache = await prunePdfCache()
+  } catch (err) {
+    results.pdfCache = { error: err instanceof Error ? err.message : "failed" }
   }
 
   return NextResponse.json({ ok: true, ...results })

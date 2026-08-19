@@ -25,7 +25,11 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Capped rather than one-per-CPU: these specs drive a real server that also
+  // launches headless Chromium for PDFs, and on a developer machine with a
+  // browser already open the contention shows up as login timeouts in the auth
+  // setup, which then skips every dependent project.
+  workers: process.env.CI ? 1 : 2,
   reporter: [["list"], ["html", { outputFolder: "tests/e2e/.report", open: "never" }]],
 
   timeout: 30_000,
