@@ -3,7 +3,9 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install",
   "outputDirectory": ".next",
-  "regions": ["bom1"],
+  "regions": [
+    "bom1"
+  ],
   "crons": [
     {
       "path": "/api/cron/daily",
@@ -12,10 +14,6 @@
     {
       "path": "/api/cron/backup",
       "schedule": "0 20 * * *"
-    },
-    {
-      "path": "/api/cron/keepalive",
-      "schedule": "0 3 * * *"
     }
   ]
 }
