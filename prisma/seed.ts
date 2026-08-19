@@ -300,7 +300,7 @@ async function main() {
   // ── System Settings ──────────────────────────────────────────
   // Global settings (branchId = null) — upsert not supported with null FK, use find+create
   const globalSettings = [
-    { key: "advance_percent", value: "20" },
+    { key: "advance_percent", value: "0" },
     { key: "allow_discount", value: "true" },
   ]
 

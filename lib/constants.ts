@@ -45,7 +45,9 @@ export const BRAND_COLORS = {
 
 export const SESSION_DURATION_HOURS = 8
 export const BCRYPT_COST_FACTOR = 12
-export const DEFAULT_ADVANCE_PERCENT = 20
+// 0 = no advance is asked for. The clinic does not use advance billing, so the
+// estimate omits the line entirely rather than printing a zero.
+export const DEFAULT_ADVANCE_PERCENT = 0
 export const DEFAULT_CONSULTATION_FEE = 1000
 
 export const LOGIN_MAX_ATTEMPTS = 5

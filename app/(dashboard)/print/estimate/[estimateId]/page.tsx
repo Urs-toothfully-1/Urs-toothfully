@@ -214,12 +214,17 @@ export default async function PrintEstimatePage({ params }: Props) {
               <span>TOTAL</span>
               <span>{formatCurrency(total)}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span style={{ color: BRAND_COLORS.borderDivider }}>Advance Required</span>
-              <span style={{ color: BRAND_COLORS.secondaryGreen, fontWeight: 600 }}>
-                {formatCurrency(Number(estimate.advanceRequired))}
-              </span>
-            </div>
+            {/* Only shown when an advance is actually required. With the
+                advance_percent setting at 0 the line is omitted entirely rather
+                than printing "Advance Required ₹0" on the patient's copy. */}
+            {Number(estimate.advanceRequired) > 0 && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: BRAND_COLORS.borderDivider }}>Advance Required</span>
+                <span style={{ color: BRAND_COLORS.secondaryGreen, fontWeight: 600 }}>
+                  {formatCurrency(Number(estimate.advanceRequired))}
+                </span>
+              </div>
+            )}
             {paid > 0 && (
               <>
                 <div className="flex justify-between">

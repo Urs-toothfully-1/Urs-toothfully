@@ -220,10 +220,12 @@ export default async function EstimateDetailPage({ params }: Props) {
                 <span style={{ color: "#C2410C" }}>{formatCurrency(balance)}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm">
-              <span style={{ color: BRAND_COLORS.borderDivider }}>Advance Required</span>
-              <span style={{ color: BRAND_COLORS.bodyText }}>{formatCurrency(Number(estimate.advanceRequired))}</span>
-            </div>
+            {Number(estimate.advanceRequired) > 0 && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: BRAND_COLORS.borderDivider }}>Advance Required</span>
+                <span style={{ color: BRAND_COLORS.bodyText }}>{formatCurrency(Number(estimate.advanceRequired))}</span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
