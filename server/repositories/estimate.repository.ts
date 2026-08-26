@@ -37,7 +37,7 @@ export const estimateRepository = {
           select: {
             id: true, treatmentName: true, amount: true, status: true,
             category: true, toothNumber: true, quantity: true, unitRate: true,
-            plannedSittings: true, completedSittings: true,
+            plannedSittings: true, completedSittings: true, isAlternative: true,
             statusUpdatedAt: true,
             statusUpdatedBy: { select: { name: true } },
           },
@@ -87,6 +87,8 @@ export const estimateRepository = {
       unitRate: Prisma.Decimal
       amount: Prisma.Decimal
       plannedSittings?: number
+      /** Quoted as an option; printed but excluded from the total. */
+      isAlternative?: boolean
       sortOrder: number
     }>
   }) {
@@ -142,6 +144,8 @@ export const estimateRepository = {
         unitRate: Prisma.Decimal
         amount: Prisma.Decimal
         plannedSittings?: number
+        /** Quoted as an option; printed but excluded from the total. */
+        isAlternative?: boolean
         sortOrder: number
       }>
     }
@@ -176,6 +180,7 @@ export const estimateRepository = {
           unitRate: it.unitRate,
           amount: it.amount,
           plannedSittings: it.plannedSittings ?? 1,
+          isAlternative: it.isAlternative ?? false,
           sortOrder: idx,
         }
         if (it.id && existingIds.has(it.id)) {

@@ -152,6 +152,14 @@ export default async function EstimateDetailPage({ params }: Props) {
                     <td className="py-2.5 px-2">
                       <p className="font-medium" style={{ color: BRAND_COLORS.bodyText }}>
                         {item.treatmentName}
+                        {item.isAlternative && (
+                          <span
+                            className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wide border"
+                            style={{ borderColor: BRAND_COLORS.borderDivider, color: BRAND_COLORS.borderDivider }}
+                          >
+                            OPTIONAL
+                          </span>
+                        )}
                       </p>
                       <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
                         {item.category}

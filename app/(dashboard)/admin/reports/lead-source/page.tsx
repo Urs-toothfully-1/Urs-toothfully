@@ -5,20 +5,13 @@ import { getLeadSourceReport } from "@/lib/reports/lead-source"
 import { BRAND_COLORS } from "@/lib/constants"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChevronRight } from "lucide-react"
+import { LEAD_SOURCE_COLORS } from "@/lib/lead-sources"
 
 export const metadata: Metadata = { title: "Lead Source Report" }
 export const dynamic = "force-dynamic"
 
 type Props = { searchParams: Promise<{ from?: string; to?: string }> }
 
-const SOURCE_COLORS: Record<string, string> = {
-  "Walk-in": BRAND_COLORS.primaryTeal,
-  "Referral": BRAND_COLORS.secondaryGreen,
-  "Online": "#6D28D9",
-  "Google": "#1D4ED8",
-  "Social Media": "#EC4899",
-  "Friend / Family": "#F59E0B",
-}
 
 export default async function LeadSourceReportPage({ searchParams }: Props) {
   await requireRole(["ADMIN"])
@@ -67,7 +60,7 @@ export default async function LeadSourceReportPage({ searchParams }: Props) {
           ) : (
             <div className="space-y-4">
               {data.map((row) => {
-                const color = SOURCE_COLORS[row.source] ?? BRAND_COLORS.borderDivider
+                const color = LEAD_SOURCE_COLORS[row.source] ?? BRAND_COLORS.borderDivider
                 return (
                   <div key={row.source}>
                     <div className="flex items-center justify-between mb-1.5">

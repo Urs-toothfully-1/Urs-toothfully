@@ -36,9 +36,13 @@ export async function createAppointmentAction(
   const scheduledAt = istInstant(date, time)
   if (isNaN(scheduledAt.getTime())) return { error: "Invalid date or time." }
 
+  // Only the desk and admins may record a visit after the fact; a doctor booking
+  // a follow-up is always forward-looking.
+  const allowBackdated = session.role === "ADMIN" || session.role === "RECEPTIONIST"
+
   try {
     await appointmentService.create(
-      { patientId, doctorId, branchId, scheduledAt, durationMins, reason },
+      { patientId, doctorId, branchId, scheduledAt, durationMins, reason, allowBackdated },
       session.userId
     )
     revalidatePath("/appointments", "page")

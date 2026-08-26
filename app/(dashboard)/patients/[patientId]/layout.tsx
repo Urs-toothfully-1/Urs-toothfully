@@ -8,7 +8,8 @@ import { HealthAlertBadges } from "@/components/patients/HealthAlertBadges"
 import { EditPatientDialog } from "@/components/patients/EditPatientDialog"
 import { ProfileTabs } from "@/components/patients/ProfileTabs"
 import { BRAND_COLORS } from "@/lib/constants"
-import { formatDate } from "@/lib/utils"
+import { formatDate, formatCurrency } from "@/lib/utils"
+import { getPatientBalance, getPatientTabCounts } from "@/server/services/patient-summary.service"
 import { formatAge, isUnknownDob } from "@/lib/patient-dob"
 import { ChevronRight } from "lucide-react"
 
@@ -27,10 +28,12 @@ export default async function PatientProfileLayout({ children, params }: Props) 
   const session = await requireSession()
   const { patientId } = await params
 
-  const [patient, dentalHistory, branches] = await Promise.all([
+  const [patient, dentalHistory, branches, balance, tabCounts] = await Promise.all([
     patientRepository.findById(patientId),
     dentalHistoryRepository.findLatestByPatient(patientId),
     prisma.branch.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    getPatientBalance(patientId),
+    getPatientTabCounts(patientId),
   ])
 
   if (!patient) notFound()
@@ -121,6 +124,23 @@ export default async function PatientProfileLayout({ children, params }: Props) 
 
             {/* Right — health alerts + profile actions */}
             <div className="md:text-right space-y-2">
+              {/* Outstanding sits in the header so it stays visible on every tab,
+                  not just Overview — it is the thing reception asks for first. */}
+              <div className="flex md:justify-end items-center gap-4">
+                <div className="text-right">
+                  <p className="text-[11px] uppercase tracking-wide" style={{ color: BRAND_COLORS.borderDivider }}>Billed</p>
+                  <p className="text-sm font-semibold" style={{ color: BRAND_COLORS.bodyText }}>{formatCurrency(balance.estimated)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] uppercase tracking-wide" style={{ color: BRAND_COLORS.borderDivider }}>Balance</p>
+                  <p
+                    className="text-sm font-bold"
+                    style={{ color: balance.outstanding > 0 ? "#C2410C" : BRAND_COLORS.secondaryGreen }}
+                  >
+                    {formatCurrency(balance.outstanding)}
+                  </p>
+                </div>
+              </div>
               <HealthAlertBadges history={dentalHistory as any} />
               {(session.role === "ADMIN" || session.role === "RECEPTIONIST") && (
                 <div className="flex md:justify-end">
@@ -148,7 +168,7 @@ export default async function PatientProfileLayout({ children, params }: Props) 
         </div>
 
         {/* Tab navigation */}
-        <ProfileTabs patientId={patientId} />
+        <ProfileTabs patientId={patientId} counts={tabCounts} />
       </div>
 
       {/* Tab content */}

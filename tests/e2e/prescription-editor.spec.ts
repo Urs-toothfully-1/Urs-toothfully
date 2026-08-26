@@ -20,7 +20,7 @@ const stamp = () => `E2E note ${Date.now()}`
 test.describe.configure({ mode: "serial" })
 
 const complaintBox = (page: Page) =>
-  page.getByPlaceholder(/Doctor's clinical chief complaint/i)
+  page.getByPlaceholder(/Type the complaint/i)
 
 async function openEditor(page: Page) {
   await page.goto(VISIT_PATH)
@@ -112,7 +112,7 @@ test.describe("Prescription editor — library pickers", () => {
 
   test("an examination pick becomes its own finding row", async ({ page }) => {
     await openEditor(page)
-    const findings = page.getByPlaceholder(/Deep caries noted/i)
+    const findings = page.getByPlaceholder(/Type the finding/i)
     const before = await findings.count()
 
     await page.getByRole("button", { name: /Choose from list/i }).nth(1).click()

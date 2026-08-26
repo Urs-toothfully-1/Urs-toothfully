@@ -5,6 +5,7 @@ import { appointmentService } from "@/server/services/appointment.service"
 import { appointmentRequestService } from "@/server/services/appointment-request.service"
 import { userRepository } from "@/server/repositories/user.repository"
 import { NewAppointmentDialog } from "@/components/appointments/NewAppointmentDialog"
+import { WeekCalendar } from "@/components/appointments/WeekCalendar"
 import { AppointmentCard, type AppointmentView } from "@/components/appointments/AppointmentCard"
 import { AppointmentRequestsInbox } from "@/components/appointments/AppointmentRequestsInbox"
 import { AutoRefresh } from "@/components/shared/AutoRefresh"
@@ -21,12 +22,12 @@ function toDayString(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth() + 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 interface Props {
-  searchParams: Promise<{ date?: string; month?: string; scope?: string }>
+  searchParams: Promise<{ date?: string; month?: string; scope?: string; view?: string }>
 }
 
 export default async function AppointmentsPage({ searchParams }: Props) {
   const session = await requireSession()
-  const { date: rawDate, month: rawMonth, scope } = await searchParams
+  const { date: rawDate, month: rawMonth, scope, view: rawView } = await searchParams
 
   const todayStr = istTodayStr()
   const day = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : todayStr
@@ -44,6 +45,26 @@ export default async function AppointmentsPage({ searchParams }: Props) {
   const prevMonth = `${new Date(monthBase.getFullYear(), monthBase.getMonth() - 1, 1).getFullYear()}-${pad(new Date(monthBase.getFullYear(), monthBase.getMonth() - 1, 1).getMonth() + 1)}`
   const nextMonth = `${new Date(monthBase.getFullYear(), monthBase.getMonth() + 1, 1).getFullYear()}-${pad(new Date(monthBase.getFullYear(), monthBase.getMonth() + 1, 1).getMonth() + 1)}`
 
+  // Week view: Sunday-first week containing the selected day. Built from a
+  // noon-UTC date so the weekday never shifts with the host timezone.
+  const isWeek = rawView === "week"
+  const weekBase = new Date(`${day}T12:00:00Z`)
+  const weekStartDate = new Date(weekBase)
+  weekStartDate.setUTCDate(weekBase.getUTCDate() - weekBase.getUTCDay())
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStartDate)
+    d.setUTCDate(weekStartDate.getUTCDate() + i)
+    return d.toISOString().slice(0, 10)
+  })
+  const weekRange = { start: istDayRange(weekDays[0]).start, end: istDayRange(weekDays[6]).end }
+  const shiftWeek = (deltaDays: number) => {
+    const d = new Date(`${weekDays[0]}T12:00:00Z`)
+    d.setUTCDate(d.getUTCDate() + deltaDays)
+    return d.toISOString().slice(0, 10)
+  }
+  const prevWeek = shiftWeek(-7)
+  const nextWeek = shiftWeek(7)
+
   const isDoctor = session.role === "DOCTOR"
   const isReception = session.role === "RECEPTIONIST"
   // Reception sees own branch by default; "All Branches" removes the filter.
@@ -51,8 +72,11 @@ export default async function AppointmentsPage({ searchParams }: Props) {
   const branchFilter = isReception && !allBranches ? session.branchId : undefined
   const doctorFilter = isDoctor ? session.userId : undefined
 
-  const [appointments, counts, doctors, pendingRequests, overdue] = await Promise.all([
+  const [appointments, weekAppointments, counts, doctors, pendingRequests, overdue] = await Promise.all([
     appointmentService.listForDay({ date: dayDate, branchId: branchFilter, doctorId: doctorFilter }),
+    isWeek
+      ? appointmentService.listForRange({ ...weekRange, branchId: branchFilter, doctorId: doctorFilter })
+      : Promise.resolve([]),
     appointmentService.countsForRange({ start: monthStart, end: monthEnd, branchId: branchFilter, doctorId: doctorFilter }),
     isDoctor ? Promise.resolve([]) : userRepository.findAllActiveDoctors(),
     isDoctor ? Promise.resolve([]) : appointmentRequestService.listPending(branchFilter),
@@ -80,6 +104,7 @@ export default async function AppointmentsPage({ searchParams }: Props) {
     branch: { id: a.branch.id, name: a.branch.name },
   })
   const views: AppointmentView[] = appointments.map(toView)
+  const weekViews: AppointmentView[] = weekAppointments.map(toView)
   // Shown on every day, not just their own — otherwise nobody finds them again.
   const overdueViews: AppointmentView[] = overdue.map(toView)
   const scheduled = views.filter((v) => v.status === "SCHEDULED")
@@ -95,11 +120,14 @@ export default async function AppointmentsPage({ searchParams }: Props) {
   while (cells.length % 7 !== 0) cells.push(null)
 
   const scopeQs = allBranches && isReception ? "&scope=all" : ""
-  const cellHref = (d: string) => `/appointments?date=${d}&month=${monthStr}${scopeQs}`
+  const cellHref = (d: string) => `/appointments?date=${d}&month=${monthStr}&view=${isWeek ? "week" : "day"}${scopeQs}`
+  const fmtShort = (d: string) =>
+    new Date(`${d}T12:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" })
+  const weekHeading = `${fmtShort(weekDays[0])} - ${fmtShort(weekDays[6])}`
   const heading = dayDate.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: IST_TZ })
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5">
+    <div className={`${isWeek ? "max-w-[1600px]" : "max-w-5xl"} mx-auto space-y-5`}>
       <AutoRefresh />
 
       {/* Header */}
@@ -121,7 +149,7 @@ export default async function AppointmentsPage({ searchParams }: Props) {
               {allBranches ? "My Branch" : "All Branches"}
             </Link>
           )}
-          {!isDoctor && <NewAppointmentDialog doctors={doctors.map((d) => ({ id: d.id, name: d.name }))} />}
+          {!isDoctor && <NewAppointmentDialog doctors={doctors.map((d) => ({ id: d.id, name: d.name }))} canBackdate={session.role === "ADMIN" || isReception} />}
         </div>
       </div>
 
@@ -129,18 +157,19 @@ export default async function AppointmentsPage({ searchParams }: Props) {
         <AppointmentRequestsInbox requests={requestViews} doctors={doctors.map((d) => ({ id: d.id, name: d.name }))} />
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(320px,380px)_1fr] gap-5">
-        {/* Calendar */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(300px,340px)_1fr] gap-5">
+        {/* Month picker — kept in week view too: the number on each day is the only
+            way to find a week that has bookings without stepping through empty ones. */}
         <div className="rounded-xl border border-[#E0E3E5] bg-white p-4 h-fit">
           <div className="flex items-center justify-between mb-3">
-            <Link href={`/appointments?date=${day}&month=${prevMonth}${scopeQs}`} aria-label="Previous month"
+            <Link href={`/appointments?date=${day}&month=${prevMonth}&view=${isWeek ? "week" : "day"}${scopeQs}`} aria-label="Previous month"
               className="flex items-center justify-center h-8 w-8 rounded-lg border border-[#E0E3E5] hover:bg-gray-50">
               <ChevronLeft className="h-4 w-4" style={{ color: BRAND_COLORS.bodyText }} />
             </Link>
             <p className="text-sm font-semibold" style={{ color: BRAND_COLORS.bodyText }}>
               {monthBase.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
             </p>
-            <Link href={`/appointments?date=${day}&month=${nextMonth}${scopeQs}`} aria-label="Next month"
+            <Link href={`/appointments?date=${day}&month=${nextMonth}&view=${isWeek ? "week" : "day"}${scopeQs}`} aria-label="Next month"
               className="flex items-center justify-center h-8 w-8 rounded-lg border border-[#E0E3E5] hover:bg-gray-50">
               <ChevronRight className="h-4 w-4" style={{ color: BRAND_COLORS.bodyText }} />
             </Link>
@@ -214,13 +243,64 @@ export default async function AppointmentsPage({ searchParams }: Props) {
 
           <div className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
-            <h2 className="text-sm font-semibold" style={{ color: BRAND_COLORS.bodyText }}>{heading}</h2>
-            <span className="text-xs ml-auto" style={{ color: BRAND_COLORS.borderDivider }}>
-              {views.length} appointment{views.length !== 1 ? "s" : ""}
-            </span>
+            <h2 className="text-sm font-semibold" style={{ color: BRAND_COLORS.bodyText }}>
+              {isWeek ? weekHeading : heading}
+            </h2>
+            {isWeek && (
+              <div className="flex items-center gap-1">
+                <Link
+                  href={`/appointments?date=${prevWeek}&month=${prevWeek.slice(0, 7)}&view=week${scopeQs}`}
+                  aria-label="Previous week"
+                  className="flex items-center justify-center h-7 w-7 rounded-lg border border-[#E0E3E5] hover:bg-gray-50"
+                >
+                  <ChevronLeft className="h-4 w-4" style={{ color: BRAND_COLORS.bodyText }} />
+                </Link>
+                <Link
+                  href={`/appointments?date=${nextWeek}&month=${nextWeek.slice(0, 7)}&view=week${scopeQs}`}
+                  aria-label="Next week"
+                  className="flex items-center justify-center h-7 w-7 rounded-lg border border-[#E0E3E5] hover:bg-gray-50"
+                >
+                  <ChevronRight className="h-4 w-4" style={{ color: BRAND_COLORS.bodyText }} />
+                </Link>
+                <Link
+                  href={`/appointments?date=${todayStr}&month=${todayStr.slice(0, 7)}&view=week${scopeQs}`}
+                  className="ml-1 px-2 py-1 text-xs font-medium rounded-lg border border-[#E0E3E5] hover:bg-gray-50"
+                  style={{ color: BRAND_COLORS.primaryTeal }}
+                >
+                  Today
+                </Link>
+              </div>
+            )}
+            <div className="ml-auto flex items-center gap-3">
+              <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+                {(isWeek ? weekViews : views).length} appointment{(isWeek ? weekViews : views).length !== 1 ? "s" : ""}
+              </span>
+              <div className="flex rounded-lg border overflow-hidden" style={{ borderColor: "#E0E3E5" }}>
+                {([["day", "Day"], ["week", "Week"]] as const).map(([v, label]) => (
+                  <Link
+                    key={v}
+                    href={`/appointments?date=${day}&month=${monthStr}&view=${v}${scopeQs}`}
+                    className="px-3 py-1 text-xs font-medium"
+                    style={
+                      (v === "week") === isWeek
+                        ? { backgroundColor: BRAND_COLORS.primaryTeal, color: "white" }
+                        : { color: BRAND_COLORS.bodyText, backgroundColor: "white" }
+                    }
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {views.length === 0 ? (
+          {isWeek ? (
+            <WeekCalendar
+              days={weekDays}
+              appointments={weekViews}
+              dayHref={(d) => `/appointments?date=${d}&month=${d.slice(0, 7)}&view=day${scopeQs}`}
+            />
+          ) : views.length === 0 ? (
             <div className="text-center py-14 rounded-xl border border-[#E0E3E5] bg-white">
               <CalendarDays className="h-10 w-10 mx-auto mb-3" style={{ color: "#E0E3E5" }} />
               <p className="font-medium" style={{ color: BRAND_COLORS.bodyText }}>No appointments</p>

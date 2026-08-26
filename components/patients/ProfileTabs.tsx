@@ -5,22 +5,24 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { BRAND_COLORS } from "@/lib/constants"
 
+/** `count` names the key in Props.counts; tabs without one show no badge. */
 const TABS = [
   { label: "Overview", href: "" },
   { label: "Dental History", href: "/history" },
-  { label: "Visit History", href: "/visits" },
-  { label: "Clinical Notes", href: "/notes" },
-  { label: "Estimates", href: "/estimates" },
+  { label: "Visit History", href: "/visits", count: "visits" },
+  { label: "Clinical Notes", href: "/notes", count: "notes" },
+  { label: "Estimates", href: "/estimates", count: "estimates" },
   { label: "Treatment Progress", href: "/progress" },
-  { label: "Payments", href: "/payments" },
-  { label: "Documents", href: "/documents" },
-]
+  { label: "Payments", href: "/payments", count: "payments" },
+  { label: "Documents", href: "/documents", count: "documents" },
+] as const
 
 interface Props {
   patientId: string
+  counts?: Record<string, number>
 }
 
-export function ProfileTabs({ patientId }: Props) {
+export function ProfileTabs({ patientId, counts }: Props) {
   const pathname = usePathname()
   const base = `/patients/${patientId}`
 
@@ -48,6 +50,19 @@ export function ProfileTabs({ patientId }: Props) {
             }
           >
             {tab.label}
+            {/* Zero is shown too: "nothing here" is the useful half of the answer. */}
+            {"count" in tab && counts?.[tab.count] !== undefined && (
+              <span
+                className="ml-1.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full"
+                style={
+                  isActive
+                    ? { backgroundColor: `${BRAND_COLORS.primaryTeal}1A`, color: BRAND_COLORS.primaryTeal }
+                    : { backgroundColor: "#F2F4F6", color: BRAND_COLORS.borderDivider }
+                }
+              >
+                {counts[tab.count]}
+              </span>
+            )}
           </Link>
         )
       })}

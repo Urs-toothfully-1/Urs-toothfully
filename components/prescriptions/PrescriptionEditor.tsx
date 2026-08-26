@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ToothSelector } from "@/components/dental/ToothSelector"
 import { MedicineTemplateSelector, type MedicineTemplate } from "./MedicineTemplateSelector"
 import { LibraryPickerDialog, type LibraryItem } from "./LibraryPickerDialog"
+import { LibraryTypeahead } from "./LibraryTypeahead"
 import { createCustomDiagnosisAction } from "@/actions/diagnoses"
 import { DOSAGE_OPTIONS, DURATION_OPTIONS, FREQUENCY_OPTIONS, INSTRUCTION_OPTIONS } from "@/lib/dosage-options"
 import { CUSTOM_TREATMENT } from "@/lib/estimate-item"
@@ -413,11 +414,14 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
       {/* ── 1. Chief Complaint ────────────────────────────────── */}
       <div className="space-y-2">
         {sectionHeader("Chief Complaint", libraryButton("complaint"))}
-        <Textarea
+        <LibraryTypeahead
+          endpoint="/api/clinical-library?section=COMPLAINT"
           value={chiefComplaint}
-          onChange={(e) => setChiefComplaint(e.target.value)}
-          placeholder="Doctor's clinical chief complaint (e.g. Pain in lower left molar for 3 days, sensitivity to cold…)"
+          onChange={setChiefComplaint}
+          multiline
           rows={3}
+          placeholder="Type the complaint — matches from the library appear as you type"
+          onCreate={(name) => createPhrase("COMPLAINT", "Other", name)}
           className="border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white resize-none"
         />
       </div>
@@ -470,11 +474,14 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
               {/* Finding text + tooth selector row */}
               <div className="flex items-start gap-2">
                 <div className="flex-1 space-y-2">
-                  <Textarea
+                  <LibraryTypeahead
+                    endpoint="/api/clinical-library?section=DIAGNOSIS"
                     value={f.finding}
-                    onChange={(e) => setFinding(idx, "finding", e.target.value)}
-                    placeholder="e.g. Deep caries noted, pulp exposure present…"
+                    onChange={(val) => setFinding(idx, "finding", val)}
+                    multiline
                     rows={2}
+                    placeholder="Type the finding — matches appear as you type"
+                    onCreate={(name) => createPhrase("DIAGNOSIS", "General Dentistry / Restorative", name)}
                     className="border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white resize-none"
                   />
                   <div className="flex items-center gap-2">
@@ -558,11 +565,14 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
       {/* ── 3. Diagnosis ─────────────────────────────────────── */}
       <div className="space-y-2">
         {sectionHeader("Diagnosis", libraryButton("diagnosis"))}
-        <Textarea
+        <LibraryTypeahead
+          endpoint="/api/clinical-library?section=DIAGNOSIS"
           value={diagnosis}
-          onChange={(e) => setDiagnosis(e.target.value)}
-          placeholder="e.g. Irreversible pulpitis w.r.t. 46, chronic generalised gingivitis…"
+          onChange={setDiagnosis}
+          multiline
           rows={3}
+          placeholder="Type the diagnosis — e.g. &ldquo;roo&rdquo; brings up root canal findings"
+          onCreate={(name) => createPhrase("DIAGNOSIS", "General Dentistry / Restorative", name)}
           className="border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white resize-none"
         />
       </div>
@@ -685,8 +695,13 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
               {medicines.map((m, idx) => (
                 <tr key={idx}>
                   <td className="py-1 px-1.5 min-w-[160px]">
-                    <Input value={m.name} onChange={(e) => setMed(idx, "name", e.target.value)}
-                      placeholder="e.g. Amoxicillin 500mg" className={cellCls} />
+                    <LibraryTypeahead
+                      endpoint="/api/medicines"
+                      value={m.name}
+                      onChange={(val) => setMed(idx, "name", val)}
+                      placeholder="Type a medicine — e.g. &ldquo;amox&rdquo;"
+                      className={cellCls}
+                    />
                   </td>
                   <td className="py-1 px-1.5 min-w-[90px]">
                     <Input value={m.dosage} onChange={(e) => setMed(idx, "dosage", e.target.value)}

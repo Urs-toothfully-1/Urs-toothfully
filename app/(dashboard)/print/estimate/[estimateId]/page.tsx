@@ -167,6 +167,20 @@ export default async function PrintEstimatePage({ params }: Props) {
                 <td className="py-2 px-3">
                   <div style={{ color: BRAND_COLORS.bodyText, fontWeight: 500 }}>
                     {item.treatmentName}
+                    {/* Named on the row itself, not only by the "or" on the amount:
+                        the patient reads the treatment column first. */}
+                    {item.isAlternative && (
+                      <span
+                        className="ml-2 px-1.5 py-0.5 rounded"
+                        style={{
+                          fontSize: "10px", fontWeight: 600, letterSpacing: "0.03em",
+                          border: `1px solid ${BRAND_COLORS.borderDivider}`,
+                          color: BRAND_COLORS.borderDivider,
+                        }}
+                      >
+                        OPTIONAL
+                      </span>
+                    )}
                   </div>
                   <div style={{ color: BRAND_COLORS.borderDivider, fontSize: "11px" }}>
                     {item.category}
@@ -181,9 +195,11 @@ export default async function PrintEstimatePage({ params }: Props) {
                 <td className="py-2 px-3 text-right" style={{ color: BRAND_COLORS.bodyText }}>
                   {formatCurrency(Number(item.unitRate))}
                 </td>
+                {/* An option is greyed and tagged OPTIONAL on the treatment row;
+                    it is priced here but not counted in the total. */}
                 <td
                   className="py-2 px-3 text-right font-semibold"
-                  style={{ color: BRAND_COLORS.bodyText }}
+                  style={{ color: item.isAlternative ? BRAND_COLORS.borderDivider : BRAND_COLORS.bodyText }}
                 >
                   {formatCurrency(Number(item.amount))}
                 </td>

@@ -9,6 +9,7 @@ import Link from "next/link"
 import { AlertCircle, AlertTriangle, ArrowLeft, ArrowRight, Loader2, UserSearch } from "lucide-react"
 import { BRAND_COLORS } from "@/lib/constants"
 import { DentalHistoryFields } from "@/components/patients/dental-history/DentalHistoryFields"
+import { LEAD_SOURCES } from "@/lib/lead-sources"
 
 interface Branch {
   id: string
@@ -21,9 +22,6 @@ interface Props {
   isAdmin: boolean
 }
 
-const LEAD_SOURCES = [
-  "Walk-in", "Referral", "Online", "Social Media", "Google", "Friend / Family", "Other",
-]
 
 function SubmitButton() {
   const { pending } = useFormStatus()

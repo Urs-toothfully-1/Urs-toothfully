@@ -125,7 +125,7 @@ test.describe("Doctor consultation", () => {
     await expect(page.getByText(visitId)).toHaveCount(0)
 
     // Diagnosis — the section that used to print blank with nowhere to type.
-    const diagnosis = page.getByPlaceholder(/Irreversible pulpitis|w\.r\.t\./i)
+    const diagnosis = page.getByPlaceholder(/Type the diagnosis/i)
     await expect(diagnosis).toBeVisible()
     await diagnosis.fill("Chronic irreversible pulpitis w.r.t. 36")
 

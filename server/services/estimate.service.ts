@@ -15,6 +15,10 @@ export const estimateItemSchema = z.object({
   quantity: z.number().int().positive().default(1),
   unitRate: z.number().positive(),
   plannedSittings: z.number().int().min(1).max(99).default(1),
+  // Quoted as an option for the patient to compare; printed, never charged.
+  // Absent from the schema means zod strips it and the flag never reaches the
+  // database, which is exactly how it went missing the first time.
+  isAlternative: z.boolean().optional(),
   sortOrder: z.number().int().default(0),
 })
 
@@ -59,7 +63,10 @@ export const estimateService = {
       plannedSittings: item.plannedSittings ?? 1,
     }))
 
-    const subtotal = items.reduce((sum, item) => sum + Number(item.amount), 0)
+    // Alternatives are quoted for comparison, never charged.
+    const subtotal = items
+      .filter((item) => !(item as { isAlternative?: boolean }).isAlternative)
+      .reduce((sum, item) => sum + Number(item.amount), 0)
     let total = subtotal
 
     let discountAmount: number | undefined

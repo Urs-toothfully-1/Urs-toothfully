@@ -574,6 +574,10 @@ model EstimateItem {
   plannedSittings   Int             @default(1)
   completedSittings Int             @default(0)
   sortOrder         Int             @default(0)
+  /// An option the patient was shown but is not charged for: several grades of
+  /// the same treatment quoted side by side, only one of which counts. Printed
+  /// like any other line, but excluded from the estimate total.
+  isAlternative     Boolean         @default(false)
   status            ItemStatus      @default(PENDING)
   statusUpdatedAt   DateTime?
   statusUpdatedById String?

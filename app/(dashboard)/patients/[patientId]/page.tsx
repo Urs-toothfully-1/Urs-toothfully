@@ -10,6 +10,7 @@ import { settingsRepository } from "@/server/repositories/settings.repository"
 import { AddToQueueDialog } from "@/components/queue/AddToQueueDialog"
 import { queueRepository } from "@/server/repositories/queue.repository"
 import { prisma } from "@/lib/prisma"
+import { getPatientBalance } from "@/server/services/patient-summary.service"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatDate, formatCurrency } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -74,12 +75,8 @@ export default async function PatientOverviewPage({ params }: Props) {
   if (!patient) notFound()
 
   const hasPaidConsultation = !!consultationPayment
-  const totalEstimated = billingEstimates.reduce((s, e) => s + Number(e.total), 0)
-  const totalPaid = billingEstimates.reduce(
-    (s, e) => s + e.payments.reduce((ps, p) => ps + Number(p.amount), 0),
-    0
-  )
-  const outstanding = Math.max(0, totalEstimated - totalPaid)
+  // Same source as the header above, so the two can never disagree.
+  const { estimated: totalEstimated, paid: totalPaid, outstanding } = await getPatientBalance(patientId)
   const [docEstimates, docReceipts, docPrescriptions] = recentDocs
   const documents = [
     ...docEstimates.map((e) => ({

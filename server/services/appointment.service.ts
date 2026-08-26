@@ -16,6 +16,13 @@ export type AppointmentWithRelations = Prisma.AppointmentGetPayload<{ include: t
 
 // Day boundaries and keys are IST-based (istDayRange / istDayKey) so an
 // appointment's day matches the wall-clock the clinic sees, not the UTC day.
+/**
+ * A morning and an afternoon visit is a real pattern; a third the same day is
+ * almost always a double entry. There is no limit across different days — a
+ * course of treatment is many visits.
+ */
+const MAX_PER_PATIENT_PER_DAY = 2
+
 function dayRange(date: Date): { start: Date; end: Date } {
   return istDayRange(istDayKey(date))
 }
@@ -59,10 +66,17 @@ export const appointmentService = {
       reason?: string
       /** Send the confirmation even before a consultation fee is paid (online booking flow). */
       skipWhatsappGate?: boolean
+      /**
+       * Recording a visit that already happened. Reception forgets to book walk-ins
+       * at the time, so the day's list ends up missing patients who were actually
+       * seen — this lets them enter it afterwards.
+       */
+      allowBackdated?: boolean
     },
     createdById: string
   ): Promise<AppointmentWithRelations> {
-    if (input.scheduledAt.getTime() < Date.now() - 60_000) {
+    const isPast = input.scheduledAt.getTime() < Date.now() - 60_000
+    if (isPast && !input.allowBackdated) {
       throw new Error("Appointment time is in the past.")
     }
 
@@ -76,6 +90,21 @@ export const appointmentService = {
     const durationMins = input.durationMins ?? 30
     await assertNoClash(input.doctorId, input.scheduledAt, durationMins)
 
+    const { start, end } = dayRange(input.scheduledAt)
+    const sameDayCount = await prisma.appointment.count({
+      where: {
+        patientId: input.patientId,
+        scheduledAt: { gte: start, lte: end },
+        status: { notIn: ["CANCELLED"] },
+      },
+    })
+    if (sameDayCount >= MAX_PER_PATIENT_PER_DAY) {
+      throw new Error(
+        `This patient already has ${MAX_PER_PATIENT_PER_DAY} appointments that day.`
+      )
+    }
+
+
     const appointment = await prisma.appointment.create({
       data: {
         patientId: input.patientId,
@@ -84,6 +113,9 @@ export const appointmentService = {
         scheduledAt: input.scheduledAt,
         durationMins,
         reason: input.reason,
+        // Backdated entries are historical record-keeping, so they land finished
+        // rather than sitting in the queue as something still to happen.
+        status: isPast ? "COMPLETED" : "SCHEDULED",
         createdById,
       },
       include: APPOINTMENT_INCLUDE,
@@ -98,8 +130,9 @@ export const appointmentService = {
       branchId: input.branchId,
     })
 
-    // Consent + consultation-gated; never throws
-    void whatsappService.sendTrigger({
+    // Consent + consultation-gated; never throws. Skipped for backdated entries —
+    // nobody wants a "your appointment is confirmed" for last Tuesday.
+    if (!isPast) void whatsappService.sendTrigger({
       triggerKey: WHATSAPP_TRIGGERS.APPOINTMENT_CONFIRMATION,
       patientId: appointment.patientId,
       variables: [
@@ -134,6 +167,19 @@ export const appointmentService = {
    * no-show before the day rolled over. Surfaced at the top of the day view so
    * they can still be closed instead of being stranded on a date nobody visits.
    */
+  /** Every appointment between two instants — backs the week/calendar grid. */
+  async listForRange(opts: { start: Date; end: Date; branchId?: string; doctorId?: string }): Promise<AppointmentWithRelations[]> {
+    return prisma.appointment.findMany({
+      where: {
+        scheduledAt: { gte: opts.start, lte: opts.end },
+        ...(opts.branchId ? { branchId: opts.branchId } : {}),
+        ...(opts.doctorId ? { doctorId: opts.doctorId } : {}),
+      },
+      include: APPOINTMENT_INCLUDE,
+      orderBy: { scheduledAt: "asc" },
+    })
+  },
+
   async listOverdue(opts: { branchId?: string; doctorId?: string }): Promise<AppointmentWithRelations[]> {
     return prisma.appointment.findMany({
       where: {

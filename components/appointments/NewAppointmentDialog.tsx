@@ -30,13 +30,19 @@ interface Props {
   doctors: DoctorOption[]
   /** preselect a patient (e.g. from the patient profile page) */
   defaultPatient?: PatientHit | null
+  /**
+   * Reception and admin may record a visit that already happened — the desk
+   * routinely forgets to book walk-ins at the time. Without this the picker
+   * greys out every past date and the feature is unreachable.
+   */
+  canBackdate?: boolean
 }
 
 const labelCls = "block text-sm font-medium mb-1"
 
 const todayStr = istTodayStr
 
-export function NewAppointmentDialog({ doctors, defaultPatient = null }: Props) {
+export function NewAppointmentDialog({ doctors, defaultPatient = null, canBackdate = false }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -247,13 +253,13 @@ export function NewAppointmentDialog({ doctors, defaultPatient = null }: Props) 
                 <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
                   Date <span className="text-red-500">*</span>
                 </label>
-                <Input type="date" value={date} min={todayStr()} onChange={(e) => setDate(e.target.value)} className="border-[#E0E3E5] bg-[#F2F4F6]" />
+                <Input type="date" value={date} min={canBackdate ? undefined : todayStr()} onChange={(e) => setDate(e.target.value)} className="border-[#E0E3E5] bg-[#F2F4F6]" />
               </div>
               <div>
                 <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
                   Time <span className="text-red-500">*</span>
                 </label>
-                <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="border-[#E0E3E5] bg-[#F2F4F6]" />
+                <Input type="time" step={900} value={time} onChange={(e) => setTime(e.target.value)} className="border-[#E0E3E5] bg-[#F2F4F6]" />
               </div>
               <div>
                 <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Duration</label>

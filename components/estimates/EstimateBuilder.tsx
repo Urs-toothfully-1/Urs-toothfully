@@ -31,6 +31,8 @@ interface EstimateItem {
   unitRate: number
   amount: number
   plannedSittings: number
+  /** Quoted as an option, shown to the patient but not charged. */
+  isAlternative: boolean
 }
 
 interface InitialItem {
@@ -42,6 +44,7 @@ interface InitialItem {
   quantity: number
   unitRate: number
   plannedSittings?: number
+  isAlternative?: boolean
 }
 
 interface Props {
@@ -101,6 +104,7 @@ function newItem(): EstimateItem {
     unitRate: 0,
     amount: 0,
     plannedSittings: 1,
+    isAlternative: false,
   }
 }
 
@@ -130,6 +134,7 @@ export function EstimateBuilder({
           // custom one — select it as such so the row isn't stuck on the placeholder.
           treatmentId: i.treatmentId || (i.treatmentName.trim() ? CUSTOM_TREATMENT : ""),
           plannedSittings: i.plannedSittings ?? 1,
+          isAlternative: i.isAlternative ?? false,
           amount: i.quantity * i.unitRate,
           _key: makeRowKey(),
         }))
@@ -177,8 +182,11 @@ export function EstimateBuilder({
     return acc
   }, {})
 
-  // Computed totals
-  const subtotal = items.reduce((s, i) => s + i.amount, 0)
+  // Computed totals. Alternatives are priced and printed but never charged, so
+  // the doctor can put three grades of a treatment in front of the patient and
+  // still quote one price.
+  const subtotal = items.filter((i) => !i.isAlternative).reduce((s, i) => s + i.amount, 0)
+  const alternativesTotal = items.filter((i) => i.isAlternative).reduce((s, i) => s + i.amount, 0)
   const discountAmount = allowDiscount ? (subtotal * discountPercent) / 100 : 0
   const total = subtotal - discountAmount
 
@@ -205,7 +213,7 @@ export function EstimateBuilder({
     )
   }
 
-  function handleChange(key: string, field: keyof EstimateItem, value: string | number) {
+  function handleChange(key: string, field: keyof EstimateItem, value: string | number | boolean) {
     setItems((prev) =>
       prev.map((item) => {
         if (item._key !== key) return item
@@ -296,6 +304,9 @@ export function EstimateBuilder({
               </th>
               <th className="text-right px-3 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
                 Amount
+              </th>
+              <th className="text-center px-2 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+                Option
               </th>
               <th className="w-8" />
             </tr>
@@ -393,12 +404,29 @@ export function EstimateBuilder({
                   />
                 </td>
 
-                {/* Amount */}
+                {/* Amount — an alternative is priced but not counted */}
                 <td
                   className="px-3 py-2 text-right font-semibold w-28"
-                  style={{ color: BRAND_COLORS.bodyText }}
+                  style={{ color: item.isAlternative ? BRAND_COLORS.borderDivider : BRAND_COLORS.bodyText }}
                 >
                   {formatCurrency(item.amount)}
+                </td>
+
+                {/* Charge / option toggle */}
+                <td className="px-2 py-2">
+                  <label
+                    className="flex items-center gap-1.5 text-[11px] cursor-pointer select-none"
+                    title="Show this price as an option without adding it to the total"
+                    style={{ color: BRAND_COLORS.borderDivider }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={item.isAlternative}
+                      onChange={(e) => handleChange(item._key, "isAlternative", e.target.checked)}
+                      className="h-3.5 w-3.5 accent-[#0077BE]"
+                    />
+                    Option
+                  </label>
                 </td>
 
                 {/* Delete */}
@@ -454,6 +482,18 @@ export function EstimateBuilder({
           <div className="flex justify-between text-sm">
             <span style={{ color: BRAND_COLORS.borderDivider }}>Subtotal</span>
             <span style={{ color: BRAND_COLORS.bodyText }}>{formatCurrency(subtotal)}</span>
+          </div>
+          {alternativesTotal > 0 && (
+            <div className="flex justify-between text-xs">
+              <span style={{ color: BRAND_COLORS.borderDivider }}>
+                Options shown, not charged
+              </span>
+              <span style={{ color: BRAND_COLORS.borderDivider }}>
+                {formatCurrency(alternativesTotal)}
+              </span>
+            </div>
+          )}
+          <div className="hidden">
           </div>
 
           {/* The discount is set in the Payment Plan step now. It is still shown

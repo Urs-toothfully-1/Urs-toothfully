@@ -7,6 +7,7 @@ import { TurnstileWidget } from "@/components/intake/TurnstileWidget"
 import { BotGuardFields } from "@/components/shared/BotGuardFields"
 import { BRAND_COLORS } from "@/lib/constants"
 import { AlertCircle, Loader2, Send } from "lucide-react"
+import { LEAD_SOURCES } from "@/lib/lead-sources"
 
 interface Branch {
   id: string
@@ -40,7 +41,6 @@ function SubmitBtn() {
 const inputCls = "w-full h-11 rounded-lg border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE]"
 const labelCls = "block text-sm font-medium mb-1.5"
 
-const LEAD_SOURCES = ["Walk-in", "Referral", "Online Search", "Google", "Social Media", "Friend / Family", "Other"]
 
 export function IntakeForm({ branches }: Props) {
   const [state, formAction] = useActionState(submitIntakeAction, {} as IntakeFormState)

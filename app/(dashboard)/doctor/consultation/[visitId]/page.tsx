@@ -90,6 +90,7 @@ export default async function ConsultationPage({ params }: Props) {
         quantity: i.quantity,
         unitRate: Number(i.unitRate),
         plannedSittings: i.plannedSittings ?? 1,
+        isAlternative: i.isAlternative ?? false,
         status: i.status,
       })) : []}
       estimateNotes={estimate?.notes ?? null}

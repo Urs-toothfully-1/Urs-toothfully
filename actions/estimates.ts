@@ -45,6 +45,8 @@ export async function createEstimateAction(
     quantity?: string | number
     unitRate?: string | number
     plannedSittings?: string | number
+    /** Quoted as an option, not charged — excluded from the total. */
+    isAlternative?: boolean
   }
   let items: RawEstimateItem[]
   try {
@@ -78,6 +80,7 @@ export async function createEstimateAction(
           quantity: parseInt(String(item.quantity), 10),
           unitRate: parseFloat(String(item.unitRate)),
           plannedSittings: item.plannedSittings ? Math.max(1, parseInt(String(item.plannedSittings), 10)) : 1,
+          isAlternative: item.isAlternative === true,
           sortOrder: idx,
         })),
       },
@@ -122,6 +125,8 @@ export async function updateEstimateAction(
     treatmentId?: string; treatmentName?: string; category?: string
     toothNumber?: string; quantity?: string | number; unitRate?: string | number
     plannedSittings?: string | number
+    /** Quoted as an option, not charged — excluded from the total. */
+    isAlternative?: boolean
   }
   let items: RawItem[]
   try { items = JSON.parse(itemsJson) } catch { return { error: "Invalid estimate items." } }
@@ -143,11 +148,16 @@ export async function updateEstimateAction(
         unitRate: new Decimal(rate),
         amount: new Decimal(qty * rate),
         plannedSittings: item.plannedSittings ? Math.max(1, parseInt(String(item.plannedSittings), 10)) : 1,
+        isAlternative: item.isAlternative === true,
         sortOrder: idx,
       }
     })
 
-    const subtotal = mappedItems.reduce((s, i) => s + i.amount.toNumber(), 0)
+    // Alternatives are shown to the patient but never charged: three grades of
+    // root canal on the sheet, one of them in the total.
+    const subtotal = mappedItems
+      .filter((i) => !i.isAlternative)
+      .reduce((s, i) => s + i.amount.toNumber(), 0)
     const disc = discountPercent ? parseFloat(discountPercent) : 0
     const discountAmount = disc > 0 ? (subtotal * disc) / 100 : 0
     const total = subtotal - discountAmount
@@ -206,7 +216,9 @@ export async function updateEstimateDiscountAction(
       return { error: "Discounts are turned off for this branch." }
     }
 
-    const subtotal = (estimate.items as { amount: unknown }[]).reduce((s, i) => s + Number(i.amount), 0)
+    const subtotal = (estimate.items as { amount: unknown; isAlternative?: boolean }[])
+      .filter((i) => !i.isAlternative)
+      .reduce((s, i) => s + Number(i.amount), 0)
     const discountAmount = (subtotal * discountPercent) / 100
     const total = subtotal - discountAmount
 
