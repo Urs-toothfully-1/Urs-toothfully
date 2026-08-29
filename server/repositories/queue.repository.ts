@@ -193,4 +193,70 @@ export const queueRepository = {
       },
     })
   },
+
+  /**
+   * Cheap change-token for the branch's live dashboards (queue, doctor,
+   * appointments). The AutoRefresh poller compares this between polls and only
+   * triggers a full server re-render when it changes — keeping Vercel Function
+   * invocations and CPU down.
+   *
+   * It folds in every entity the three dashboards display:
+   *  - Queue: id + status + doctorId for today's (or still-open) entries — a
+   *    per-row hash so any status transition, new/removed patient, or doctor
+   *    reassignment moves the token.
+   *  - Appointments: count + latest updatedAt for the whole branch (via an
+   *    aggregate — no rows fetched). Bookings, cancellations, reschedules and
+   *    reminders all bump updatedAt or the count, across any date the calendar
+   *    might be showing.
+   *  - Appointment requests: count + latest of createdAt/handledAt — catches a
+   *    new public request arriving and reception confirming/declining it.
+   *
+   * One shared branch token covers all three dashboards. A queue page may
+   * occasionally re-render on an appointment change (cheap, event-bounded);
+   * that's the deliberate trade for never missing an update. No joins on the
+   * queue select, aggregates for the rest, and no schema migration needed.
+   */
+  async pulse(branchId: string, date: Date = new Date()): Promise<string> {
+    const start = new Date(date)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(date)
+    end.setHours(23, 59, 59, 999)
+
+    const [rows, appt, req] = await Promise.all([
+      prisma.queueEntry.findMany({
+        where: { branchId, ...dayOrStillOpen(start, end) },
+        select: { id: true, status: true, doctorId: true },
+        orderBy: { id: "asc" },
+      }),
+      prisma.appointment.aggregate({
+        where: { branchId },
+        _count: { _all: true },
+        _max: { updatedAt: true },
+      }),
+      prisma.appointmentRequest.aggregate({
+        where: { branchId },
+        _count: { _all: true },
+        _max: { createdAt: true, handledAt: true },
+      }),
+    ])
+
+    // FNV-1a over the queue's id:status:doctor tuples — stable, order-independent
+    // (rows are already id-sorted), collision-safe enough for a "did it change?"
+    // check. Count is prepended so an equal-length reshuffle still differs.
+    let h = 0x811c9dc5
+    for (const r of rows) {
+      const s = `${r.id}:${r.status}:${r.doctorId ?? ""};`
+      for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i)
+        h = Math.imul(h, 0x01000193)
+      }
+    }
+
+    const apptSig = `${appt._count._all}:${appt._max.updatedAt?.getTime() ?? 0}`
+    const reqSig = `${req._count._all}:${Math.max(
+      req._max.createdAt?.getTime() ?? 0,
+      req._max.handledAt?.getTime() ?? 0
+    )}`
+    return `${rows.length}-${(h >>> 0).toString(36)}-a${apptSig}-r${reqSig}`
+  },
 }
