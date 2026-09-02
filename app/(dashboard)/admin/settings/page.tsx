@@ -16,6 +16,7 @@ const BRANCH_KEYS = [
   { key: "consultation_fee", label: "Consultation Fee (₹)", type: "number", hint: "Default: 500" },
   { key: "queue_assignment_mode", label: "Queue Mode", type: "select", options: ["SPECIFIC_DOCTOR", "NEXT_AVAILABLE_DOCTOR"] },
   { key: "prescription_mode", label: "Prescription Mode", type: "select", options: ["PRINT_ONLY", "PARTIAL_DIGITAL", "FULL_DIGITAL"] },
+  { key: "google_review_url", label: "Google Review Link", type: "text", hint: "Paste this branch's Google 'write a review' URL — shown on /review/<branch>" },
 ]
 
 export default async function SettingsPage() {

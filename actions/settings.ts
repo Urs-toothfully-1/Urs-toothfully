@@ -14,6 +14,7 @@ const ALLOWED_SETTING_KEYS = new Set([
   "consultation_fee",
   "queue_assignment_mode",
   "prescription_mode",
+  "google_review_url",
 ])
 
 export async function updateSettingAction(

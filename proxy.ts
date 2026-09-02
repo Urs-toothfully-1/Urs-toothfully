@@ -3,7 +3,7 @@ import { jwtVerify } from "jose"
 import { SESSION_COOKIE_NAME, type Role, type SessionPayload } from "@/lib/session"
 import { ROUTES } from "@/lib/constants"
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/google", "/intake", "/book", "/api/whatsapp/webhook", "/api/cron"]
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/google", "/intake", "/book", "/review", "/api/whatsapp/webhook", "/api/cron"]
 
 const ROLE_PATHS: Record<string, Role[]> = {
   "/appointments": ["ADMIN", "DOCTOR", "RECEPTIONIST"],
