@@ -10,7 +10,7 @@ import { LEDGER_CATEGORIES } from "@/lib/ledger-categories"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
-import { Wallet, TrendingUp, TrendingDown, Scale } from "lucide-react"
+import { Wallet, TrendingUp, TrendingDown, Scale, Download } from "lucide-react"
 
 export const metadata: Metadata = { title: "Cash Book" }
 export const dynamic = "force-dynamic"
@@ -70,7 +70,20 @@ export default async function AccountsPage({ searchParams }: Props) {
             Purchases, petty cash & expenses — with sales for the period
           </p>
         </div>
-        <AddLedgerEntryDialog branches={branches} defaultBranchId={branchId} />
+        <div className="flex items-center gap-2">
+          <a
+            href={`/api/accounts/export?${new URLSearchParams({
+              ...(branchId ? { branch: branchId } : {}),
+              ...(sp.category && category ? { category: sp.category } : {}),
+              from: fromStr, to: toStr,
+            }).toString()}`}
+            className="inline-flex items-center gap-1.5 h-9 rounded-md border px-3 text-sm font-medium hover:bg-slate-50"
+            style={{ borderColor: "#E0E3E5", color: BRAND_COLORS.bodyText }}
+          >
+            <Download className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} /> Export
+          </a>
+          <AddLedgerEntryDialog branches={branches} defaultBranchId={branchId} defaultCategory={sp.category && category ? sp.category : undefined} />
+        </div>
       </div>
 
       {/* Branch dropdown + category quick-switch tabs + date range */}

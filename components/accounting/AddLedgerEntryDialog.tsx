@@ -44,9 +44,12 @@ function resizeToDataUrl(file: File): Promise<string> {
 export function AddLedgerEntryDialog({
   branches,
   defaultBranchId,
+  defaultCategory,
 }: {
   branches: { id: string; name: string }[]
   defaultBranchId?: string
+  /** Pre-selects the category (e.g. the tab the admin is filtered on). */
+  defaultCategory?: string
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -58,7 +61,7 @@ export function AddLedgerEntryDialog({
   const [form, setForm] = useState({
     branchId: defaultBranchId ?? branches[0]?.id ?? "",
     entryDate: istTodayStr(),
-    category: "PURCHASE",
+    category: LEDGER_CATEGORIES.some((c) => c.value === defaultCategory) ? (defaultCategory as string) : "PURCHASE",
     amount: "",
     paymentMode: "CASH",
     payee: "",
