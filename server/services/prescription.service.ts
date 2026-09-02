@@ -41,6 +41,7 @@ export const updatePrescriptionSchema = z.object({
   advice: z.string().max(2000).default(""),
   followUpDate: z.string().optional(),
   clinicalNotes: z.array(clinicalNoteSchema).max(100).default([]),
+  documentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 })
 
 export type UpdatePrescriptionInput = z.infer<typeof updatePrescriptionSchema>
@@ -366,6 +367,12 @@ export const prescriptionService = {
     }
 
     const result = await prescriptionRepository.updateData(id, JSON.parse(JSON.stringify(updated)))
+
+    // Doctor-settable prescription date (noon UTC so the @db.Date column keeps the
+    // intended calendar day regardless of DB timezone — local-midnight shifts a day).
+    if (input.documentDate) {
+      await prescriptionRepository.setDocumentDate(id, new Date(`${input.documentDate}T12:00:00Z`))
+    }
 
     await createAuditLog({
       entityType: "PrescriptionRecord",

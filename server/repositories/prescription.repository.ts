@@ -52,4 +52,11 @@ export const prescriptionRepository = {
       data: { printedAt: new Date() },
     })
   },
+
+  async setDocumentDate(id: string, documentDate: Date) {
+    return prisma.prescriptionRecord.update({
+      where: { id },
+      data: { documentDate },
+    })
+  },
 }

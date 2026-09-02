@@ -9,10 +9,10 @@ import { Loader2, Save, CheckCircle2, Globe, Building2, Copy } from "lucide-reac
 import { toast } from "sonner"
 
 /** Shows the branch's public review-page URL (for QR codes / receipts) + copy. */
-function ReviewLinkRow({ branchId }: { branchId: string }) {
+function ReviewLinkRow({ slug }: { slug: string }) {
   const [origin, setOrigin] = useState("")
   useEffect(() => setOrigin(window.location.origin), [])
-  const path = `/review/${branchId}`
+  const path = `/review/${slug}`
   const url = origin ? `${origin}${path}` : path
   return (
     <div className="flex items-center justify-between gap-3 py-3 border-t" style={{ borderColor: BRAND_COLORS.lightBackground }}>
@@ -32,7 +32,7 @@ function ReviewLinkRow({ branchId }: { branchId: string }) {
 }
 
 interface SettingKey { key: string; label: string; type: string; hint?: string; options?: string[] }
-interface Branch { id: string; name: string }
+interface Branch { id: string; name: string; code?: string | null }
 
 interface Props {
   globalSettings: Record<string, string>
@@ -133,7 +133,7 @@ export function SettingsMgmt({ globalSettings, globalKeys, branchSettings, branc
                 branchId={branch.id}
               />
             ))}
-            <ReviewLinkRow branchId={branch.id} />
+            <ReviewLinkRow slug={branch.code ?? branch.id} />
           </CardContent>
         </Card>
       ))}

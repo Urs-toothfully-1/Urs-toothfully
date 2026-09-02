@@ -24,7 +24,7 @@ export default async function SettingsPage() {
 
   // Single query for all data — avoids 20 sequential round-trips to Supabase
   const [branches, allSettings] = await Promise.all([
-    prisma.branch.findMany({ where: { isActive: true }, select: { id: true, name: true } }),
+    prisma.branch.findMany({ where: { isActive: true }, select: { id: true, name: true, code: true } }),
     prisma.systemSetting.findMany(),
   ])
 

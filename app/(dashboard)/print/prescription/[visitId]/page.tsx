@@ -234,7 +234,7 @@ export default async function PrintPrescriptionPage({ params, searchParams }: Pr
               </span>
               <span className="ml-3">DATE:</span>
               <span style={{ borderBottom: `1px solid ${LINE}`, minWidth: 160, textAlign: "center" }} className="text-[17px]">
-                {formatDate(new Date())}
+                {formatDate(record?.documentDate ?? record?.createdAt ?? new Date())}
               </span>
             </div>
 

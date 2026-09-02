@@ -100,7 +100,7 @@ export default async function PrescriptionPage({ params }: Props) {
             </div>
           </div>
           <div className="flex flex-wrap gap-4 text-xs mt-2" style={{ color: BRAND_COLORS.borderDivider }}>
-            <span>Date: {formatDate(prescription.createdAt)}</span>
+            <span>Date: {formatDate(prescription.documentDate ?? prescription.createdAt)}</span>
             <span>Doctor: {data.doctorName ?? prescription.doctor.name}</span>
             {data.branchName && <span>Branch: {data.branchName}</span>}
             {data.estimateNo && <span>Estimate: {data.estimateNo}</span>}
@@ -179,7 +179,7 @@ export default async function PrescriptionPage({ params }: Props) {
           )}
 
           {/* Editable section */}
-          <PrescriptionEditor prescriptionId={prescription.id} data={data} canEdit={canEdit} initialTemplates={initialTemplates} treatments={treatmentOptions} />
+          <PrescriptionEditor prescriptionId={prescription.id} data={data} canEdit={canEdit} initialTemplates={initialTemplates} treatments={treatmentOptions} initialDocumentDate={prescription.documentDate ? new Date(prescription.documentDate).toISOString().slice(0, 10) : undefined} />
 
           {!canEdit && (
             <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>

@@ -12,6 +12,7 @@ import { MedicineTemplateSelector, type MedicineTemplate } from "./MedicineTempl
 import { LibraryPickerDialog, type LibraryItem } from "./LibraryPickerDialog"
 import { LibraryTypeahead } from "./LibraryTypeahead"
 import { createCustomDiagnosisAction } from "@/actions/diagnoses"
+import { istTodayStr } from "@/lib/ist"
 import { DOSAGE_OPTIONS, DURATION_OPTIONS, FREQUENCY_OPTIONS, INSTRUCTION_OPTIONS } from "@/lib/dosage-options"
 import { CUSTOM_TREATMENT } from "@/lib/estimate-item"
 import {
@@ -51,6 +52,8 @@ interface Props {
   previousData?: Pick<PrescriptionData, "chiefComplaint" | "onExamination" | "treatments" | "medicines" | "advice"> | null
   /** Create-on-save mode: no record exists yet; only created when the doctor saves real data. */
   newForVisitId?: string
+  /** Doctor-settable prescription date (YYYY-MM-DD). Defaults to today. */
+  initialDocumentDate?: string
 }
 
 export interface PrescriptionEditorHandle {
@@ -66,7 +69,7 @@ const cellCls = "h-9 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-wh
 const CUSTOM = CUSTOM_TREATMENT
 
 export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(function PrescriptionEditor(
-  { prescriptionId, data, canEdit, initialTemplates, treatments = [], submitLabel, onSaveSuccess, onTreatmentsChange, previousData, newForVisitId }: Props,
+  { prescriptionId, data, canEdit, initialTemplates, treatments = [], submitLabel, onSaveSuccess, onTreatmentsChange, previousData, newForVisitId, initialDocumentDate }: Props,
   ref
 ) {
   const router = useRouter()
@@ -90,6 +93,7 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
   const [picker, setPicker] = useState<null | "complaint" | "examination" | "diagnosis" | "medicine">(null)
   const [advice, setAdvice] = useState(data.advice ?? "")
   const [followUpDate, setFollowUpDate] = useState(data.followUpDate ?? "")
+  const [documentDate, setDocumentDate] = useState(initialDocumentDate ?? istTodayStr())
   const [clinicalNotes, setClinicalNotes] = useState<ClinicalNoteEntry[]>(data.clinicalNotes ?? [])
 
   const todayStr = new Date().toISOString().slice(0, 10)
@@ -297,6 +301,7 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
     advice,
     followUpDate: followUpDate || undefined,
     clinicalNotes: clinicalNotes.filter((n) => n.note.trim()),
+    documentDate: documentDate || undefined,
   })
 
   // Report treatment-plan changes up so a parent wizard can prefill the estimate.
@@ -386,6 +391,20 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); doSave() }} className="space-y-6">
+      {/* Prescription date — defaults to today; doctor can back/forward-date it. */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: BRAND_COLORS.primaryTeal }}>
+          Prescription Date
+        </label>
+        <Input
+          type="date"
+          value={documentDate}
+          onChange={(e) => setDocumentDate(e.target.value)}
+          className="h-9 w-44 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white"
+        />
+        <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>Saved when you save the prescription.</span>
+      </div>
+
       {hasPrevious && (
         <div className="flex items-center justify-between gap-3 flex-wrap rounded-lg border p-3"
           style={{ borderColor: BRAND_COLORS.lightBackground, backgroundColor: "#F7F9FB" }}>

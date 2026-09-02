@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Users, ClipboardList,
   BookOpen, BarChart2, Stethoscope, Settings, UserCog,
   CalendarClock, CalendarDays, Shield, FileSpreadsheet, UserPlus, MessageCircle, PenLine,
-  LibraryBig,
+  LibraryBig, Wallet,
 } from "lucide-react"
 
 interface NavItem {
@@ -36,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   // Operations (admin)
   { label: "Queue", href: "/reception", icon: ClipboardList, roles: ["ADMIN"], section: "Operations" },
   { label: "Accounting", href: "/admin/accounting", icon: BookOpen, roles: ["ADMIN"], section: "Operations" },
+  { label: "Cash Book", href: "/admin/accounts", icon: Wallet, roles: ["ADMIN"], section: "Operations" },
   { label: "Treatments", href: "/admin/treatments", icon: ClipboardList, roles: ["ADMIN"], section: "Operations" },
   { label: "Availability", href: "/admin/availability", icon: CalendarClock, roles: ["ADMIN"], section: "Operations" },
   { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle, roles: ["ADMIN"], matchPrefix: true, section: "Operations" },

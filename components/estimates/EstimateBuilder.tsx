@@ -12,6 +12,8 @@ import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
 import { ToothSelector } from "@/components/dental/ToothSelector"
 import { CUSTOM_TREATMENT } from "@/lib/estimate-item"
+import { istTodayStr } from "@/lib/ist"
+import { computeEstimateTotals, lineDiscountAmount } from "@/lib/estimate-totals"
 
 interface Treatment {
   id: string
@@ -30,6 +32,8 @@ interface EstimateItem {
   quantity: number
   unitRate: number
   amount: number
+  discountValue: number
+  discountIsPercent: boolean
   plannedSittings: number
   /** Quoted as an option, shown to the patient but not charged. */
   isAlternative: boolean
@@ -43,6 +47,8 @@ interface InitialItem {
   toothNumber: string
   quantity: number
   unitRate: number
+  discountValue?: number
+  discountIsPercent?: boolean
   plannedSittings?: number
   isAlternative?: boolean
 }
@@ -61,6 +67,11 @@ interface Props {
   initialItems?: InitialItem[]
   initialNotes?: string
   initialDiscountPercent?: number
+  /** Global (estimate-wide) discount — value + whether it's a % or ₹. */
+  initialGlobalDiscountValue?: number
+  initialGlobalDiscountIsPercent?: boolean
+  /** Doctor-settable estimate date (YYYY-MM-DD). Defaults to today. */
+  initialDocumentDate?: string
   // Page mode: where to go after saving / cancelling (default: the estimate wizard)
   returnHref?: string
   // Wizard-embedded mode: save without redirect, then call onSaved
@@ -103,17 +114,22 @@ function newItem(): EstimateItem {
     quantity: 1,
     unitRate: 0,
     amount: 0,
+    discountValue: 0,
+    discountIsPercent: true,
     plannedSittings: 1,
     isAlternative: false,
   }
 }
 
-const inputCls = "h-8 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white px-2"
+// Hide the native number-input spinners — in the narrow Qty/Rate/Discount cells
+// the up/down arrows steal the width and clip the digits out of view.
+const inputCls = "h-8 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
 
 export function EstimateBuilder({
   patientId, visitId, branchId, patientName, visitNo, doctorName,
   treatments, allowDiscount,
   estimateId, initialItems, initialNotes, initialDiscountPercent,
+  initialGlobalDiscountValue, initialGlobalDiscountIsPercent, initialDocumentDate,
   returnHref, mode = "page", onSaved, submitLabel,
 }: Props) {
   const isEdit = !!estimateId
@@ -135,14 +151,18 @@ export function EstimateBuilder({
           treatmentId: i.treatmentId || (i.treatmentName.trim() ? CUSTOM_TREATMENT : ""),
           plannedSittings: i.plannedSittings ?? 1,
           isAlternative: i.isAlternative ?? false,
+          discountValue: i.discountValue ?? 0,
+          discountIsPercent: i.discountIsPercent ?? true,
           amount: i.quantity * i.unitRate,
           _key: makeRowKey(),
         }))
       : [newItem()]
   )
-  // Read-only here — owned by the Payment Plan step. Derived from the prop so a
-  // discount applied there shows up as soon as the page data refreshes.
-  const discountPercent = initialDiscountPercent ?? 0
+  // Global (estimate-wide) discount, entered here. Falls back to the legacy
+  // estimate-level percent for estimates created before per-line discounts.
+  const [globalDiscountValue, setGlobalDiscountValue] = useState(initialGlobalDiscountValue ?? initialDiscountPercent ?? 0)
+  const [globalDiscountIsPercent, setGlobalDiscountIsPercent] = useState(initialGlobalDiscountIsPercent ?? true)
+  const [documentDate, setDocumentDate] = useState(initialDocumentDate ?? istTodayStr())
   const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({})
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -153,8 +173,10 @@ export function EstimateBuilder({
     fd.set("branchId", branchId)
     if (estimateId) fd.set("estimateId", estimateId)
     fd.set("itemsJson", JSON.stringify(items))
-    fd.set("discountPercent", String(discountPercent))
+    fd.set("globalDiscountValue", String(globalDiscountValue))
+    fd.set("globalDiscountIsPercent", String(globalDiscountIsPercent))
     fd.set("notes", formRef.current?.querySelector<HTMLTextAreaElement>('textarea[name="notes"]')?.value ?? "")
+    fd.set("documentDate", documentDate)
     fd.set("stayInWizard", "true")
     return fd
   }
@@ -182,13 +204,17 @@ export function EstimateBuilder({
     return acc
   }, {})
 
-  // Computed totals. Alternatives are priced and printed but never charged, so
-  // the doctor can put three grades of a treatment in front of the patient and
-  // still quote one price.
-  const subtotal = items.filter((i) => !i.isAlternative).reduce((s, i) => s + i.amount, 0)
+  // Computed totals via the shared helper (per-line discounts, then global on
+  // top). Alternatives are priced and printed but never charged.
   const alternativesTotal = items.filter((i) => i.isAlternative).reduce((s, i) => s + i.amount, 0)
-  const discountAmount = allowDiscount ? (subtotal * discountPercent) / 100 : 0
-  const total = subtotal - discountAmount
+  const totals = computeEstimateTotals(
+    items.map((i) => ({ quantity: i.quantity, unitRate: i.unitRate, discountValue: allowDiscount ? i.discountValue : 0, discountIsPercent: i.discountIsPercent, isAlternative: i.isAlternative })),
+    allowDiscount ? globalDiscountValue : 0,
+    globalDiscountIsPercent
+  )
+  const subtotal = totals.subtotal
+  const discountAmount = totals.discountAmount
+  const total = totals.total
 
   function handleSelectTreatment(key: string, treatmentId: string) {
     const isCustom = treatmentId === CUSTOM_TREATMENT
@@ -284,25 +310,30 @@ export function EstimateBuilder({
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr style={{ backgroundColor: BRAND_COLORS.lightBackground }}>
-              <th className="text-left px-3 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+              <th className="text-left px-2 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
                 #
               </th>
-              <th className="text-left px-3 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+              <th className="text-left px-2 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
                 Treatment
               </th>
-              <th className="text-left px-3 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+              <th className="text-left px-2 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
                 Tooth #
               </th>
-              <th className="text-center px-3 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+              <th className="text-center px-2 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
                 Qty
               </th>
-              <th className="text-center px-3 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+              <th className="text-center px-2 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
                 Sittings
               </th>
-              <th className="text-right px-3 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+              <th className="text-right px-2 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
                 Rate (₹)
               </th>
-              <th className="text-right px-3 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+              {allowDiscount && (
+                <th className="text-center px-2 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+                  Discount
+                </th>
+              )}
+              <th className="text-right px-2 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
                 Amount
               </th>
               <th className="text-center px-2 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
@@ -320,14 +351,14 @@ export function EstimateBuilder({
               >
                 {/* Row number */}
                 <td
-                  className="px-3 py-2 text-xs font-medium"
+                  className="px-2 py-2 text-xs font-medium"
                   style={{ color: BRAND_COLORS.borderDivider }}
                 >
                   {idx + 1}
                 </td>
 
                 {/* Treatment selector + name */}
-                <td className="px-2 py-2 min-w-[260px]">
+                <td className="px-2 py-2 min-w-[180px]">
                   <select
                     className="w-full h-8 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE] mb-1"
                     value={item.treatmentId}
@@ -376,7 +407,7 @@ export function EstimateBuilder({
                       setQtyDraft((d) => { const { [item._key]: _, ...rest } = d; return rest })
                       handleChange(item._key, "quantity", n)
                     }}
-                    className={`${inputCls} text-center`}
+                    className={`${inputCls} text-center min-w-[52px]`}
                   />
                 </td>
 
@@ -387,7 +418,7 @@ export function EstimateBuilder({
                     min={1}
                     value={item.plannedSittings}
                     onChange={(e) => handleChange(item._key, "plannedSittings", Math.max(1, parseInt(e.target.value) || 1))}
-                    className={`${inputCls} text-center`}
+                    className={`${inputCls} text-center min-w-[52px]`}
                     title="Number of sittings planned for this treatment"
                   />
                 </td>
@@ -400,17 +431,56 @@ export function EstimateBuilder({
                     step={0.01}
                     value={item.unitRate}
                     onChange={(e) => handleChange(item._key, "unitRate", parseFloat(e.target.value) || 0)}
-                    className={`${inputCls} text-right`}
+                    className={`${inputCls} text-right min-w-[84px]`}
                   />
                 </td>
 
-                {/* Amount — an alternative is priced but not counted */}
-                <td
-                  className="px-3 py-2 text-right font-semibold w-28"
-                  style={{ color: item.isAlternative ? BRAND_COLORS.borderDivider : BRAND_COLORS.bodyText }}
-                >
-                  {formatCurrency(item.amount)}
-                </td>
+                {/* Per-line discount (% or ₹) */}
+                {allowDiscount && (
+                  <td className="px-2 py-2 w-28">
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={item.discountValue || ""}
+                        placeholder="0"
+                        onChange={(e) => handleChange(item._key, "discountValue", parseFloat(e.target.value) || 0)}
+                        className={`${inputCls} text-right w-20`}
+                        title="Discount for this treatment"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleChange(item._key, "discountIsPercent", !item.discountIsPercent)}
+                        className="h-8 w-7 rounded border text-xs font-bold shrink-0 hover:bg-slate-50"
+                        style={{ borderColor: "#E0E3E5", color: BRAND_COLORS.primaryTeal }}
+                        title="Switch between % and ₹"
+                      >
+                        {item.discountIsPercent ? "%" : "₹"}
+                      </button>
+                    </div>
+                  </td>
+                )}
+
+                {/* Amount — net of the line discount; an alternative is priced but not counted */}
+                {(() => {
+                  const lineDisc = allowDiscount
+                    ? lineDiscountAmount({ quantity: item.quantity, unitRate: item.unitRate, discountValue: item.discountValue, discountIsPercent: item.discountIsPercent })
+                    : 0
+                  return (
+                    <td
+                      className="px-2 py-2 text-right font-semibold w-24"
+                      style={{ color: item.isAlternative ? BRAND_COLORS.borderDivider : BRAND_COLORS.bodyText }}
+                    >
+                      {lineDisc > 0 && (
+                        <span className="block text-[11px] line-through font-normal" style={{ color: BRAND_COLORS.borderDivider }}>
+                          {formatCurrency(item.amount)}
+                        </span>
+                      )}
+                      {formatCurrency(item.amount - lineDisc)}
+                    </td>
+                  )
+                })()}
 
                 {/* Charge / option toggle */}
                 <td className="px-2 py-2">
@@ -460,18 +530,33 @@ export function EstimateBuilder({
 
       {/* Bottom section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Notes */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium" style={{ color: BRAND_COLORS.bodyText }}>
-            Notes
-          </label>
-          <Textarea
-            name="notes"
-            placeholder="Optional notes for this estimate"
-            defaultValue={initialNotes ?? ""}
-            className="border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-[#F2F4F6] resize-none"
-            rows={4}
-          />
+        {/* Notes + date */}
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium" style={{ color: BRAND_COLORS.bodyText }}>
+              Estimate Date
+            </label>
+            <Input
+              type="date"
+              name="documentDate"
+              value={documentDate}
+              onChange={(e) => setDocumentDate(e.target.value)}
+              className="h-9 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-[#F2F4F6] w-44"
+            />
+            <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>Defaults to today — set a past or future date if needed.</p>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium" style={{ color: BRAND_COLORS.bodyText }}>
+              Notes
+            </label>
+            <Textarea
+              name="notes"
+              placeholder="Optional notes for this estimate"
+              defaultValue={initialNotes ?? ""}
+              className="border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-[#F2F4F6] resize-none"
+              rows={3}
+            />
+          </div>
         </div>
 
         {/* Totals */}
@@ -496,18 +581,47 @@ export function EstimateBuilder({
           <div className="hidden">
           </div>
 
-          {/* The discount is set in the Payment Plan step now. It is still shown
-              here, read-only, so the total makes sense — and still submitted, so
-              editing the treatment rows later cannot silently wipe it. */}
-          {allowDiscount && discountPercent > 0 && (
-            <div className="flex items-center justify-between text-sm">
-              <span style={{ color: BRAND_COLORS.borderDivider }}>
-                Discount ({discountPercent}%) · set in Payment Plan
-              </span>
-              <span className="text-red-500">-{formatCurrency(discountAmount)}</span>
-            </div>
+          {allowDiscount && (
+            <>
+              {totals.lineDiscountTotal > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span style={{ color: BRAND_COLORS.borderDivider }}>Line discounts</span>
+                  <span className="text-red-500">-{formatCurrency(totals.lineDiscountTotal)}</span>
+                </div>
+              )}
+              {/* Global (estimate-wide) discount — % or ₹, applied on top of line discounts */}
+              <div className="flex items-center justify-between text-sm gap-2">
+                <span style={{ color: BRAND_COLORS.borderDivider }}>Global discount</span>
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number" min={0} step={0.01} value={globalDiscountValue || ""} placeholder="0"
+                    onChange={(e) => setGlobalDiscountValue(parseFloat(e.target.value) || 0)}
+                    className={`${inputCls} text-right w-20`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setGlobalDiscountIsPercent((v) => !v)}
+                    className="h-8 w-7 rounded border text-xs font-bold hover:bg-slate-50"
+                    style={{ borderColor: "#E0E3E5", color: BRAND_COLORS.primaryTeal }}
+                    title="Switch between % and ₹"
+                  >
+                    {globalDiscountIsPercent ? "%" : "₹"}
+                  </button>
+                  <span className="text-red-500 w-24 text-right">-{formatCurrency(totals.globalDiscount)}</span>
+                </div>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex items-center justify-between text-xs">
+                  <span style={{ color: BRAND_COLORS.borderDivider }}>Effective discount</span>
+                  <span style={{ color: BRAND_COLORS.borderDivider }}>
+                    {totals.discountPercent}% · {formatCurrency(discountAmount)}
+                  </span>
+                </div>
+              )}
+            </>
           )}
-          <input type="hidden" name="discountPercent" value={discountPercent} />
+          <input type="hidden" name="globalDiscountValue" value={globalDiscountValue} />
+          <input type="hidden" name="globalDiscountIsPercent" value={String(globalDiscountIsPercent)} />
 
           <div
             className="flex justify-between text-base font-bold pt-2 border-t"

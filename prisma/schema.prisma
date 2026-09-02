@@ -154,6 +154,7 @@ enum AppointmentRequestStatus {
 
 model Branch {
   id        String   @id @default(uuid())
+  code      String?  @unique @db.VarChar(20) // short public identifier (1, 2, 3…) used in the /review URL
   name      String   @db.VarChar(100)
   address   String
   phone     String   @db.VarChar(50)
@@ -176,6 +177,7 @@ model Branch {
   whatsappMessages      WhatsAppMessage[]
   appointments          Appointment[]
   appointmentRequests   AppointmentRequest[]
+  ledgerEntries         LedgerEntry[]
   diagnoses             Diagnosis[]
   diagnosisUsages       DiagnosisUsage[]
   medicines             Medicine[]
@@ -217,6 +219,8 @@ model User {
   issuedReceipts        Receipt[]
   auditLogs             AuditLog[]
   deletedEntries        AccountingEntry[]      @relation("EntryDeletedBy")
+  ledgerEntries         LedgerEntry[]          @relation("LedgerCreatedBy")
+  deletedLedgerEntries  LedgerEntry[]          @relation("LedgerDeletedBy")
   exportBatches         ExportBatch[]
   settings              SystemSetting[]
   treatmentMaster       TreatmentMaster[]
@@ -459,6 +463,7 @@ model PrescriptionRecord {
   prescriptionData Json?
   printedAt        DateTime?
   createdAt        DateTime              @default(now())
+  documentDate     DateTime?             @db.Date // doctor-settable date shown on the prescription; falls back to createdAt
 
   diagnoses         PrescriptionDiagnosis[]
   generatedDocument GeneratedDocument?
@@ -525,11 +530,14 @@ model Estimate {
   subtotal        Decimal        @db.Decimal(10, 2) @default(0)
   total           Decimal        @db.Decimal(10, 2) @default(0)
   advanceRequired Decimal        @db.Decimal(10, 2) @default(0)
-  discountPercent Decimal?       @db.Decimal(5, 2)
-  discountAmount  Decimal?       @db.Decimal(10, 2)
+  discountPercent Decimal?       @db.Decimal(5, 2) // EFFECTIVE overall discount % (line + global), for display/print/reports
+  discountAmount  Decimal?       @db.Decimal(10, 2) // EFFECTIVE overall discount ₹ (subtotal − total)
+  globalDiscountValue     Decimal  @default(0) @db.Decimal(10, 2) // estimate-wide discount applied on top of per-line: a % or ₹
+  globalDiscountIsPercent Boolean  @default(true)
   notes           String?
   status          EstimateStatus @default(ACTIVE)
   createdAt       DateTime       @default(now())
+  documentDate    DateTime?      @db.Date // doctor-settable date shown on the estimate/printout; falls back to createdAt
   updatedAt       DateTime       @updatedAt
   isDeleted       Boolean        @default(false)
   deletedAt       DateTime?
@@ -570,7 +578,9 @@ model EstimateItem {
   toothNumber       String?         @db.VarChar(120) // one or more FDI numbers, comma-separated
   quantity          Int             @default(1)
   unitRate          Decimal         @db.Decimal(10, 2)
-  amount            Decimal         @db.Decimal(10, 2)
+  amount            Decimal         @db.Decimal(10, 2) // gross = quantity × unitRate (per-line discount is applied on top)
+  discountValue     Decimal         @default(0) @db.Decimal(10, 2) // per-line discount: a % or a ₹ amount per discountIsPercent
+  discountIsPercent Boolean         @default(true)
   plannedSittings   Int             @default(1)
   completedSittings Int             @default(0)
   sortOrder         Int             @default(0)
@@ -665,6 +675,53 @@ model AccountingEntry {
   @@index([branchId, entryDate, status])
   @@index([exportBatchId])
   @@index([paymentType, entryDate])
+}
+
+// Cash-book entries NOT tied to a patient payment — expenses (purchase, petty
+// cash, salary, rent…) and any non-patient income. Kept separate from
+// AccountingEntry so the patient-payment → Tally pipeline is untouched.
+enum LedgerDirection {
+  IN
+  OUT
+}
+
+enum LedgerCategory {
+  PURCHASE
+  PETTY_CASH
+  SALARY
+  RENT
+  UTILITIES
+  EQUIPMENT
+  LAB
+  MAINTENANCE
+  MARKETING
+  OTHER
+}
+
+model LedgerEntry {
+  id             String          @id @default(uuid())
+  branchId       String
+  branch         Branch          @relation(fields: [branchId], references: [id])
+  entryDate      DateTime        @db.Date
+  direction      LedgerDirection @default(OUT)
+  category       LedgerCategory
+  amount         Decimal         @db.Decimal(10, 2)
+  paymentMode    PaymentMode     @default(CASH)
+  payee          String?         @db.VarChar(200)
+  notes          String?
+  attachmentData String?         @db.Text // base64 data URL of the bill / invoice photo
+  createdById    String
+  createdBy      User            @relation("LedgerCreatedBy", fields: [createdById], references: [id])
+  isDeleted      Boolean         @default(false)
+  deletedById    String?
+  deletedBy      User?           @relation("LedgerDeletedBy", fields: [deletedById], references: [id])
+  deletedAt      DateTime?
+  deletionReason String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([branchId, entryDate])
+  @@index([category, entryDate])
 }
 
 model GeneratedDocument {

@@ -40,7 +40,7 @@ export default async function EditEstimatePage({ params, searchParams }: Props) 
   const allowDiscount = (allowDisc ?? "true") === "true"
 
   return (
-    <div className="max-w-4xl mx-auto space-y-5">
+    <div className="max-w-6xl mx-auto space-y-5">
       {/* Back + Breadcrumb */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <nav className="flex items-center gap-1.5 text-sm" style={{ color: BRAND_COLORS.borderDivider }}>
@@ -95,10 +95,15 @@ export default async function EditEstimatePage({ params, searchParams }: Props) 
               toothNumber: i.toothNumber ?? "",
               quantity: i.quantity,
               unitRate: Number(i.unitRate),
+              discountValue: i.discountValue ? Number(i.discountValue) : 0,
+              discountIsPercent: i.discountIsPercent ?? true,
               plannedSittings: i.plannedSittings ?? 1,
             }))}
             initialNotes={estimate.notes ?? ""}
             initialDiscountPercent={estimate.discountPercent ? Number(estimate.discountPercent) : 0}
+            initialGlobalDiscountValue={estimate.globalDiscountValue ? Number(estimate.globalDiscountValue) : 0}
+            initialGlobalDiscountIsPercent={estimate.globalDiscountIsPercent ?? true}
+            initialDocumentDate={estimate.documentDate ? new Date(estimate.documentDate).toISOString().slice(0, 10) : undefined}
             returnHref={returnHref}
           />
         </div>

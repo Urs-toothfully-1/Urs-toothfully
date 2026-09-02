@@ -161,7 +161,8 @@ async function main() {
       patientId: patient.id,
       branchId: OUTRAM,
       visitId: visit1.id,
-      discountPercent: 10,
+      globalDiscountValue: 10,
+      globalDiscountIsPercent: true,
       notes: "Phase 1 of treatment",
       items: [
         { treatmentId: rct.id, treatmentName: rct.name, category: rct.category, toothNumber: "46", quantity: 1, unitRate: 9000, plannedSittings: 3, sortOrder: 0 },

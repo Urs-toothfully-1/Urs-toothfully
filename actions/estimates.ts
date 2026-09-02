@@ -9,6 +9,7 @@ import { settingsRepository } from "@/server/repositories/settings.repository"
 import { treatmentIdOrNull } from "@/lib/estimate-item"
 import { numericSetting } from "@/lib/settings-value"
 import { createAuditLog } from "@/lib/audit"
+import { computeEstimateTotals } from "@/lib/estimate-totals"
 import { Decimal } from "@prisma/client/runtime/library"
 import type { ItemStatus } from "@prisma/client"
 
@@ -29,8 +30,10 @@ export async function createEstimateAction(
   const branchId = formData.get("branchId")?.toString() ?? session.branchId
   const visitId = formData.get("visitId")?.toString()
   const itemsJson = formData.get("itemsJson")?.toString()
-  const discountPercent = formData.get("discountPercent")?.toString()
+  const globalDiscountValue = parseFloat(formData.get("globalDiscountValue")?.toString() ?? "0") || 0
+  const globalDiscountIsPercent = formData.get("globalDiscountIsPercent")?.toString() !== "false"
   const notes = formData.get("notes")?.toString()
+  const documentDate = formData.get("documentDate")?.toString()
   const stayInWizard = formData.get("stayInWizard")?.toString() === "true"
 
   if (!patientId || !visitId || !itemsJson) {
@@ -44,6 +47,8 @@ export async function createEstimateAction(
     toothNumber?: string
     quantity?: string | number
     unitRate?: string | number
+    discountValue?: string | number
+    discountIsPercent?: boolean
     plannedSittings?: string | number
     /** Quoted as an option, not charged — excluded from the total. */
     isAlternative?: boolean
@@ -70,8 +75,10 @@ export async function createEstimateAction(
         patientId,
         branchId,
         visitId,
-        discountPercent: discountPercent ? parseFloat(discountPercent) : undefined,
+        globalDiscountValue,
+        globalDiscountIsPercent,
         notes: notes || undefined,
+        documentDate: documentDate && /^\d{4}-\d{2}-\d{2}$/.test(documentDate) ? documentDate : undefined,
         items: items.map((item, idx) => ({
           treatmentId: treatmentIdOrNull(item.treatmentId),
           treatmentName: (item.treatmentName ?? "").trim(),
@@ -79,6 +86,8 @@ export async function createEstimateAction(
           toothNumber: item.toothNumber || undefined,
           quantity: parseInt(String(item.quantity), 10),
           unitRate: parseFloat(String(item.unitRate)),
+          discountValue: item.discountValue ? Math.max(0, parseFloat(String(item.discountValue))) || 0 : 0,
+          discountIsPercent: item.discountIsPercent !== false,
           plannedSittings: item.plannedSittings ? Math.max(1, parseInt(String(item.plannedSittings), 10)) : 1,
           isAlternative: item.isAlternative === true,
           sortOrder: idx,
@@ -111,8 +120,10 @@ export async function updateEstimateAction(
   const patientId = formData.get("patientId")?.toString()
   const branchId = formData.get("branchId")?.toString() ?? session.branchId
   const itemsJson = formData.get("itemsJson")?.toString()
-  const discountPercent = formData.get("discountPercent")?.toString()
+  const globalDiscountValue = parseFloat(formData.get("globalDiscountValue")?.toString() ?? "0") || 0
+  const globalDiscountIsPercent = formData.get("globalDiscountIsPercent")?.toString() !== "false"
   const notes = formData.get("notes")?.toString()
+  const documentDate = formData.get("documentDate")?.toString()
   const stayInWizard = formData.get("stayInWizard")?.toString() === "true"
   const rawReturn = formData.get("returnHref")?.toString()
   // Only internal absolute paths — never off-site / protocol-relative.
@@ -124,6 +135,7 @@ export async function updateEstimateAction(
     id?: string
     treatmentId?: string; treatmentName?: string; category?: string
     toothNumber?: string; quantity?: string | number; unitRate?: string | number
+    discountValue?: string | number; discountIsPercent?: boolean
     plannedSittings?: string | number
     /** Quoted as an option, not charged — excluded from the total. */
     isAlternative?: boolean
@@ -138,6 +150,7 @@ export async function updateEstimateAction(
     const mappedItems = items.map((item, idx) => {
       const qty = parseInt(String(item.quantity), 10)
       const rate = parseFloat(String(item.unitRate))
+      const dv = item.discountValue ? Math.max(0, parseFloat(String(item.discountValue))) || 0 : 0
       return {
         id: item.id && !item.id.startsWith("new-") ? item.id : undefined,
         treatmentId: treatmentIdOrNull(item.treatmentId),
@@ -147,34 +160,40 @@ export async function updateEstimateAction(
         quantity: qty,
         unitRate: new Decimal(rate),
         amount: new Decimal(qty * rate),
+        discountValue: new Decimal(dv),
+        discountIsPercent: item.discountIsPercent !== false,
         plannedSittings: item.plannedSittings ? Math.max(1, parseInt(String(item.plannedSittings), 10)) : 1,
         isAlternative: item.isAlternative === true,
         sortOrder: idx,
       }
     })
 
-    // Alternatives are shown to the patient but never charged: three grades of
-    // root canal on the sheet, one of them in the total.
-    const subtotal = mappedItems
-      .filter((i) => !i.isAlternative)
-      .reduce((s, i) => s + i.amount.toNumber(), 0)
-    const disc = discountPercent ? parseFloat(discountPercent) : 0
-    const discountAmount = disc > 0 ? (subtotal * disc) / 100 : 0
-    const total = subtotal - discountAmount
+    // All discount math (per-line, then global on top) lives in one shared helper.
+    const totals = computeEstimateTotals(
+      mappedItems.map((i) => ({
+        quantity: i.quantity, unitRate: i.unitRate.toNumber(),
+        discountValue: i.discountValue.toNumber(), discountIsPercent: i.discountIsPercent,
+        isAlternative: i.isAlternative,
+      })),
+      globalDiscountValue, globalDiscountIsPercent
+    )
 
     const advancePct = await settingsRepository.get("advance_percent", branchId)
-    const advanceRequired = total * (numericSetting("advance_percent", advancePct) / 100)
-    if (!Number.isFinite(total) || !Number.isFinite(advanceRequired)) {
+    const advanceRequired = totals.total * (numericSetting("advance_percent", advancePct) / 100)
+    if (!Number.isFinite(totals.total) || !Number.isFinite(advanceRequired)) {
       return { error: "The estimate totals could not be calculated. Check the branch settings." }
     }
 
     await estimateRepository.update(estimateId, {
-      subtotal: new Decimal(subtotal),
-      total: new Decimal(total),
+      subtotal: new Decimal(totals.subtotal),
+      total: new Decimal(totals.total),
       advanceRequired: new Decimal(advanceRequired),
-      discountPercent: disc > 0 ? new Decimal(disc) : null,
-      discountAmount: discountAmount > 0 ? new Decimal(discountAmount) : null,
+      discountPercent: totals.discountPercent > 0 ? new Decimal(totals.discountPercent) : null,
+      discountAmount: totals.discountAmount > 0 ? new Decimal(totals.discountAmount) : null,
+      globalDiscountValue: new Decimal(globalDiscountValue),
+      globalDiscountIsPercent,
       notes: notes || null,
+      documentDate: documentDate && /^\d{4}-\d{2}-\d{2}$/.test(documentDate) ? new Date(`${documentDate}T12:00:00Z`) : undefined,
       items: mappedItems,
     })
 
@@ -216,11 +235,20 @@ export async function updateEstimateDiscountAction(
       return { error: "Discounts are turned off for this branch." }
     }
 
-    const subtotal = (estimate.items as { amount: unknown; isAlternative?: boolean }[])
-      .filter((i) => !i.isAlternative)
-      .reduce((s, i) => s + Number(i.amount), 0)
-    const discountAmount = (subtotal * discountPercent) / 100
-    const total = subtotal - discountAmount
+    // `discountPercent` here is the GLOBAL discount from the payment-plan box; it
+    // applies on top of each line's own discount, via the shared helper — so per-line
+    // discounts set in the estimate builder are preserved, never overwritten.
+    const totals = computeEstimateTotals(
+      (estimate.items as { quantity: number; unitRate: unknown; discountValue: unknown; discountIsPercent: boolean; isAlternative?: boolean }[]).map((i) => ({
+        quantity: i.quantity, unitRate: Number(i.unitRate),
+        discountValue: Number(i.discountValue), discountIsPercent: i.discountIsPercent,
+        isAlternative: i.isAlternative,
+      })),
+      discountPercent, true
+    )
+    const subtotal = totals.subtotal
+    const total = totals.total
+    const discountAmount = totals.discountAmount
 
     const advancePct = await settingsRepository.get("advance_percent", estimate.branchId)
     const advanceRequired = total * (numericSetting("advance_percent", advancePct) / 100)
@@ -232,8 +260,10 @@ export async function updateEstimateDiscountAction(
       subtotal: new Decimal(subtotal),
       total: new Decimal(total),
       advanceRequired: new Decimal(advanceRequired),
-      discountPercent: discountPercent > 0 ? new Decimal(discountPercent) : null,
+      discountPercent: totals.discountPercent > 0 ? new Decimal(totals.discountPercent) : null,
       discountAmount: discountAmount > 0 ? new Decimal(discountAmount) : null,
+      globalDiscountValue: new Decimal(discountPercent),
+      globalDiscountIsPercent: true,
     })
 
     await createAuditLog({

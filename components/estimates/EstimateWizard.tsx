@@ -163,17 +163,18 @@ export function EstimateWizard({
     })
   }
 
-  // Estimate exists → save agreement and complete the consultation. The
-  // consultation fee is already paid, so the queue entry is marked COMPLETED
-  // (no reception "Collect"/"Cancel"). Treatment payment is collected later from
-  // the patient's Payments tab, following the agreed schedule.
-  function completeWithEstimate() {
+  // Estimate exists → complete the consultation. A payment agreement is saved
+  // ONLY when the doctor explicitly asked for one (the Step-3 "Save & Complete"
+  // button passes savePlan=true). The Step-2 "Finish (no payment plan)" button
+  // passes false, so no plan is ever created behind the doctor's back.
+  // The consultation fee is already paid, so the queue entry is marked COMPLETED.
+  function completeWithEstimate(savePlan: boolean) {
     startFinishing(async () => {
-      agreementRef.current?.save()
+      if (savePlan) agreementRef.current?.save()
       if (!queueId) { router.push("/doctor"); return }
       const result = await updateQueueStatusAction(queueId, "COMPLETED")
       if (result.success) {
-        toast.success("Consultation completed")
+        toast.success(savePlan ? "Consultation completed" : "Consultation completed (no payment plan)")
         router.push("/doctor")
       } else {
         toast.error(result.error ?? "Failed to complete consultation")
@@ -182,7 +183,7 @@ export function EstimateWizard({
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-5">
+    <div className="max-w-6xl mx-auto space-y-5">
       {/* Header — back, patient, book follow-up, and the step pills in one card */}
       <div className="bg-white rounded-xl border border-[#E0E3E5] p-3 space-y-3">
         <div className="flex items-center justify-between gap-3 px-1">
@@ -384,7 +385,7 @@ export function EstimateWizard({
                 </Button>
               ) : (
                 <>
-                  <Button type="button" onClick={completeWithEstimate} disabled={isFinishing} className="gap-2 text-white"
+                  <Button type="button" onClick={() => completeWithEstimate(false)} disabled={isFinishing} className="gap-2 text-white"
                     style={{ backgroundColor: isFinishing ? BRAND_COLORS.borderDivider : BRAND_COLORS.secondaryGreen }}>
                     {isFinishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                     Finish (no payment plan)
@@ -399,7 +400,7 @@ export function EstimateWizard({
           {step === 3 && hasEstimate && (
             <Button
               type="button"
-              onClick={completeWithEstimate}
+              onClick={() => completeWithEstimate(true)}
               disabled={isFinishing}
               className="gap-2 text-white px-6"
               style={{ backgroundColor: isFinishing ? BRAND_COLORS.borderDivider : BRAND_COLORS.secondaryGreen }}

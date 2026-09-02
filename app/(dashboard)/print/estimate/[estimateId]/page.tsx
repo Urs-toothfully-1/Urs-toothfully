@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
+import { lineDiscountAmount } from "@/lib/estimate-totals"
 import { paymentAgreementService } from "@/server/services/payment-agreement.service"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
@@ -32,6 +33,12 @@ export default async function PrintEstimatePage({ params }: Props) {
   const agreementStages = (agreement.stages ?? []) as PaymentStage[]
 
   const total = Number(estimate.total)
+  // Split the overall discount into the per-line part and the global part so the
+  // printed summary reconciles with the net amounts now shown on each line.
+  const lineDiscountTotal = (estimate.items as any[])
+    .filter((i) => !i.isAlternative)
+    .reduce((s, i) => s + lineDiscountAmount({ quantity: i.quantity, unitRate: Number(i.unitRate), discountValue: Number(i.discountValue || 0), discountIsPercent: i.discountIsPercent }), 0)
+  const globalDiscountAmt = Math.max(0, Number(estimate.discountAmount ?? 0) - lineDiscountTotal)
   const paid = estimate.payments.reduce((s: number, p: { amount: unknown }) => s + Number(p.amount), 0)
   const balance = Math.max(0, total - paid)
   const received = agreementStages.filter((s) => s.received).reduce((sum, s) => sum + s.amount, 0)
@@ -107,7 +114,7 @@ export default async function PrintEstimatePage({ params }: Props) {
             </p>
             <p>
               <span style={{ color: BRAND_COLORS.borderDivider }}>Date: </span>
-              <strong style={{ color: BRAND_COLORS.bodyText }}>{formatDate(estimate.createdAt)}</strong>
+              <strong style={{ color: BRAND_COLORS.bodyText }}>{formatDate(estimate.documentDate ?? estimate.createdAt)}</strong>
             </p>
             <p>
               <span style={{ color: BRAND_COLORS.borderDivider }}>Doctor: </span>
@@ -141,7 +148,7 @@ export default async function PrintEstimatePage({ params }: Props) {
         <table className="w-full mb-5 text-sm" style={{ borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ backgroundColor: BRAND_COLORS.primaryTeal, color: "white" }}>
-              {["#", "Treatment", "Tooth", "Qty", "Unit Rate", "Amount"].map((h) => (
+              {["#", "Treatment", "Tooth", "Qty", "Unit Rate", "Discount", "Amount"].map((h) => (
                 <th
                   key={h}
                   className="py-2 px-3 text-left font-semibold"
@@ -153,7 +160,15 @@ export default async function PrintEstimatePage({ params }: Props) {
             </tr>
           </thead>
           <tbody>
-            {(estimate.items as any[]).map((item, idx) => (
+            {(estimate.items as any[]).map((item, idx) => {
+              const gross = Number(item.amount)
+              const dv = Number(item.discountValue || 0)
+              const lineDisc = lineDiscountAmount({
+                quantity: item.quantity, unitRate: Number(item.unitRate),
+                discountValue: dv, discountIsPercent: item.discountIsPercent,
+              })
+              const net = gross - lineDisc
+              return (
               <tr
                 key={item.id}
                 style={{
@@ -195,16 +210,30 @@ export default async function PrintEstimatePage({ params }: Props) {
                 <td className="py-2 px-3 text-right" style={{ color: BRAND_COLORS.bodyText }}>
                   {formatCurrency(Number(item.unitRate))}
                 </td>
-                {/* An option is greyed and tagged OPTIONAL on the treatment row;
-                    it is priced here but not counted in the total. */}
+                {/* Per-line discount — shown as % or ₹ exactly as entered */}
+                <td className="py-2 px-3 text-right" style={{ color: lineDisc > 0 ? "#DC2626" : BRAND_COLORS.borderDivider }}>
+                  {dv > 0 ? (item.discountIsPercent ? `${dv}%` : formatCurrency(dv)) : "—"}
+                </td>
+                {/* Amount — net of the line discount; the original is struck through.
+                    An option is greyed and tagged OPTIONAL; priced but not counted. */}
                 <td
                   className="py-2 px-3 text-right font-semibold"
                   style={{ color: item.isAlternative ? BRAND_COLORS.borderDivider : BRAND_COLORS.bodyText }}
                 >
-                  {formatCurrency(Number(item.amount))}
+                  {lineDisc > 0 ? (
+                    <>
+                      <span style={{ textDecoration: "line-through", color: BRAND_COLORS.borderDivider, fontWeight: 400, fontSize: "11px", marginRight: 6 }}>
+                        {formatCurrency(gross)}
+                      </span>
+                      {formatCurrency(net)}
+                    </>
+                  ) : (
+                    formatCurrency(gross)
+                  )}
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
 
@@ -215,12 +244,20 @@ export default async function PrintEstimatePage({ params }: Props) {
               <span style={{ color: BRAND_COLORS.borderDivider }}>Subtotal</span>
               <span style={{ color: BRAND_COLORS.bodyText }}>{formatCurrency(Number(estimate.subtotal))}</span>
             </div>
-            {estimate.discountAmount && Number(estimate.discountAmount) > 0 && (
+            {lineDiscountTotal > 0 && (
+              <div className="flex justify-between">
+                <span style={{ color: BRAND_COLORS.borderDivider }}>Treatment discounts</span>
+                <span style={{ color: "#DC2626" }}>-{formatCurrency(lineDiscountTotal)}</span>
+              </div>
+            )}
+            {globalDiscountAmt > 0 && (
               <div className="flex justify-between">
                 <span style={{ color: BRAND_COLORS.borderDivider }}>
-                  Discount ({Number(estimate.discountPercent)}%)
+                  {estimate.globalDiscountIsPercent && Number(estimate.globalDiscountValue) > 0
+                    ? `Overall discount (${Number(estimate.globalDiscountValue)}%)`
+                    : "Overall discount"}
                 </span>
-                <span style={{ color: "#DC2626" }}>-{formatCurrency(Number(estimate.discountAmount))}</span>
+                <span style={{ color: "#DC2626" }}>-{formatCurrency(globalDiscountAmt)}</span>
               </div>
             )}
             <div

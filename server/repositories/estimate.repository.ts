@@ -77,7 +77,10 @@ export const estimateRepository = {
     advanceRequired: Prisma.Decimal
     discountPercent?: Prisma.Decimal
     discountAmount?: Prisma.Decimal
+    globalDiscountValue?: Prisma.Decimal
+    globalDiscountIsPercent?: boolean
     notes?: string
+    documentDate?: Date
     items: Array<{
       treatmentId?: string
       treatmentName: string
@@ -86,6 +89,8 @@ export const estimateRepository = {
       quantity: number
       unitRate: Prisma.Decimal
       amount: Prisma.Decimal
+      discountValue?: Prisma.Decimal
+      discountIsPercent?: boolean
       plannedSittings?: number
       /** Quoted as an option; printed but excluded from the total. */
       isAlternative?: boolean
@@ -133,7 +138,10 @@ export const estimateRepository = {
       advanceRequired: Prisma.Decimal
       discountPercent?: Prisma.Decimal | null
       discountAmount?: Prisma.Decimal | null
+      globalDiscountValue?: Prisma.Decimal
+      globalDiscountIsPercent?: boolean
       notes?: string | null
+      documentDate?: Date
       items: Array<{
         id?: string
         treatmentId?: string
@@ -143,6 +151,8 @@ export const estimateRepository = {
         quantity: number
         unitRate: Prisma.Decimal
         amount: Prisma.Decimal
+        discountValue?: Prisma.Decimal
+        discountIsPercent?: boolean
         plannedSittings?: number
         /** Quoted as an option; printed but excluded from the total. */
         isAlternative?: boolean
@@ -179,6 +189,8 @@ export const estimateRepository = {
           quantity: it.quantity,
           unitRate: it.unitRate,
           amount: it.amount,
+          discountValue: it.discountValue ?? new Prisma.Decimal(0),
+          discountIsPercent: it.discountIsPercent ?? true,
           plannedSittings: it.plannedSittings ?? 1,
           isAlternative: it.isAlternative ?? false,
           sortOrder: idx,
@@ -212,6 +224,8 @@ export const estimateRepository = {
       advanceRequired: Prisma.Decimal
       discountPercent: Prisma.Decimal | null
       discountAmount: Prisma.Decimal | null
+      globalDiscountValue?: Prisma.Decimal
+      globalDiscountIsPercent?: boolean
     }
   ) {
     return prisma.estimate.update({ where: { id }, data })

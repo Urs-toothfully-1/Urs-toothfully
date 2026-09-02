@@ -16,8 +16,10 @@ type Props = { params: Promise<{ branchId: string }> }
 export default async function ReviewPage({ params }: Props) {
   const { branchId } = await params
 
+  // Accept the short code (/review/1) or the raw id (/review/<uuid>) for anything
+  // already printed before codes existed.
   const branch = await prisma.branch.findFirst({
-    where: { id: branchId, isActive: true },
+    where: { isActive: true, OR: [{ code: branchId }, { id: branchId }] },
     select: { id: true, name: true, phone: true },
   })
   if (!branch) notFound()
