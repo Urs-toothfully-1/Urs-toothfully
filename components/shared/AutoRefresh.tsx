@@ -6,27 +6,37 @@ import { useRouter } from "next/navigation"
 /**
  * Keeps queue dashboards live without hammering the server.
  *
- * Instead of blindly re-fetching the whole server-component tree on a short
- * timer (the old behaviour: router.refresh() every 25s — one full Function
- * invocation + every dashboard query, per open tab, all day), this polls a
- * tiny change-token endpoint (/api/queue/pulse) and only calls router.refresh()
- * when the queue has actually changed.
+ * Polls a tiny change-token endpoint (/api/queue/pulse) and only calls
+ * router.refresh() when the branch's queue/appointments actually change — so a
+ * quiet period costs one cheap query per tick, and the expensive full re-render
+ * fires only on a real change.
  *
- * Result: the common case is one cheap query per interval, and expensive
- * re-renders happen only when a patient's status/assignment/membership changes.
- * Polling pauses while the tab is hidden and re-checks the moment it's visible.
+ * Three guards keep Vercel Edge Requests + Active CPU low:
+ *  - Pauses entirely while the tab is hidden.
+ *  - Stops polling after `idleMs` of no interaction — a tablet left switched on
+ *    overnight makes ZERO requests — and resumes with an immediate refresh the
+ *    moment someone touches it again.
+ *  - An in-flight guard so a slow response can't stack up.
  *
- * 60s default is plenty fresh for a clinic queue; lower it only if you truly
- * need faster liveness (it scales invocation count linearly).
+ * 90s is plenty fresh for a clinic queue; both timings are props if a screen
+ * genuinely needs faster liveness.
  */
-export function AutoRefresh({ intervalMs = 60000 }: { intervalMs?: number }) {
+export function AutoRefresh({
+  intervalMs = 90_000,
+  idleMs = 20 * 60_000,
+}: {
+  intervalMs?: number
+  idleMs?: number
+}) {
   const router = useRouter()
   const lastToken = useRef<string | null>(null)
   const inFlight = useRef(false)
+  const lastActivity = useRef(Date.now())
 
   useEffect(() => {
     const check = async () => {
       if (document.visibilityState !== "visible") return
+      if (Date.now() - lastActivity.current > idleMs) return // idle — stop polling
       if (inFlight.current) return
       inFlight.current = true
       try {
@@ -49,16 +59,28 @@ export function AutoRefresh({ intervalMs = 60000 }: { intervalMs?: number }) {
     }
 
     const id = setInterval(check, intervalMs)
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") check()
+
+    // Any interaction refreshes the activity clock; coming back from idle does
+    // an immediate check so the user never lands on stale data.
+    const onActivity = () => {
+      const wasIdle = Date.now() - lastActivity.current > idleMs
+      lastActivity.current = Date.now()
+      if (wasIdle) check()
     }
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") onActivity()
+    }
+
+    const activityEvents = ["pointerdown", "keydown", "scroll", "touchstart", "mousemove"] as const
+    for (const e of activityEvents) window.addEventListener(e, onActivity, { passive: true })
     document.addEventListener("visibilitychange", onVisibility)
 
     return () => {
       clearInterval(id)
+      for (const e of activityEvents) window.removeEventListener(e, onActivity)
       document.removeEventListener("visibilitychange", onVisibility)
     }
-  }, [router, intervalMs])
+  }, [router, intervalMs, idleMs])
 
   return null
 }
