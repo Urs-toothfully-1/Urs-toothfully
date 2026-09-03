@@ -70,6 +70,9 @@ interface Props {
   /** Global (estimate-wide) discount — value + whether it's a % or ₹. */
   initialGlobalDiscountValue?: number
   initialGlobalDiscountIsPercent?: boolean
+  /** Referral reward credit the patient can spend (create), and how much this estimate already applied (edit). */
+  availableReferralCredit?: number
+  initialReferralCreditApplied?: number
   /** Doctor-settable estimate date (YYYY-MM-DD). Defaults to today. */
   initialDocumentDate?: string
   // Page mode: where to go after saving / cancelling (default: the estimate wizard)
@@ -129,7 +132,8 @@ export function EstimateBuilder({
   patientId, visitId, branchId, patientName, visitNo, doctorName,
   treatments, allowDiscount,
   estimateId, initialItems, initialNotes, initialDiscountPercent,
-  initialGlobalDiscountValue, initialGlobalDiscountIsPercent, initialDocumentDate,
+  initialGlobalDiscountValue, initialGlobalDiscountIsPercent,
+  availableReferralCredit = 0, initialReferralCreditApplied = 0, initialDocumentDate,
   returnHref, mode = "page", onSaved, submitLabel,
 }: Props) {
   const isEdit = !!estimateId
@@ -162,6 +166,8 @@ export function EstimateBuilder({
   // estimate-level percent for estimates created before per-line discounts.
   const [globalDiscountValue, setGlobalDiscountValue] = useState(initialGlobalDiscountValue ?? initialDiscountPercent ?? 0)
   const [globalDiscountIsPercent, setGlobalDiscountIsPercent] = useState(initialGlobalDiscountIsPercent ?? true)
+  // Referral credit: fixed on an existing estimate; opt-in on a new one.
+  const [applyReferralCredit, setApplyReferralCredit] = useState(initialReferralCreditApplied > 0)
   const [documentDate, setDocumentDate] = useState(initialDocumentDate ?? istTodayStr())
   const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({})
   const formRef = useRef<HTMLFormElement>(null)
@@ -175,6 +181,7 @@ export function EstimateBuilder({
     fd.set("itemsJson", JSON.stringify(items))
     fd.set("globalDiscountValue", String(globalDiscountValue))
     fd.set("globalDiscountIsPercent", String(globalDiscountIsPercent))
+    fd.set("applyReferralCredit", String(applyReferralCredit))
     fd.set("notes", formRef.current?.querySelector<HTMLTextAreaElement>('textarea[name="notes"]')?.value ?? "")
     fd.set("documentDate", documentDate)
     fd.set("stayInWizard", "true")
@@ -207,10 +214,13 @@ export function EstimateBuilder({
   // Computed totals via the shared helper (per-line discounts, then global on
   // top). Alternatives are priced and printed but never charged.
   const alternativesTotal = items.filter((i) => i.isAlternative).reduce((s, i) => s + i.amount, 0)
+  // On an existing estimate the credit is fixed; on a new one it's applied when opted in.
+  const creditForPreview = isEdit ? initialReferralCreditApplied : (applyReferralCredit ? availableReferralCredit : 0)
   const totals = computeEstimateTotals(
     items.map((i) => ({ quantity: i.quantity, unitRate: i.unitRate, discountValue: allowDiscount ? i.discountValue : 0, discountIsPercent: i.discountIsPercent, isAlternative: i.isAlternative })),
     allowDiscount ? globalDiscountValue : 0,
-    globalDiscountIsPercent
+    globalDiscountIsPercent,
+    creditForPreview
   )
   const subtotal = totals.subtotal
   const discountAmount = totals.discountAmount
@@ -622,6 +632,24 @@ export function EstimateBuilder({
           )}
           <input type="hidden" name="globalDiscountValue" value={globalDiscountValue} />
           <input type="hidden" name="globalDiscountIsPercent" value={String(globalDiscountIsPercent)} />
+          <input type="hidden" name="applyReferralCredit" value={String(applyReferralCredit)} />
+
+          {/* Referral reward credit */}
+          {!isEdit && availableReferralCredit > 0 && (
+            <label className="flex items-center justify-between gap-2 text-sm cursor-pointer">
+              <span className="flex items-center gap-1.5" style={{ color: BRAND_COLORS.bodyText }}>
+                <input type="checkbox" checked={applyReferralCredit} onChange={(e) => setApplyReferralCredit(e.target.checked)} className="h-3.5 w-3.5 accent-[#0077BE]" />
+                Apply referral credit ({formatCurrency(availableReferralCredit)} available)
+              </span>
+              {totals.referralCredit > 0 && <span className="text-red-500">-{formatCurrency(totals.referralCredit)}</span>}
+            </label>
+          )}
+          {isEdit && initialReferralCreditApplied > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span style={{ color: BRAND_COLORS.borderDivider }}>Referral credit</span>
+              <span className="text-red-500">-{formatCurrency(totals.referralCredit)}</span>
+            </div>
+          )}
 
           <div
             className="flex justify-between text-base font-bold pt-2 border-t"

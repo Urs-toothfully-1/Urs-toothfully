@@ -13,6 +13,7 @@ import { checkIntakeRateLimit, recordIntakeAttempt, getClientIp } from "@/lib/ra
 import { validateMobile } from "@/lib/whatsapp/phone"
 import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
 import { WHATSAPP_TRIGGERS } from "@/lib/whatsapp/templates"
+import { referralService } from "@/server/services/referral.service"
 
 export type IntakeFormState = {
   error?: string
@@ -158,6 +159,21 @@ export async function submitIntakeAction(
         createdById: creator.id,
       },
     })
+
+    // Link a referral if a valid ?ref= code was carried through. Non-blocking;
+    // invalid codes are ignored.
+    const referralCode = formData.get("referralCode")?.toString() ?? ""
+    if (referralCode.trim()) {
+      try {
+        const referrer = await referralService.findReferrerByCode(referralCode)
+        if (referrer && referrer.id !== patient.id) {
+          await referralService.createReferral({
+            referrerId: referrer.id, refereeId: patient.id,
+            branchId: patient.registrationBranchId, createdById: creator.id,
+          })
+        }
+      } catch { /* referral capture must never block intake */ }
+    }
 
     // WhatsApp consent stored with date/time/IP/version. When the patient opts
     // in we also send a registration confirmation (skips the consultation gate,

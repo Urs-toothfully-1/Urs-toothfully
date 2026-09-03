@@ -19,6 +19,11 @@ export const estimateRepository = {
     })
   },
 
+  async getReferralCreditApplied(id: string): Promise<number> {
+    const e = await prisma.estimate.findUnique({ where: { id }, select: { referralCreditApplied: true } })
+    return Number(e?.referralCreditApplied ?? 0)
+  },
+
   async findByVisit(visitId: string) {
     return prisma.estimate.findFirst({
       where: { visitId, isDeleted: false },
@@ -79,6 +84,7 @@ export const estimateRepository = {
     discountAmount?: Prisma.Decimal
     globalDiscountValue?: Prisma.Decimal
     globalDiscountIsPercent?: boolean
+    referralCreditApplied?: Prisma.Decimal
     notes?: string
     documentDate?: Date
     items: Array<{
@@ -140,6 +146,7 @@ export const estimateRepository = {
       discountAmount?: Prisma.Decimal | null
       globalDiscountValue?: Prisma.Decimal
       globalDiscountIsPercent?: boolean
+      referralCreditApplied?: Prisma.Decimal
       notes?: string | null
       documentDate?: Date
       items: Array<{

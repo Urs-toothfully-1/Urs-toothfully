@@ -18,6 +18,9 @@ interface Branch {
 
 interface Props {
   branches: Branch[]
+  /** Pre-filled referral code from the ?ref= link, and the referrer's first name if valid. */
+  defaultReferralCode?: string
+  referrerFirstName?: string
 }
 
 function SubmitBtn() {
@@ -42,7 +45,7 @@ const inputCls = "w-full h-11 rounded-lg border border-[#E0E3E5] bg-[#F2F4F6] px
 const labelCls = "block text-sm font-medium mb-1.5"
 
 
-export function IntakeForm({ branches }: Props) {
+export function IntakeForm({ branches, defaultReferralCode = "", referrerFirstName }: Props) {
   const [state, formAction] = useActionState(submitIntakeAction, {} as IntakeFormState)
   const [leadSource, setLeadSource] = useState("")
   const fe = state.fieldErrors ?? {}
@@ -50,6 +53,25 @@ export function IntakeForm({ branches }: Props) {
 
   return (
     <form action={formAction} className="space-y-6">
+      {referrerFirstName && (
+        <div className="rounded-lg border p-3 text-sm" style={{ backgroundColor: "#EAF7EF", borderColor: "#A7E3C0", color: "#065F46" }}>
+          🎁 Referred by <strong>{referrerFirstName}</strong> — you&apos;ll get a welcome offer.
+        </div>
+      )}
+      <div>
+        <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+          Referral Code <span className="font-normal" style={{ color: BRAND_COLORS.borderDivider }}>(optional)</span>
+        </label>
+        <input
+          name="referralCode"
+          type="text"
+          defaultValue={defaultReferralCode}
+          maxLength={12}
+          placeholder="e.g. 7K2F9Q"
+          className={`${inputCls} uppercase`}
+          style={{ textTransform: "uppercase" }}
+        />
+      </div>
       {state.error && (
         <div className="flex gap-2 p-4 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm">
           <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />

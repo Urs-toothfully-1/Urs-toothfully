@@ -34,6 +34,8 @@ export const createEstimateSchema = z.object({
   // Estimate-wide discount applied on top of the per-line discounts: a % or ₹.
   globalDiscountValue: z.number().min(0).optional(),
   globalDiscountIsPercent: z.boolean().optional(),
+  // Apply the patient's available referral reward credit to this estimate.
+  applyReferralCredit: z.boolean().optional(),
   notes: z.string().max(1000).optional(),
   documentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   items: z.array(estimateItemSchema).min(1),
@@ -74,17 +76,30 @@ export const estimateService = {
     }))
 
     // All discount math (per-line, then global on top) lives in one shared helper.
-    const totals = computeEstimateTotals(
-      input.items.map((i) => ({
-        quantity: i.quantity,
-        unitRate: i.unitRate,
-        discountValue: i.discountValue ?? 0,
-        discountIsPercent: i.discountIsPercent ?? true,
-        isAlternative: i.isAlternative,
-      })),
-      input.globalDiscountValue ?? 0,
-      input.globalDiscountIsPercent ?? true
-    )
+    const discountLines = input.items.map((i) => ({
+      quantity: i.quantity,
+      unitRate: i.unitRate,
+      discountValue: i.discountValue ?? 0,
+      discountIsPercent: i.discountIsPercent ?? true,
+      isAlternative: i.isAlternative,
+    }))
+    const globalValue = input.globalDiscountValue ?? 0
+    const globalIsPercent = input.globalDiscountIsPercent ?? true
+
+    // Plan referral-credit redemption against the after-discount total, then fold
+    // the credit into the final totals. Credits are marked redeemed after the
+    // estimate exists (below), so they can point at it.
+    let creditApplied = 0
+    let creditIds: string[] = []
+    if (input.applyReferralCredit) {
+      const cap = computeEstimateTotals(discountLines, globalValue, globalIsPercent, 0).total
+      const { referralService } = await import("@/server/services/referral.service")
+      const plan = await referralService.planCreditRedemption(input.patientId, cap)
+      creditApplied = plan.applied
+      creditIds = plan.ids
+    }
+
+    const totals = computeEstimateTotals(discountLines, globalValue, globalIsPercent, creditApplied)
 
     const advancePercent = await settingsRepository.get("advance_percent", input.branchId)
     const advanceRequired = totals.total * (numericSetting("advance_percent", advancePercent) / 100)
@@ -108,6 +123,7 @@ export const estimateService = {
       discountAmount: totals.discountAmount > 0 ? new Decimal(totals.discountAmount) : undefined,
       globalDiscountValue: new Decimal(input.globalDiscountValue ?? 0),
       globalDiscountIsPercent: input.globalDiscountIsPercent ?? true,
+      referralCreditApplied: new Decimal(creditApplied),
       notes: input.notes,
       // Noon UTC so the @db.Date column keeps the intended calendar day regardless
       // of the DB/session timezone (local-midnight shifts a day back — a known trap here).
@@ -123,6 +139,12 @@ export const estimateService = {
       newValues: { estimateNo, total: totals.total, itemCount: items.length },
       branchId: input.branchId,
     })
+
+    // Now that the estimate exists, mark the redeemed referral credits against it.
+    if (creditIds.length > 0) {
+      const { referralService } = await import("@/server/services/referral.service")
+      await referralService.markRedeemed(creditIds, estimate.id)
+    }
 
     // Auto-create the visit prescription from this estimate (patient details,
     // dental-history alerts, treatments without prices). Non-fatal: the doctor

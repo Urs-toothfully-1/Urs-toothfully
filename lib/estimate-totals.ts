@@ -35,15 +35,17 @@ export interface EstimateTotals {
   lineDiscountTotal: number // Σ per-line discounts
   afterLine: number // subtotal − line discounts
   globalDiscount: number // ₹ taken by the global discount
+  referralCredit: number // ₹ taken by an applied referral reward credit
   total: number // final payable
-  discountAmount: number // effective overall ₹ off (subtotal − total)
-  discountPercent: number // effective overall % off
+  discountAmount: number // discount-only ₹ off (line + global), excludes the referral credit
+  discountPercent: number // discount-only % off
 }
 
 export function computeEstimateTotals(
   items: DiscountLine[],
   globalDiscountValue: number,
-  globalDiscountIsPercent: boolean
+  globalDiscountIsPercent: boolean,
+  referralCreditAvailable = 0
 ): EstimateTotals {
   const charged = items.filter((i) => !i.isAlternative)
   const subtotal = round2(charged.reduce((s, i) => s + lineGross(i), 0))
@@ -56,11 +58,15 @@ export function computeEstimateTotals(
     const raw = globalDiscountIsPercent ? (afterLine * g) / 100 : g
     globalDiscount = round2(Math.min(Math.max(0, raw), afterLine))
   }
+  const afterGlobal = round2(afterLine - globalDiscount)
 
-  const total = round2(afterLine - globalDiscount)
-  const discountAmount = round2(subtotal - total)
+  // Referral credit — a flat ₹ deduction on top, clamped to what's left.
+  const referralCredit = round2(Math.min(Math.max(0, Number(referralCreditAvailable) || 0), afterGlobal))
+
+  const total = round2(afterGlobal - referralCredit)
+  const discountAmount = round2(subtotal - afterGlobal) // line + global only (not the credit)
   const discountPercent = subtotal > 0 ? round2((discountAmount / subtotal) * 100) : 0
-  return { subtotal, lineDiscountTotal, afterLine, globalDiscount, total, discountAmount, discountPercent }
+  return { subtotal, lineDiscountTotal, afterLine, globalDiscount, referralCredit, total, discountAmount, discountPercent }
 }
 
 // ── self-check (run: npx tsx lib/estimate-totals.ts) ─────────────────────────
@@ -91,5 +97,19 @@ if (typeof module !== "undefined" && typeof require !== "undefined" && require.m
     99999, false
   )
   assert(t2.subtotal === 2000 && t2.total === 0, `clamp/alt: sub ${t2.subtotal} total ${t2.total}`)
+  // Referral credit (₹1,000) applied on top of the first example.
+  const t3 = computeEstimateTotals(
+    [
+      { quantity: 1, unitRate: 10000, discountValue: 10, discountIsPercent: true },
+      { quantity: 1, unitRate: 5000, discountValue: 500, discountIsPercent: false },
+    ],
+    5, true, 1000
+  )
+  assert(t3.referralCredit === 1000, `credit ${t3.referralCredit}`)
+  assert(t3.total === 11825, `total w/ credit ${t3.total}`) // 12825 − 1000
+  assert(t3.discountAmount === 2175, `discount excludes credit ${t3.discountAmount}`)
+  // Credit clamped to what remains.
+  const t4 = computeEstimateTotals([{ quantity: 1, unitRate: 1000, discountValue: 0, discountIsPercent: true }], 0, true, 99999)
+  assert(t4.referralCredit === 1000 && t4.total === 0, `credit clamp: ${t4.referralCredit}/${t4.total}`)
   console.log("estimate-totals self-check passed")
 }

@@ -8,6 +8,7 @@ import { settingsRepository } from "@/server/repositories/settings.repository"
 import { prescriptionService } from "@/server/services/prescription.service"
 import { paymentAgreementService } from "@/server/services/payment-agreement.service"
 import { queueRepository } from "@/server/repositories/queue.repository"
+import { referralService } from "@/server/services/referral.service"
 import { EstimateWizard } from "@/components/estimates/EstimateWizard"
 import type { PrescriptionData } from "@/lib/prescription-types"
 import type { PaymentStage } from "@/lib/payment-agreement"
@@ -44,7 +45,7 @@ export default async function ConsultationPage({ params }: Props) {
   const existing = await estimateRepository.findByVisit(visitId)
   const estimate = existing ? await estimateRepository.findById(existing.id) : null
 
-  const [paymentAgreement, queueEntry, examTemplates, treatments, allowDisc] = await Promise.all([
+  const [paymentAgreement, queueEntry, examTemplates, treatments, allowDisc, referralCredit] = await Promise.all([
     estimate ? paymentAgreementService.getOrSuggest(estimate.id) : Promise.resolve(null),
     queueRepository.findByVisit(visitId),
     prisma.examinationTemplate
@@ -52,6 +53,7 @@ export default async function ConsultationPage({ params }: Props) {
       .catch(() => []),
     treatmentRepository.findAll(),
     settingsRepository.get("allow_discount", visit.branchId),
+    referralService.availableCreditForPatient(visit.patientId),
   ])
 
   const prescriptionData = (prescription?.prescriptionData ?? {}) as unknown as PrescriptionData
@@ -116,6 +118,7 @@ export default async function ConsultationPage({ params }: Props) {
       paymentAgreementTermsAccepted={paymentAgreement?.termsAccepted ?? false}
       paymentAgreementSignedAt={paymentAgreement?.patientSignedAt?.toISOString() ?? null}
       queueId={queueEntry?.id ?? null}
+      availableReferralCredit={referralCredit}
     />
   )
 }

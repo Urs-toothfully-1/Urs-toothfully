@@ -57,6 +57,8 @@ interface Props {
   paymentAgreementTermsAccepted: boolean
   paymentAgreementSignedAt: string | null
   queueId: string | null
+  /** Referral reward credit the patient can spend on this estimate. */
+  availableReferralCredit?: number
 }
 
 const STEPS = [
@@ -73,6 +75,7 @@ export function EstimateWizard({
   treatments, allowDiscount,
   paymentAgreementStages, paymentAgreementRep, paymentAgreementTermsAccepted, paymentAgreementSignedAt,
   queueId,
+  availableReferralCredit = 0,
 }: Props) {
   const [step, setStep] = useState(1)
   const [isFinishing, startFinishing] = useTransition()
@@ -306,6 +309,7 @@ export function EstimateWizard({
               initialItems={estimateInitialItems}
               initialNotes={estimateNotes ?? ""}
               initialDiscountPercent={estimateDiscount ?? 0}
+              availableReferralCredit={availableReferralCredit}
               submitLabel={hasEstimate ? "Save Estimate" : "Create Estimate"}
               onSaved={(id) => { setCurrentEstimateId(id); toast.success("Estimate saved — finish now, or add a payment plan"); router.refresh() }}
             />

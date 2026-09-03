@@ -157,6 +157,14 @@ export const paymentService = {
       // queue/logs surface delivery problems — payment flow is unaffected
     }
 
+    // Qualify a referral on the referee's first payment. Non-fatal.
+    try {
+      const { referralService } = await import("@/server/services/referral.service")
+      await referralService.qualifyForPayment({ id: payment.id, patientId: payment.patientId })
+    } catch {
+      // referral qualification must never block a payment
+    }
+
     return { payment, receipt }
   },
 

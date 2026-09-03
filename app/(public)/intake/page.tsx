@@ -3,6 +3,7 @@ import { IntakeForm } from "@/components/intake/IntakeForm"
 import { Logo } from "@/components/shared/Logo"
 import { APP_NAME, APP_TAGLINE, BRAND_COLORS, CLINIC_HOURS } from "@/lib/constants"
 import { prisma } from "@/lib/prisma"
+import { referralService } from "@/server/services/referral.service"
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +12,16 @@ export const metadata: Metadata = {
   description: "Register as a new patient at Ur's Toothfully. Fill in your details before your visit.",
 }
 
-export default async function IntakePage() {
-  const branches = await prisma.branch.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true, address: true, phone: true },
-    orderBy: { name: "asc" },
-  })
+export default async function IntakePage({ searchParams }: { searchParams: Promise<{ ref?: string }> }) {
+  const { ref } = await searchParams
+  const [branches, referrer] = await Promise.all([
+    prisma.branch.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, address: true, phone: true },
+      orderBy: { name: "asc" },
+    }),
+    ref ? referralService.findReferrerByCode(ref) : Promise.resolve(null),
+  ])
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: BRAND_COLORS.lightBackground }}>
@@ -47,7 +52,11 @@ export default async function IntakePage() {
               Please fill in your details before your visit. This saves time at the front desk.
               All information is confidential and secure.
             </p>
-            <IntakeForm branches={branches} />
+            <IntakeForm
+              branches={branches}
+              defaultReferralCode={ref ?? ""}
+              referrerFirstName={referrer ? referrer.fullName.split(" ")[0] : undefined}
+            />
           </div>
         </div>
 

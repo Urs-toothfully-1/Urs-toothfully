@@ -6,6 +6,7 @@ import { patientRepository } from "@/server/repositories/patient.repository"
 import { dentalHistoryRepository } from "@/server/repositories/dental-history.repository"
 import { HealthAlertBadges } from "@/components/patients/HealthAlertBadges"
 import { EditPatientDialog } from "@/components/patients/EditPatientDialog"
+import { ReferAndEarnButton } from "@/components/referrals/ReferAndEarnButton"
 import { ProfileTabs } from "@/components/patients/ProfileTabs"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatDate, formatCurrency } from "@/lib/utils"
@@ -143,7 +144,8 @@ export default async function PatientProfileLayout({ children, params }: Props) 
               </div>
               <HealthAlertBadges history={dentalHistory as any} />
               {(session.role === "ADMIN" || session.role === "RECEPTIONIST") && (
-                <div className="flex md:justify-end">
+                <div className="flex md:justify-end items-center gap-2">
+                  <ReferAndEarnButton patientId={patient.id} patientName={patient.fullName} />
                   <EditPatientDialog
                     patient={{
                       id: patient.id,

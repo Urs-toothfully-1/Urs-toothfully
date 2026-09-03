@@ -32,6 +32,7 @@ export async function createEstimateAction(
   const itemsJson = formData.get("itemsJson")?.toString()
   const globalDiscountValue = parseFloat(formData.get("globalDiscountValue")?.toString() ?? "0") || 0
   const globalDiscountIsPercent = formData.get("globalDiscountIsPercent")?.toString() !== "false"
+  const applyReferralCredit = formData.get("applyReferralCredit")?.toString() === "true"
   const notes = formData.get("notes")?.toString()
   const documentDate = formData.get("documentDate")?.toString()
   const stayInWizard = formData.get("stayInWizard")?.toString() === "true"
@@ -77,6 +78,7 @@ export async function createEstimateAction(
         visitId,
         globalDiscountValue,
         globalDiscountIsPercent,
+        applyReferralCredit,
         notes: notes || undefined,
         documentDate: documentDate && /^\d{4}-\d{2}-\d{2}$/.test(documentDate) ? documentDate : undefined,
         items: items.map((item, idx) => ({
@@ -168,14 +170,18 @@ export async function updateEstimateAction(
       }
     })
 
-    // All discount math (per-line, then global on top) lives in one shared helper.
+    // Preserve any referral credit already applied at creation — editing the rows
+    // must not change or re-redeem it.
+    const existingCredit = await estimateRepository.getReferralCreditApplied(estimateId)
+
+    // All discount math (per-line, then global, then credit) lives in one shared helper.
     const totals = computeEstimateTotals(
       mappedItems.map((i) => ({
         quantity: i.quantity, unitRate: i.unitRate.toNumber(),
         discountValue: i.discountValue.toNumber(), discountIsPercent: i.discountIsPercent,
         isAlternative: i.isAlternative,
       })),
-      globalDiscountValue, globalDiscountIsPercent
+      globalDiscountValue, globalDiscountIsPercent, existingCredit
     )
 
     const advancePct = await settingsRepository.get("advance_percent", branchId)
@@ -192,6 +198,7 @@ export async function updateEstimateAction(
       discountAmount: totals.discountAmount > 0 ? new Decimal(totals.discountAmount) : null,
       globalDiscountValue: new Decimal(globalDiscountValue),
       globalDiscountIsPercent,
+      referralCreditApplied: new Decimal(existingCredit),
       notes: notes || null,
       documentDate: documentDate && /^\d{4}-\d{2}-\d{2}$/.test(documentDate) ? new Date(`${documentDate}T12:00:00Z`) : undefined,
       items: mappedItems,
@@ -244,7 +251,8 @@ export async function updateEstimateDiscountAction(
         discountValue: Number(i.discountValue), discountIsPercent: i.discountIsPercent,
         isAlternative: i.isAlternative,
       })),
-      discountPercent, true
+      discountPercent, true,
+      Number((estimate as { referralCreditApplied?: unknown }).referralCreditApplied ?? 0)
     )
     const subtotal = totals.subtotal
     const total = totals.total

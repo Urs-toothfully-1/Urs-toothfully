@@ -178,6 +178,7 @@ model Branch {
   appointments          Appointment[]
   appointmentRequests   AppointmentRequest[]
   ledgerEntries         LedgerEntry[]
+  referrals             Referral[]
   diagnoses             Diagnosis[]
   diagnosisUsages       DiagnosisUsage[]
   medicines             Medicine[]
@@ -221,6 +222,8 @@ model User {
   deletedEntries        AccountingEntry[]      @relation("EntryDeletedBy")
   ledgerEntries         LedgerEntry[]          @relation("LedgerCreatedBy")
   deletedLedgerEntries  LedgerEntry[]          @relation("LedgerDeletedBy")
+  createdReferrals      Referral[]             @relation("ReferralCreatedBy")
+  grantedReferrals      Referral[]             @relation("ReferralGrantedBy")
   exportBatches         ExportBatch[]
   settings              SystemSetting[]
   treatmentMaster       TreatmentMaster[]
@@ -262,6 +265,7 @@ model DoctorAvailability {
 model Patient {
   id                   String    @id @default(uuid())
   patientId            String    @unique @db.VarChar(20)
+  referralCode         String?   @unique @db.VarChar(12) // short shareable code (lazy-generated on first share)
   registrationBranchId String
   registrationBranch   Branch    @relation("RegistrationBranch", fields: [registrationBranchId], references: [id])
   fullName             String    @db.VarChar(200)
@@ -298,6 +302,8 @@ model Patient {
   whatsappMessages   WhatsAppMessage[]
   whatsappConsent    WhatsAppConsent?
   appointments       Appointment[]
+  referralsMade      Referral[]           @relation("ReferralsMade")
+  referredBy         Referral?            @relation("ReferredBy")
 
   @@index([mobile])
   @@index([registrationBranchId, createdAt])
@@ -534,6 +540,7 @@ model Estimate {
   discountAmount  Decimal?       @db.Decimal(10, 2) // EFFECTIVE overall discount ₹ (subtotal − total)
   globalDiscountValue     Decimal  @default(0) @db.Decimal(10, 2) // estimate-wide discount applied on top of per-line: a % or ₹
   globalDiscountIsPercent Boolean  @default(true)
+  referralCreditApplied   Decimal  @default(0) @db.Decimal(10, 2) // referral reward credit consumed by this estimate
   notes           String?
   status          EstimateStatus @default(ACTIVE)
   createdAt       DateTime       @default(now())
@@ -722,6 +729,51 @@ model LedgerEntry {
 
   @@index([branchId, entryDate])
   @@index([category, entryDate])
+}
+
+// Patient-to-patient (word-of-mouth) referral. The referee registers linked to a
+// referrer; it QUALIFIES on the referee's first payment; an admin/doctor then
+// grants a reward (monetary → a Cash Book entry, or a discount credit).
+enum ReferralStatus {
+  PENDING
+  QUALIFIED
+  REWARDED
+  CANCELLED
+}
+
+enum ReferralRewardType {
+  MONETARY
+  DISCOUNT_CREDIT
+}
+
+model Referral {
+  id                  String              @id @default(uuid())
+  referrerId          String
+  referrer            Patient             @relation("ReferralsMade", fields: [referrerId], references: [id])
+  refereeId           String              @unique // a patient can only be referred once
+  referee             Patient             @relation("ReferredBy", fields: [refereeId], references: [id])
+  branchId            String
+  branch              Branch              @relation(fields: [branchId], references: [id])
+  status              ReferralStatus      @default(PENDING)
+  qualifyingPaymentId String? // the referee's first payment that qualified it
+  qualifiedAt         DateTime?
+  // Reward — granted manually by admin/doctor once QUALIFIED.
+  rewardType          ReferralRewardType?
+  rewardAmount        Decimal?            @db.Decimal(10, 2)
+  rewardNote          String?             @db.VarChar(300)
+  rewardLedgerEntryId String? // monetary reward → the Cash Book LedgerEntry it created
+  redeemedEstimateId  String? // discount credit → the estimate that consumed it
+  redeemedAt          DateTime?
+  grantedById         String?
+  grantedBy           User?               @relation("ReferralGrantedBy", fields: [grantedById], references: [id])
+  grantedAt           DateTime?
+  createdById         String
+  createdBy           User                @relation("ReferralCreatedBy", fields: [createdById], references: [id])
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@index([status, createdAt])
+  @@index([referrerId])
 }
 
 model GeneratedDocument {

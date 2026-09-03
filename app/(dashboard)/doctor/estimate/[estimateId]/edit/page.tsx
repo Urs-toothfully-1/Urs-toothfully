@@ -103,6 +103,7 @@ export default async function EditEstimatePage({ params, searchParams }: Props) 
             initialDiscountPercent={estimate.discountPercent ? Number(estimate.discountPercent) : 0}
             initialGlobalDiscountValue={estimate.globalDiscountValue ? Number(estimate.globalDiscountValue) : 0}
             initialGlobalDiscountIsPercent={estimate.globalDiscountIsPercent ?? true}
+            initialReferralCreditApplied={estimate.referralCreditApplied ? Number(estimate.referralCreditApplied) : 0}
             initialDocumentDate={estimate.documentDate ? new Date(estimate.documentDate).toISOString().slice(0, 10) : undefined}
             returnHref={returnHref}
           />

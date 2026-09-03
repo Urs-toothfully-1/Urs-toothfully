@@ -363,6 +363,26 @@ export function PatientRegistrationForm({ branches, defaultBranchId, isAdmin }: 
               </div>
             )}
 
+            {/* Referral code — links a reward-eligible referral to an existing patient */}
+            {leadSource === "Referral" && (
+              <div>
+                <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+                  Referral Code <span className="font-normal" style={{ color: BRAND_COLORS.borderDivider }}>(optional)</span>
+                </label>
+                <input
+                  name="referralCode"
+                  type="text"
+                  placeholder="e.g. 7K2F9Q"
+                  maxLength={12}
+                  className={`${inputCls} uppercase`}
+                  style={{ textTransform: "uppercase" }}
+                />
+                <p className="text-xs mt-1" style={{ color: BRAND_COLORS.borderDivider }}>
+                  The referrer&apos;s code — links them to a referral reward.
+                </p>
+              </div>
+            )}
+
             {/* Reason for Visit */}
             <div className="md:col-span-2">
               <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>

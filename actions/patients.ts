@@ -7,6 +7,7 @@ import { patientService, createPatientSchema } from "@/server/services/patient.s
 import { extractDentalHistoryData } from "@/lib/dental-history-form"
 import { validateMobile } from "@/lib/whatsapp/phone"
 import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
+import { referralService } from "@/server/services/referral.service"
 
 export type DuplicateInfo = {
   /** MOBILE = hard block (open existing); NAME_DOB = warning (receptionist decides) */
@@ -142,12 +143,26 @@ export async function registerPatientWithHistoryAction(
   }
 
   const whatsappConsent = formData.get("whatsappConsent") === "on"
+  const referralCode = formData.get("referralCode")?.toString() ?? ""
 
   try {
     const patient = await patientService.createWithHistory(parsed.data, history, session.userId)
     // Consent stored only — no message is sent until the consultation fee is paid.
     if (whatsappConsent) {
       await whatsappService.setConsent(patient.id, true).catch(() => null)
+    }
+    // Link the referral if a valid code was entered — invalid codes are ignored
+    // (the free-text "how did you hear" field still captures those). Non-blocking.
+    if (referralCode.trim()) {
+      try {
+        const referrer = await referralService.findReferrerByCode(referralCode)
+        if (referrer && referrer.id !== patient.id) {
+          await referralService.createReferral({
+            referrerId: referrer.id, refereeId: patient.id,
+            branchId: patient.registrationBranchId, createdById: session.userId,
+          })
+        }
+      } catch { /* referral capture must never block registration */ }
     }
     redirect(`/patients/${patient.id}`)
   } catch (err) {

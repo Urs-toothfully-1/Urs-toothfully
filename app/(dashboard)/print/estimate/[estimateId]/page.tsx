@@ -260,6 +260,12 @@ export default async function PrintEstimatePage({ params }: Props) {
                 <span style={{ color: "#DC2626" }}>-{formatCurrency(globalDiscountAmt)}</span>
               </div>
             )}
+            {Number(estimate.referralCreditApplied ?? 0) > 0 && (
+              <div className="flex justify-between">
+                <span style={{ color: BRAND_COLORS.borderDivider }}>Referral credit</span>
+                <span style={{ color: "#DC2626" }}>-{formatCurrency(Number(estimate.referralCreditApplied))}</span>
+              </div>
+            )}
             <div
               className="flex justify-between font-bold text-base pt-2 border-t"
               style={{ borderColor: BRAND_COLORS.primaryTeal, color: BRAND_COLORS.primaryTeal }}
