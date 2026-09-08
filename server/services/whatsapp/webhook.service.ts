@@ -72,8 +72,9 @@ export const webhookService = {
             const at = s.timestamp ? new Date(Number(s.timestamp) * 1000) : new Date()
 
             if (s.status === "sent") {
-              await whatsappMessageRepository.updateStatusByMetaId(s.id, "SENT", at)
-              handled++
+              // Redundant: queue.service already set SENT + sentAt from the send
+              // response. Skip the write to save a DB round-trip on every message.
+              continue
             } else if (s.status === "delivered") {
               await whatsappMessageRepository.updateStatusByMetaId(s.id, "DELIVERED", at)
               handled++

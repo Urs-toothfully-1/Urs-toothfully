@@ -75,7 +75,7 @@ export const paymentService = {
     return Math.max(0, estimateTotal - paid)
   },
 
-  async create(input: CreatePaymentInput, collectedById: string) {
+  async create(input: CreatePaymentInput, collectedById: string, opts?: { paymentDate?: Date }) {
     // Ledger guard, enforced here rather than in the caller: the reception form
     // checked the outstanding balance but POST /api/payments did not, so the API
     // happily booked ₹5,00,000 against an ₹8,000 estimate. Every write path goes
@@ -110,6 +110,7 @@ export const paymentService = {
       collectedById,
       receiptNo,
       issuedById: collectedById,
+      paymentDate: opts?.paymentDate,
     })
 
     await createAuditLog({

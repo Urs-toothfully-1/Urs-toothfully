@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PaymentModeSelect } from "@/components/payments/PaymentModeSelect"
+import { ReceiptDateField } from "@/components/payments/ReceiptDateField"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
 import {
@@ -322,6 +323,8 @@ export function AgreementAwarePaymentForm({ patientId, branchId, estimates }: Pr
       </div>
 
       <PaymentModeSelect required />
+
+      <ReceiptDateField />
 
       <div className="space-y-1.5">
         <Label className="text-sm font-medium" style={{ color: BRAND_COLORS.bodyText }}>

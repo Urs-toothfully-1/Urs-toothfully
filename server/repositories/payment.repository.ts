@@ -54,8 +54,11 @@ export const paymentRepository = {
     collectedById: string
     receiptNo: string
     issuedById: string
+    paymentDate?: Date
   }) {
-    const { receiptNo, issuedById, ...paymentData } = data
+    const { receiptNo, issuedById, paymentDate, ...rest } = data
+    // Only set paymentDate when back-dated; otherwise let the column default to now().
+    const paymentData = paymentDate ? { ...rest, paymentDate } : rest
 
     return prisma.$transaction(async (tx) => {
       const payment = await tx.payment.create({ data: paymentData })
@@ -75,7 +78,7 @@ export const paymentRepository = {
           paymentId: payment.id,
           branchId: data.branchId,
           patientId: data.patientId,
-          entryDate: new Date(),
+          entryDate: paymentDate ?? new Date(),
           amount: data.amount,
           paymentMode: data.mode,
           paymentType: data.paymentType,

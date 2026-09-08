@@ -129,7 +129,7 @@ export default async function PrintReceiptPage({ params }: Props) {
           </div>
           <div className="text-right">
             <span style={{ color: BRAND_COLORS.borderDivider }}>Date: </span>
-            <strong style={{ color: BRAND_COLORS.bodyText }}>{formatDate(receipt.issuedAt)}</strong>
+            <strong style={{ color: BRAND_COLORS.bodyText }}>{formatDate(payment.paymentDate)}</strong>
           </div>
           <div>
             <span style={{ color: BRAND_COLORS.borderDivider }}>Branch: </span>

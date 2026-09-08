@@ -6,6 +6,7 @@ import { renderTemplateBody } from "@/lib/whatsapp/templates"
 import { whatsappTemplateRepository } from "@/server/repositories/whatsapp-template.repository"
 import { prisma } from "@/lib/prisma"
 import { createAuditLog } from "@/lib/audit"
+import { after } from "next/server"
 
 /**
  * WhatsApp message queue. Messages are NEVER sent inline — they are enqueued
@@ -30,6 +31,22 @@ export interface EnqueueInput {
 let draining = false
 
 const RETRY_BACKOFF_MINUTES = [1, 5, 30, 120]
+
+/**
+ * Kick the queue drain without blocking the caller. On Vercel a plain
+ * fire-and-forget promise is killed once the response is sent, so the send
+ * would sit PENDING until the daily cron. `after()` (Next 16) tells the
+ * platform to keep the function alive until the drain finishes. Falls back to
+ * a bare drain if called outside a request scope (e.g. the cron already awaits
+ * processQueue directly, so this path is just belt-and-braces).
+ */
+function kickDrain() {
+  try {
+    after(() => whatsappQueueService.processQueue().catch(() => null))
+  } catch {
+    void whatsappQueueService.processQueue().catch(() => null)
+  }
+}
 
 export const whatsappQueueService = {
   /**
@@ -74,7 +91,7 @@ export const whatsappQueueService = {
     })
 
     // Kick the drain without blocking the caller
-    void whatsappQueueService.processQueue().catch(() => null)
+    kickDrain()
 
     return message
   },
@@ -160,7 +177,7 @@ export const whatsappQueueService = {
       changedById,
       newValues: { status: "PENDING", reason: "manual retry" },
     })
-    void whatsappQueueService.processQueue().catch(() => null)
+    kickDrain()
   },
 
   async retryAllFailed(changedById: string) {
@@ -173,7 +190,7 @@ export const whatsappQueueService = {
         changedById,
         newValues: { requeued: res.count },
       })
-      void whatsappQueueService.processQueue().catch(() => null)
+      kickDrain()
     }
     return res.count
   },

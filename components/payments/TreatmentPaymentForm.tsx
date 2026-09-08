@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PaymentModeSelect } from "@/components/payments/PaymentModeSelect"
+import { ReceiptDateField } from "@/components/payments/ReceiptDateField"
 import { AlertCircle, CheckCircle2, Loader2, Printer, Receipt } from "lucide-react"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
@@ -209,6 +210,8 @@ export function TreatmentPaymentForm({ patientId, branchId, estimates }: Props) 
       </div>
 
       <PaymentModeSelect required />
+
+      <ReceiptDateField />
 
       {/* Transaction Ref */}
       <div className="space-y-1.5">

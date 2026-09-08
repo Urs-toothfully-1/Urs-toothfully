@@ -18,4 +18,14 @@ export const whatsappWebhookRepository = {
       take: limit,
     })
   },
+
+  /** Deletes webhook logs older than `days` — keeps the table (and Supabase
+   *  storage) from growing unbounded, one row per status event per message. */
+  async pruneOlderThan(days = 30) {
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+    const { count } = await prisma.whatsAppWebhookLog.deleteMany({
+      where: { receivedAt: { lt: cutoff } },
+    })
+    return { deleted: count }
+  },
 }

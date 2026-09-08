@@ -6,6 +6,7 @@ import { paymentService } from "@/server/services/payment.service"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { paymentAgreementRepository } from "@/server/repositories/payment-agreement.repository"
 import { validatePaymentInput } from "@/lib/payment-guard"
+import { parseReceiptDate } from "@/lib/payment-date"
 import { suggestPaymentSchedule } from "@/lib/payment-agreement"
 import type { PaymentMode } from "@prisma/client"
 
@@ -56,7 +57,8 @@ export async function collectConsultationFeeAction(
         transactionRef,
         notes,
       },
-      session.userId
+      session.userId,
+      { paymentDate: parseReceiptDate(formData.get("paymentDate")?.toString()) }
     )
 
     revalidatePath(`/patients/${patientId}/payments`)
@@ -121,7 +123,8 @@ export async function collectTreatmentPaymentAction(
         transactionRef,
         notes,
       },
-      session.userId
+      session.userId,
+      { paymentDate: parseReceiptDate(formData.get("paymentDate")?.toString()) }
     )
 
     revalidatePath(`/patients/${patientId}/payments`)
@@ -175,7 +178,8 @@ export async function collectStagePaymentAction(
   try {
     const { receipt } = await paymentService.create(
       { paymentType, estimateId, patientId, branchId, amount, mode: mode as PaymentMode, transactionRef, notes },
-      session.userId
+      session.userId,
+      { paymentDate: parseReceiptDate(formData.get("paymentDate")?.toString()) }
     )
 
     // Mark the agreement stage as received

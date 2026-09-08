@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { requireRole } from "@/lib/auth"
 import { paymentService } from "@/server/services/payment.service"
+import { parseReceiptDate } from "@/lib/payment-date"
 import { PRODUCT_CATEGORIES } from "@/lib/template-options"
 
 const productItemSchema = z.object({
@@ -24,6 +25,7 @@ const productInvoiceSchema = z.object({
   mode: z.enum(["CASH", "UPI", "CARD", "BANK_TRANSFER"]),
   transactionRef: z.string().trim().max(100).optional(),
   notes: z.string().trim().max(300).optional(),
+  paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 })
 
 export type ProductInvoiceInput = z.infer<typeof productInvoiceSchema>
@@ -46,7 +48,7 @@ export async function createProductInvoiceAction(
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Please check the entries." }
   }
-  const { patientId, branchId, items, mode, transactionRef, notes } = parsed.data
+  const { patientId, branchId, items, mode, transactionRef, notes, paymentDate } = parsed.data
 
   // Branch is taken from the session, not the client — a posted branchId must
   // not let one branch book revenue against another.
@@ -77,7 +79,8 @@ export async function createProductInvoiceAction(
         transactionRef: transactionRef || undefined,
         notes: description,
       },
-      session.userId
+      session.userId,
+      { paymentDate: parseReceiptDate(paymentDate) }
     )
 
     revalidatePath(`/patients/${patientId}/payments`, "page")

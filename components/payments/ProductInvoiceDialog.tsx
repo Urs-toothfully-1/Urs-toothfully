@@ -41,6 +41,8 @@ export function ProductInvoiceDialog({ patientId, branchId, onClose }: Props) {
   const [mode, setMode] = useState<(typeof MODES)[number]["value"]>("CASH")
   const [transactionRef, setTransactionRef] = useState("")
   const [notes, setNotes] = useState("")
+  const today = new Intl.DateTimeFormat("en-CA").format(new Date())
+  const [paymentDate, setPaymentDate] = useState(today)
   const [saving, setSaving] = useState(false)
 
   const updateItem = (idx: number, patch: Partial<ProductItem>) =>
@@ -67,6 +69,7 @@ export function ProductInvoiceDialog({ patientId, branchId, onClose }: Props) {
         mode,
         transactionRef: transactionRef.trim() || undefined,
         notes: notes.trim() || undefined,
+        paymentDate,
       })
 
       if (result.success && result.receiptId) {
@@ -175,6 +178,16 @@ export function ProductInvoiceDialog({ patientId, branchId, onClose }: Props) {
                 value={transactionRef}
                 onChange={(e) => setTransactionRef(e.target.value)}
                 placeholder="Ref number (for UPI / Card)"
+                className="text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Receipt Date</Label>
+              <Input
+                type="date"
+                value={paymentDate}
+                max={today}
+                onChange={(e) => setPaymentDate(e.target.value)}
                 className="text-xs"
               />
             </div>
