@@ -173,7 +173,16 @@ export function EstimateWizard({
   // The consultation fee is already paid, so the queue entry is marked COMPLETED.
   function completeWithEstimate(savePlan: boolean) {
     startFinishing(async () => {
-      if (savePlan) agreementRef.current?.save()
+      // Await the agreement write BEFORE navigating — otherwise the push
+      // unmounts the card mid-save and the doctor's schedule (e.g. full
+      // advance) is lost, silently reverting to the suggested instalments.
+      if (savePlan) {
+        const ok = await agreementRef.current?.save()
+        if (ok === false) {
+          toast.error("Could not save the payment plan — please review and try again.")
+          return
+        }
+      }
       if (!queueId) { router.push("/doctor"); return }
       const result = await updateQueueStatusAction(queueId, "COMPLETED")
       if (result.success) {

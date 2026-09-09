@@ -1,6 +1,6 @@
 "use client"
 
-import { forwardRef, useActionState, useImperativeHandle, useState, useTransition } from "react"
+import { forwardRef, useImperativeHandle, useState, useTransition } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -46,7 +46,7 @@ interface Props {
 }
 
 export interface PaymentAgreementCardHandle {
-  save: () => void
+  save: () => Promise<boolean>
 }
 
 const inputCls =
@@ -77,11 +77,8 @@ export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props
   const [patientSignedAt, setPatientSignedAt] = useState(
     initialPatientSignedAt ? new Date(initialPatientSignedAt).toISOString().split("T")[0] : ""
   )
-  const [, startTransition] = useTransition()
-  const [state, formAction] = useActionState<SavePaymentAgreementState, FormData>(
-    savePaymentAgreementAction,
-    {}
-  )
+  const [state, setState] = useState<SavePaymentAgreementState>({})
+  const [saving, setSaving] = useState(false)
 
   // The discount lives here now, so the total is editable on this screen. Track
   // it locally and re-sync if the server sends a fresh one after a refresh.
@@ -157,7 +154,12 @@ export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props
     setStages((prev) => prev.map((s, i) => (i === idx ? { ...s, [key]: val } : s)))
   }
 
-  function handleSubmit() {
+  // Awaited directly (not fire-and-forget) so the caller — the wizard's
+  // "Save & Complete" — can wait for the write to finish before navigating
+  // away. Otherwise the transition is aborted on unmount and the doctor's
+  // edited schedule is silently lost, falling back to the suggested one.
+  async function handleSubmit(): Promise<boolean> {
+    setSaving(true)
     const fd = new FormData()
     fd.set(
       "payload",
@@ -169,7 +171,17 @@ export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props
         patientSignedAt: patientSignedAt || null,
       })
     )
-    startTransition(() => formAction(fd))
+    try {
+      const res = await savePaymentAgreementAction({}, fd)
+      setState(res)
+      if (res.success) router.refresh()
+      return !!res.success
+    } catch {
+      setState({ error: "Save failed" })
+      return false
+    } finally {
+      setSaving(false)
+    }
   }
 
   useImperativeHandle(ref, () => ({ save: handleSubmit }))
@@ -455,11 +467,12 @@ export const PaymentAgreementCard = forwardRef<PaymentAgreementCardHandle, Props
           <Button
             type="button"
             onClick={handleSubmit}
+            disabled={saving}
             className="h-9 px-6 text-sm font-semibold text-white gap-2"
-            style={{ backgroundColor: BRAND_COLORS.secondaryGreen }}
+            style={{ backgroundColor: saving ? BRAND_COLORS.borderDivider : BRAND_COLORS.secondaryGreen }}
           >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Save Agreement
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            {saving ? "Saving…" : "Save Agreement"}
           </Button>
           <Button
             type="button"
