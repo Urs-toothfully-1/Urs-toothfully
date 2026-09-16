@@ -92,10 +92,18 @@ export const paymentRepository = {
   },
 
   async softDelete(id: string, deletedById: string, deletionReason: string) {
-    await prisma.payment.update({
-      where: { id },
-      data: { isDeleted: true, deletedAt: new Date(), deletedById, deletionReason },
-    })
+    const deletedAt = new Date()
+    // Reports sum AccountingEntry, not Payment — delete both or revenue keeps the money.
+    await prisma.$transaction([
+      prisma.payment.update({
+        where: { id },
+        data: { isDeleted: true, deletedAt, deletedById, deletionReason },
+      }),
+      prisma.accountingEntry.updateMany({
+        where: { paymentId: id, isDeleted: false },
+        data: { isDeleted: true, deletedAt, deletedById },
+      }),
+    ])
   },
 
   async getLatestReceiptNoForYear(year: number): Promise<string | null> {

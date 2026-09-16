@@ -4,7 +4,7 @@ import { getSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { lineDiscountAmount } from "@/lib/estimate-totals"
-import { paymentAgreementService } from "@/server/services/payment-agreement.service"
+import { paymentAgreementRepository } from "@/server/repositories/payment-agreement.repository"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { toothLabel } from "@/lib/teeth"
@@ -25,12 +25,14 @@ export default async function PrintEstimatePage({ params }: Props) {
   if (!estimate) notFound()
 
   const [agreement, estimateVersion] = await Promise.all([
-    paymentAgreementService.getOrSuggest(estimateId),
+    paymentAgreementRepository.findByEstimate(estimateId),
     prisma.estimate.count({
       where: { patientId: estimate.patientId, isDeleted: false, createdAt: { lte: estimate.createdAt } },
     }),
   ])
-  const agreementStages = (agreement.stages ?? []) as PaymentStage[]
+  // The payment plan is optional: no saved plan → no agreement page in the PDF.
+  const agreementStages = (agreement?.stages ?? []) as unknown as PaymentStage[]
+  const hasPlan = agreementStages.length > 0
 
   const total = Number(estimate.total)
   // Split the overall discount into the per-line part and the global part so the
@@ -345,6 +347,7 @@ export default async function PrintEstimatePage({ params }: Props) {
         </div>
         </div>
 
+        {hasPlan && (<>
         {/* ── PAYMENT AGREEMENT — new page on print ─────────── */}
         <div className="sheet" style={{ pageBreakBefore: "always", paddingTop: "0" }}>
           {/* Header repeated */}
@@ -461,9 +464,9 @@ export default async function PrintEstimatePage({ params }: Props) {
             </div>
             <div>
               <div className="border-b border-gray-400 mb-1 h-10">
-                {agreement.patientSignedAt && (
+                {agreement?.patientSignedAt && (
                   <p className="text-xs" style={{ color: BRAND_COLORS.bodyText }}>
-                    Date: {new Date(agreement.patientSignedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                    Date: {new Date(agreement?.patientSignedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                   </p>
                 )}
               </div>
@@ -472,9 +475,9 @@ export default async function PrintEstimatePage({ params }: Props) {
             <div>
               <div className="border-b border-gray-400 mb-1 h-10" />
               <p style={{ color: BRAND_COLORS.borderDivider }}>Clinic Representative</p>
-              {agreement.clinicRepresentative && (
+              {agreement?.clinicRepresentative && (
                 <p className="font-semibold mt-0.5" style={{ color: BRAND_COLORS.bodyText }}>
-                  {agreement.clinicRepresentative}
+                  {agreement?.clinicRepresentative}
                 </p>
               )}
             </div>
@@ -491,6 +494,7 @@ export default async function PrintEstimatePage({ params }: Props) {
             }} />
           </div>
         </div>
+        </>)}
       </div>
     </>
   )

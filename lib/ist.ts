@@ -18,6 +18,13 @@ export function istInstant(dateStr: string, timeStr: string): Date {
   return new Date(`${dateStr}T${timeStr}:00${IST_OFFSET}`)
 }
 
+/** True only for a real calendar day in YYYY-MM-DD form ("2026-99-99" is not). */
+export function isValidDateStr(s: string | undefined): s is string {
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
+  const d = new Date(`${s}T12:00:00Z`)
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s
+}
+
 /** {start,end} UTC instants spanning the whole IST calendar day of `dateStr`. */
 export function istDayRange(dateStr: string): { start: Date; end: Date } {
   return {

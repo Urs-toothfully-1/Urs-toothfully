@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { BackButton } from "@/components/shared/BackButton"
 import { BookFollowUpDialog } from "@/components/appointments/BookFollowUpDialog"
 import { PrescriptionEditor, ExamTemplate, TreatmentOption, PrescriptionEditorHandle } from "@/components/prescriptions/PrescriptionEditor"
-import { EstimateBuilder } from "@/components/estimates/EstimateBuilder"
+import { EstimateBuilder, type EstimateBuilderHandle } from "@/components/estimates/EstimateBuilder"
 import { PaymentAgreementCard, type PaymentAgreementCardHandle } from "@/components/estimates/PaymentAgreementCard"
 import { BRAND_COLORS } from "@/lib/constants"
 import { updateQueueStatusAction } from "@/actions/queue"
@@ -82,6 +82,7 @@ export function EstimateWizard({
   const router = useRouter()
   const prescRef = useRef<PrescriptionEditorHandle>(null)
   const agreementRef = useRef<PaymentAgreementCardHandle>(null)
+  const estimateRef = useRef<EstimateBuilderHandle>(null)
 
   // The estimate is created lazily — only once the doctor saves the Estimate step.
   const [currentEstimateId, setCurrentEstimateId] = useState<string | null>(estimateId)
@@ -151,9 +152,37 @@ export function EstimateWizard({
     else toast.error("Could not save prescription — please review the entries.")
   }
 
+  /**
+   * Persist what's typed in the Estimate step before leaving it. The estimate is
+   * only written by an explicit save, so every exit from step 2 (Finish, Add
+   * payment plan, the step pills) must go through here — otherwise a filled-in
+   * estimate is silently thrown away and only the prescription survives.
+   */
+  async function commitEstimate(): Promise<boolean> {
+    const b = estimateRef.current
+    if (step !== 2 || !b) return true
+    if (hasEstimate ? !b.isDirty() : !b.hasItems()) return true
+    if (await b.save()) return true
+    toast.error("Estimate NOT saved — see the message above the treatment list.")
+    return false
+  }
+
+  function goToStep(n: number) {
+    if (n === step) return
+    if (step === 1) { savePrescriptionThen(() => setStep(n)); return }
+    if (step === 2 && n < 2) {
+      if (estimateRef.current?.isDirty() && !window.confirm("Discard the unsaved estimate changes?")) return
+      setStep(n)
+      return
+    }
+    void commitEstimate().then((ok) => { if (ok) setStep(n) })
+  }
+
   // Rx-only: complete the consultation with just the prescription. No estimate,
   // no agreement, no payment step. Patient can consult again later.
   function finishRxOnly() {
+    if (step === 2 && estimateRef.current?.hasItems() &&
+      !window.confirm("Finish WITHOUT an estimate? The treatments entered on this step will not be saved.")) return
     startFinishing(async () => {
       if (!queueId) { router.push("/doctor"); return }
       const result = await updateQueueStatusAction(queueId, "COMPLETED")
@@ -173,6 +202,11 @@ export function EstimateWizard({
   // The consultation fee is already paid, so the queue entry is marked COMPLETED.
   function completeWithEstimate(savePlan: boolean) {
     startFinishing(async () => {
+      if (step === 2 && estimateRef.current && !estimateRef.current.hasItems()) {
+        toast.error("Add at least one treatment, or finish with the prescription only.")
+        return
+      }
+      if (!(await commitEstimate())) return
       // Await the agreement write BEFORE navigating — otherwise the push
       // unmounts the card mid-save and the doctor's schedule (e.g. full
       // advance) is lost, silently reverting to the suggested instalments.
@@ -213,7 +247,7 @@ export function EstimateWizard({
             <div key={n} className="flex items-center flex-1">
               <button
                 type="button"
-                onClick={() => setStep(n)}
+                onClick={() => goToStep(n)}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg w-full transition-all"
                 style={{ backgroundColor: active ? `${BRAND_COLORS.primaryTeal}15` : "transparent", cursor: "pointer" }}
               >
@@ -305,6 +339,7 @@ export function EstimateWizard({
           </div>
           <div className="px-6 py-4">
             <EstimateBuilder
+              ref={estimateRef}
               mode="wizard"
               estimateId={currentEstimateId ?? undefined}
               patientId={patientId}
@@ -362,7 +397,7 @@ export function EstimateWizard({
       <div className="bg-white rounded-xl border border-[#E0E3E5] px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           {step > 1 ? (
-            <Button type="button" variant="outline" onClick={() => setStep((s) => s - 1)} className="gap-2">
+            <Button type="button" variant="outline" onClick={() => goToStep(step - 1)} className="gap-2">
               <ArrowLeft className="h-4 w-4" />Previous step
             </Button>
           ) : (
@@ -391,23 +426,19 @@ export function EstimateWizard({
           )}
           {step === 2 && (
             <>
-              {!hasEstimate ? (
+              {!hasEstimate && (
                 <Button type="button" variant="outline" onClick={finishRxOnly} disabled={isFinishing} className="gap-2">
-                  {isFinishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  Finish (Prescription only)
+                  Finish without estimate
                 </Button>
-              ) : (
-                <>
-                  <Button type="button" onClick={() => completeWithEstimate(false)} disabled={isFinishing} className="gap-2 text-white"
-                    style={{ backgroundColor: isFinishing ? BRAND_COLORS.borderDivider : BRAND_COLORS.secondaryGreen }}>
-                    {isFinishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                    Finish (no payment plan)
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => setStep(3)} className="gap-2">
-                    Add payment plan <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </>
               )}
+              <Button type="button" variant="outline" onClick={() => goToStep(3)} disabled={isFinishing} className="gap-2">
+                Save &amp; add payment plan <ArrowRight className="h-4 w-4" />
+              </Button>
+              <Button type="button" onClick={() => completeWithEstimate(false)} disabled={isFinishing} className="gap-2 text-white"
+                style={{ backgroundColor: isFinishing ? BRAND_COLORS.borderDivider : BRAND_COLORS.secondaryGreen }}>
+                {isFinishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Save Estimate &amp; Finish
+              </Button>
             </>
           )}
           {step === 3 && hasEstimate && (

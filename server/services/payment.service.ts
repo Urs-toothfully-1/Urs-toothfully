@@ -83,9 +83,10 @@ export const paymentService = {
     if (input.paymentType === "TREATMENT" || input.paymentType === "ADVANCE") {
       const estimate = await prisma.estimate.findUnique({
         where: { id: input.estimateId },
-        select: { total: true, isDeleted: true },
+        select: { total: true, isDeleted: true, patientId: true },
       })
       if (!estimate || estimate.isDeleted) throw new Error("Estimate not found")
+      if (estimate.patientId !== input.patientId) throw new Error("Estimate does not belong to this patient")
       const outstanding = await this.getOutstandingByEstimate(input.estimateId, Number(estimate.total))
       // Tolerance absorbs rounding on percentage-split instalments.
       if (input.amount > outstanding + 0.01) {
@@ -93,6 +94,11 @@ export const paymentService = {
           `Amount (₹${input.amount.toFixed(2)}) exceeds the outstanding balance (₹${outstanding.toFixed(2)}).`
         )
       }
+    }
+
+    if (input.visitId) {
+      const visit = await prisma.patientVisit.findUnique({ where: { id: input.visitId }, select: { patientId: true } })
+      if (!visit || visit.patientId !== input.patientId) throw new Error("Visit does not belong to this patient")
     }
 
     const receiptNo = await generateNextReceiptNo()

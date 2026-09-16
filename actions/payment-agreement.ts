@@ -14,7 +14,7 @@ const stageSchema = z.object({
 
 const saveSchema = z.object({
   estimateId: z.string().uuid(),
-  stages: z.array(stageSchema).min(1).max(10),
+  stages: z.array(stageSchema).max(10),
   clinicRepresentative: z.string().max(200).optional().nullable(),
   termsAccepted: z.boolean().default(false),
   patientSignedAt: z.string().optional().nullable(), // ISO string or null

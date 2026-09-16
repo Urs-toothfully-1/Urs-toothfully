@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useRef, useState, useTransition } from "react"
+import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState, useTransition } from "react"
 import { useFormStatus } from "react-dom"
 import { createEstimateAction, updateEstimateAction, EstimateFormState } from "@/actions/estimates"
 import { Button } from "@/components/ui/button"
@@ -83,6 +83,15 @@ interface Props {
   submitLabel?: string
 }
 
+export interface EstimateBuilderHandle {
+  /** Any row with a treatment name — i.e. there is something to save. */
+  hasItems: () => boolean
+  /** Changed since it was loaded or last saved. */
+  isDirty: () => boolean
+  /** Creates/updates the estimate; resolves its id, or null on failure (error shown in the form). */
+  save: () => Promise<string | null>
+}
+
 function SubmitButton({ isEdit }: { isEdit: boolean }) {
   const { pending } = useFormStatus()
   return (
@@ -128,14 +137,14 @@ function newItem(): EstimateItem {
 // the up/down arrows steal the width and clip the digits out of view.
 const inputCls = "h-8 border-[#E0E3E5] focus-visible:ring-[#0077BE] text-sm bg-white px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
 
-export function EstimateBuilder({
+export const EstimateBuilder = forwardRef<EstimateBuilderHandle, Props>(function EstimateBuilder({
   patientId, visitId, branchId, patientName, visitNo, doctorName,
   treatments, allowDiscount,
   estimateId, initialItems, initialNotes, initialDiscountPercent,
   initialGlobalDiscountValue, initialGlobalDiscountIsPercent,
   availableReferralCredit = 0, initialReferralCreditApplied = 0, initialDocumentDate,
   returnHref, mode = "page", onSaved, submitLabel,
-}: Props) {
+}: Props, ref) {
   const isEdit = !!estimateId
   const isWizard = mode === "wizard"
   const [state, formAction] = useActionState(
@@ -188,22 +197,51 @@ export function EstimateBuilder({
     return fd
   }
 
-  function handleWizardSave() {
+  // What a save would persist — compared against the last saved/loaded state.
+  function snapshot() {
+    const notes = formRef.current?.querySelector<HTMLTextAreaElement>('textarea[name="notes"]')?.value ?? ""
+    return JSON.stringify([
+      items.map(({ _key, amount, ...rest }) => rest),
+      globalDiscountValue, globalDiscountIsPercent, applyReferralCredit, documentDate, notes,
+    ])
+  }
+  const savedSnapshot = useRef("")
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { savedSnapshot.current = snapshot() }, [])
+
+  function handleWizardSave(): Promise<string | null> {
     setWizardError(null)
     const invalid = items.some((i) => !i.treatmentName.trim() || !i.quantity || !i.unitRate)
     if (invalid) {
       setWizardError("Every treatment needs a name, quantity, and rate before saving.")
-      return
+      return Promise.resolve(null)
     }
-    startWizardSave(async () => {
-      // No estimate yet → create it lazily; otherwise update in place.
-      const result = estimateId
-        ? await updateEstimateAction({}, buildFormData())
-        : await createEstimateAction({}, buildFormData())
-      if (result.error) setWizardError(result.error)
-      else if (result.success) onSaved?.(result.estimateId ?? estimateId ?? "")
-    })
+    return new Promise((resolve) => startWizardSave(async () => {
+      try {
+        // No estimate yet → create it lazily; otherwise update in place.
+        const result = estimateId
+          ? await updateEstimateAction({}, buildFormData())
+          : await createEstimateAction({}, buildFormData())
+        if (!result.success) {
+          setWizardError(result.error ?? "Failed to save estimate. Please try again.")
+          return resolve(null)
+        }
+        const id = result.estimateId ?? estimateId ?? ""
+        savedSnapshot.current = snapshot()
+        onSaved?.(id)
+        resolve(id)
+      } catch {
+        setWizardError("Could not reach the server — the estimate was NOT saved. Please try again.")
+        resolve(null)
+      }
+    }))
   }
+
+  useImperativeHandle(ref, () => ({
+    hasItems: () => items.some((i) => i.treatmentName.trim()),
+    isDirty: () => snapshot() !== savedSnapshot.current,
+    save: handleWizardSave,
+  }))
 
   // Grouped treatments by category
   const byCategory = treatments.reduce<Record<string, Treatment[]>>((acc, t) => {
@@ -675,7 +713,7 @@ export function EstimateBuilder({
         {isWizard ? (
           <Button
             type="button"
-            onClick={handleWizardSave}
+            onClick={() => void handleWizardSave()}
             disabled={wizardPending}
             className="h-10 px-6 font-semibold text-white"
             style={{ backgroundColor: wizardPending ? BRAND_COLORS.borderDivider : BRAND_COLORS.primaryTeal }}
@@ -701,4 +739,4 @@ export function EstimateBuilder({
       </div>
     </form>
   )
-}
+})

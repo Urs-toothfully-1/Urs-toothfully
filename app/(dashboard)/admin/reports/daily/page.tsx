@@ -3,6 +3,7 @@ import Link from "next/link"
 import { requireRole } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getDailyRevenue } from "@/lib/reports/daily-revenue"
+import { isValidDateStr } from "@/lib/ist"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,7 +22,7 @@ export default async function DailyRevenueReportPage({ searchParams }: Props) {
   await requireRole(["ADMIN"])
   const sp = await searchParams
   const today = new Date().toISOString().split("T")[0]
-  const date = sp.date ?? today
+  const date = isValidDateStr(sp.date) ? sp.date : today
   const branchId = sp.branch && sp.branch !== "all" ? sp.branch : undefined
 
   const [branches, data] = await Promise.all([

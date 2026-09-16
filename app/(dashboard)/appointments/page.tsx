@@ -10,7 +10,7 @@ import { AppointmentCard, type AppointmentView } from "@/components/appointments
 import { AppointmentRequestsInbox } from "@/components/appointments/AppointmentRequestsInbox"
 import { AutoRefresh } from "@/components/shared/AutoRefresh"
 import { BRAND_COLORS } from "@/lib/constants"
-import { istTodayStr, istDayRange, IST_TZ } from "@/lib/ist"
+import { istTodayStr, istDayRange, IST_TZ, isValidDateStr } from "@/lib/ist"
 import { CalendarDays, ChevronLeft, ChevronRight, Building2, Globe } from "lucide-react"
 
 export const metadata: Metadata = { title: "Appointments" }
@@ -30,11 +30,11 @@ export default async function AppointmentsPage({ searchParams }: Props) {
   const { date: rawDate, month: rawMonth, scope, view: rawView } = await searchParams
 
   const todayStr = istTodayStr()
-  const day = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : todayStr
+  const day = isValidDateStr(rawDate) ? rawDate : todayStr
   const dayDate = new Date(`${day}T12:00:00`)
 
   // Month shown in the calendar (defaults to the selected day's month)
-  const monthBase = rawMonth && /^\d{4}-\d{2}$/.test(rawMonth)
+  const monthBase = isValidDateStr(`${rawMonth}-01`)
     ? new Date(`${rawMonth}-01T12:00:00`)
     : new Date(dayDate.getFullYear(), dayDate.getMonth(), 1, 12)
   const monthStr = `${monthBase.getFullYear()}-${pad(monthBase.getMonth() + 1)}`

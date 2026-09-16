@@ -37,6 +37,10 @@ export const paymentAgreementService = {
     termsAccepted: boolean,
     patientSignedAt: Date | null
   ) {
+    if (stages.length === 0) {
+      await prisma.paymentAgreement.deleteMany({ where: { estimateId } })
+      return null
+    }
     return paymentAgreementRepository.upsert(estimateId, {
       stages,
       clinicRepresentative,

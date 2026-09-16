@@ -23,6 +23,21 @@ export type AppointmentWithRelations = Prisma.AppointmentGetPayload<{ include: t
  */
 const MAX_PER_PATIENT_PER_DAY = 2
 
+async function assertPatientDayLimit(patientId: string, at: Date, excludeId?: string) {
+  const { start, end } = dayRange(at)
+  const sameDayCount = await prisma.appointment.count({
+    where: {
+      patientId,
+      scheduledAt: { gte: start, lte: end },
+      status: { notIn: ["CANCELLED"] },
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+    },
+  })
+  if (sameDayCount >= MAX_PER_PATIENT_PER_DAY) {
+    throw new Error(`This patient already has ${MAX_PER_PATIENT_PER_DAY} appointments that day.`)
+  }
+}
+
 function dayRange(date: Date): { start: Date; end: Date } {
   return istDayRange(istDayKey(date))
 }
@@ -32,10 +47,10 @@ function dayKey(d: Date): string {
 }
 
 // Blocks bookings that collide with an existing SCHEDULED slot for the doctor.
-async function assertNoClash(doctorId: string, start: Date, durationMins: number, excludeId?: string) {
+async function assertNoClash(db: Prisma.TransactionClient, doctorId: string, start: Date, durationMins: number, excludeId?: string) {
   const end = new Date(start.getTime() + durationMins * 60_000)
   const { start: dayStart, end: dayEnd } = dayRange(start)
-  const sameDay = await prisma.appointment.findMany({
+  const sameDay = await db.appointment.findMany({
     where: {
       doctorId, status: "SCHEDULED", scheduledAt: { gte: dayStart, lte: dayEnd },
       ...(excludeId ? { id: { not: excludeId } } : {}),
@@ -48,6 +63,18 @@ async function assertNoClash(doctorId: string, start: Date, durationMins: number
     return start.getTime() < e && s < end.getTime()
   })
   if (clash) throw new Error("The doctor already has an appointment in this time slot.")
+}
+
+/**
+ * Clash check and write in one transaction, holding a per-doctor lock. Without
+ * it two desks booking the same slot at the same moment both pass the check
+ * and both insert. The lock is transaction-scoped, so it is pgbouncer-safe.
+ */
+function withDoctorLock<T>(doctorId: string, fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"appt:" + doctorId}))`
+    return fn(tx)
+  })
 }
 
 // WhatsApp messages render server-side (UTC host) — force IST so patients see
@@ -88,37 +115,30 @@ export const appointmentService = {
     if (!doctor) throw new Error("Doctor not found or inactive")
 
     const durationMins = input.durationMins ?? 30
-    await assertNoClash(input.doctorId, input.scheduledAt, durationMins)
-
-    const { start, end } = dayRange(input.scheduledAt)
-    const sameDayCount = await prisma.appointment.count({
-      where: {
-        patientId: input.patientId,
-        scheduledAt: { gte: start, lte: end },
-        status: { notIn: ["CANCELLED"] },
-      },
-    })
-    if (sameDayCount >= MAX_PER_PATIENT_PER_DAY) {
-      throw new Error(
-        `This patient already has ${MAX_PER_PATIENT_PER_DAY} appointments that day.`
-      )
+    if (!Number.isInteger(durationMins) || durationMins < 5 || durationMins > 480) {
+      throw new Error("Duration must be a whole number of minutes between 5 and 480.")
     }
 
+    await assertPatientDayLimit(input.patientId, input.scheduledAt)
 
-    const appointment = await prisma.appointment.create({
-      data: {
-        patientId: input.patientId,
-        doctorId: input.doctorId,
-        branchId: input.branchId,
-        scheduledAt: input.scheduledAt,
-        durationMins,
-        reason: input.reason,
-        // Backdated entries are historical record-keeping, so they land finished
-        // rather than sitting in the queue as something still to happen.
-        status: isPast ? "COMPLETED" : "SCHEDULED",
-        createdById,
-      },
-      include: APPOINTMENT_INCLUDE,
+
+    const appointment = await withDoctorLock(input.doctorId, async (tx) => {
+      await assertNoClash(tx, input.doctorId, input.scheduledAt, durationMins)
+      return tx.appointment.create({
+        data: {
+          patientId: input.patientId,
+          doctorId: input.doctorId,
+          branchId: input.branchId,
+          scheduledAt: input.scheduledAt,
+          durationMins,
+          reason: input.reason,
+          // Backdated entries are historical record-keeping, so they land finished
+          // rather than sitting in the queue as something still to happen.
+          status: isPast ? "COMPLETED" : "SCHEDULED",
+          createdById,
+        },
+        include: APPOINTMENT_INCLUDE,
+      })
     })
 
     await createAuditLog({
@@ -216,12 +236,14 @@ export const appointmentService = {
     if (!existing) throw new Error("Appointment not found")
     if (existing.status !== "SCHEDULED") throw new Error("Only scheduled appointments can be rescheduled.")
     if (scheduledAt.getTime() < Date.now() - 60_000) throw new Error("New time is in the past.")
-    await assertNoClash(existing.doctorId, scheduledAt, existing.durationMins, id)
-
-    const appointment = await prisma.appointment.update({
-      where: { id },
-      data: { scheduledAt, reminderSentAt: null },
-      include: APPOINTMENT_INCLUDE,
+    await assertPatientDayLimit(existing.patientId, scheduledAt, id)
+    const appointment = await withDoctorLock(existing.doctorId, async (tx) => {
+      await assertNoClash(tx, existing.doctorId, scheduledAt, existing.durationMins, id)
+      return tx.appointment.update({
+        where: { id },
+        data: { scheduledAt, reminderSentAt: null },
+        include: APPOINTMENT_INCLUDE,
+      })
     })
 
     await createAuditLog({
