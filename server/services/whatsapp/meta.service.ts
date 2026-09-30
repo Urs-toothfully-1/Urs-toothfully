@@ -279,6 +279,18 @@ export const metaService = {
     return String(data.id)
   },
 
+  /**
+   * Deletes all templates with this name on Meta. Used before resubmitting a
+   * REJECTED template, since Meta refuses to create a duplicate name. A missing
+   * template is not an error.
+   */
+  async deleteTemplateOnMeta(name: string): Promise<void> {
+    const config = await loadConfig()
+    await graphFetch(config, `${config.businessAccountId}/message_templates?name=${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    })
+  },
+
   /** Checks token validity and reports expiry details where available. */
   async checkTokenStatus(): Promise<{ valid: boolean; error?: string }> {
     try {

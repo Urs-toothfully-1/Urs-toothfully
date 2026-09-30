@@ -213,6 +213,12 @@ export const templateService = {
       throw new Error("This template is already submitted to Meta.")
     }
 
+    // Resubmitting a REJECTED (or previously-submitted) template: Meta won't
+    // create a duplicate name, so delete the old one on Meta first.
+    if (template.status === "REJECTED" || template.metaTemplateId) {
+      await metaService.deleteTemplateOnMeta(template.name).catch(() => null)
+    }
+
     const metaTemplateId = await metaService.createTemplateOnMeta(template)
     const updated = await whatsappTemplateRepository.update(id, { metaTemplateId, status: "PENDING" })
 

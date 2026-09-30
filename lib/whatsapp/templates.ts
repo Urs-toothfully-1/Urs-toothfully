@@ -82,7 +82,7 @@ export const DEFAULT_UTILITY_TEMPLATES: DefaultTemplateDef[] = [
     displayName: "Registration Successful",
     triggerKey: WHATSAPP_TRIGGERS.REGISTRATION_SUCCESSFUL,
     variables: ["Patient Name", "Patient ID"],
-    body: "Welcome to Ur's Toothfully, {{1}}! Your registration is complete. Your Patient ID is {{2}} — please quote it on future visits. Hours: Mon–Sat 10:30 AM–8:30 PM, Sun 10 AM–2:30 PM (Thu off).",
+    body: "Hi {{1}}, your registration at Ur's Toothfully is complete. Your Patient ID is {{2}}. Please quote it on your visits.",
     footerText: FOOTER,
   },
   {
