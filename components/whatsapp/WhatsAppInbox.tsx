@@ -55,11 +55,12 @@ export function WhatsAppInbox({ initialConversations }: { initialConversations: 
     if (tRes.messages) setThread(tRes.messages)
   }
 
-  // Light, visibility-aware polling (20s) — only refetches while the tab is open.
+  // Light, visibility-aware polling (45s) — only refetches while the tab is open.
+  // Kept conservative to protect Vercel Active CPU on the Hobby tier.
   useEffect(() => {
     const id = setInterval(() => {
       if (document.visibilityState === "visible") refresh()
-    }, 20000)
+    }, 45000)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active?.phone])
