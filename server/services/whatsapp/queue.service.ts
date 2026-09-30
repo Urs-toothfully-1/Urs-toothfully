@@ -207,6 +207,21 @@ export const whatsappQueueService = {
     })
   },
 
+  /** Cancels every not-yet-sent message at once. Returns how many were cancelled. */
+  async cancelAll(changedById: string) {
+    const res = await whatsappMessageRepository.cancelAllActive()
+    if (res.count > 0) {
+      await createAuditLog({
+        entityType: "WhatsAppMessage",
+        entityId: "BULK",
+        action: "STATUS_CHANGE",
+        changedById,
+        newValues: { status: "CANCELLED", cancelled: res.count },
+      })
+    }
+    return res.count
+  },
+
   /** Renders the final message text (for previews and logs). */
   async previewMessage(templateId: string, variables: string[]): Promise<string> {
     const template = await whatsappTemplateRepository.findById(templateId)

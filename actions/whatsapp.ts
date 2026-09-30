@@ -244,6 +244,18 @@ export async function cancelWhatsAppMessageAction(id: string): Promise<WhatsAppA
   }
 }
 
+export async function cancelAllQueuedWhatsAppMessagesAction(): Promise<WhatsAppActionState> {
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  if (!session) return { error: "Unauthorized" }
+  try {
+    const count = await whatsappQueueService.cancelAll(session.userId)
+    revalidatePath("/whatsapp/queue")
+    return { success: true, message: `${count} queued message(s) cancelled` }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Cancel all failed" }
+  }
+}
+
 export async function processWhatsAppQueueAction(): Promise<WhatsAppActionState> {
   const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
   if (!session) return { error: "Unauthorized" }

@@ -152,6 +152,14 @@ export const whatsappMessageRepository = {
     })
   },
 
+  /** Cancels every not-yet-sent message (PENDING/RETRY/PROCESSING). */
+  async cancelAllActive() {
+    return prisma.whatsAppMessage.updateMany({
+      where: { status: { in: ACTIVE_QUEUE_STATUSES } },
+      data: { status: "CANCELLED", cancelledAt: new Date() },
+    })
+  },
+
   async countSentSince(since: Date) {
     return prisma.whatsAppMessage.count({
       where: { sentAt: { gte: since } },

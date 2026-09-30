@@ -17,6 +17,15 @@ interface MetaStatusEvent {
   errors?: Array<{ code?: number; title?: string; message?: string; error_data?: { details?: string } }>
 }
 
+interface MetaInboundMessage {
+  from?: string // sender's phone, E.164 digits
+  id?: string // wamid
+  type?: string
+  text?: { body?: string }
+  button?: { text?: string }
+  interactive?: { list_reply?: { title?: string }; button_reply?: { title?: string } }
+}
+
 export const webhookService = {
   /** GET handshake — Meta sends hub.mode/hub.verify_token/hub.challenge. */
   async handleVerification(mode: string | null, token: string | null, challenge: string | null): Promise<string | null> {
@@ -87,6 +96,22 @@ export const webhookService = {
               await whatsappMessageRepository.updateStatusByMetaId(s.id, "FAILED", at, reason)
               handled++
             }
+          }
+
+          // Inbound patient messages → hand to the auto-reply bot.
+          const messages = (value.messages as MetaInboundMessage[] | undefined) ?? []
+          for (const m of messages) {
+            const body =
+              m.text?.body ??
+              m.button?.text ??
+              m.interactive?.list_reply?.title ??
+              m.interactive?.button_reply?.title
+            if (!m.from || !body) continue
+            eventType = eventType ?? "message.inbound"
+            firstMetaId = firstMetaId ?? m.id
+            const { chatbotService } = await import("@/server/services/whatsapp/chatbot.service")
+            await chatbotService.handleInbound({ fromPhone: m.from, wamid: m.id, text: body }).catch(() => {})
+            handled++
           }
         }
       }

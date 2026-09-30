@@ -7,6 +7,7 @@ import type { Role } from "@/lib/session"
 
 const TABS = [
   { label: "Overview", href: "/whatsapp", roles: ["ADMIN", "RECEPTIONIST"] },
+  { label: "Inbox", href: "/whatsapp/inbox", roles: ["ADMIN", "RECEPTIONIST"] },
   { label: "Templates", href: "/whatsapp/templates", roles: ["ADMIN", "RECEPTIONIST"] },
   { label: "Queue", href: "/whatsapp/queue", roles: ["ADMIN", "RECEPTIONIST"] },
   { label: "Message Logs", href: "/whatsapp/logs", roles: ["ADMIN", "RECEPTIONIST"] },

@@ -134,6 +134,44 @@ export const metaService = {
     }
   },
 
+  /**
+   * Sends a free-form text (session) message — used by the auto-reply bot to
+   * answer a patient WITHIN the 24-hour customer service window (free of charge).
+   * Outside that window Meta rejects it (#131047), which we treat as permanent.
+   * @param to E.164 digits without "+", e.g. "919876543210"
+   */
+  async sendTextMessage(to: string, body: string): Promise<MetaSendResult> {
+    let config: MetaConfig
+    try {
+      config = await loadConfig()
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : "Not configured", permanent: false }
+    }
+    try {
+      const { ok, data } = await graphFetch(config, `${config.phoneNumberId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to,
+          type: "text",
+          text: { body },
+        }),
+      })
+      if (!ok) {
+        const errObj = data.error as { code?: number } | undefined
+        return {
+          success: false,
+          error: graphErrorMessage(data),
+          permanent: errObj?.code !== undefined && PERMANENT_ERROR_CODES.has(errObj.code),
+        }
+      }
+      const messages = data.messages as Array<{ id?: string }> | undefined
+      return { success: true, metaMessageId: messages?.[0]?.id }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : "Network error", permanent: false }
+    }
+  },
+
   /** Verifies credentials and caches connection status on the settings row. */
   async testConnection(updatedById: string): Promise<MetaConnectionStatus> {
     let config: MetaConfig

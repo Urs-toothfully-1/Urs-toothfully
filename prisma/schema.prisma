@@ -981,6 +981,39 @@ model WhatsAppWebhookLog {
   @@index([receivedAt])
 }
 
+// Inbound patient WhatsApp messages + the auto-reply bot's action on each.
+// patientId is polymorphic (no FK, matching AuditLog) so Patient stays untouched.
+// Conversation log for the WhatsApp inbox: inbound patient messages AND
+// outbound free-form replies (bot + staff). Template sends stay in
+// WhatsAppMessage and are merged into the thread by phone at read time.
+// patientId is polymorphic (no FK, matching AuditLog) so Patient stays untouched.
+model WhatsAppInbound {
+  id             String   @id @default(uuid())
+  direction      String   @default("IN") @db.VarChar(4) // IN | OUT
+  fromPhone      String   @db.VarChar(20) // the patient's phone (both directions)
+  patientId      String?
+  wamid          String?  @unique @db.VarChar(128)
+  text           String?
+  botAction      String?  @db.VarChar(40) // GREETED_MENU | CANNED_REPLY | IGNORED | STAFF_REPLY | BOT_REPLY
+  sentById       String? // staff user id for OUT staff replies
+  needsStaff     Boolean  @default(false)
+  handledByStaff Boolean  @default(false)
+  receivedAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@index([fromPhone, receivedAt])
+  @@index([needsStaff, handledByStaff])
+}
+
+// Per-phone position in the questionnaire chatbot flow (current node + collected answers).
+model WhatsAppChatState {
+  phone     String   @id @db.VarChar(20)
+  node      String   @default("root") @db.VarChar(60)
+  data      Json     @default("{}")
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
 model WhatsAppConsent {
   id             String    @id @default(uuid())
   patientId      String    @unique

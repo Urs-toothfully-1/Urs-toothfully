@@ -6,6 +6,7 @@ import {
   retryWhatsAppMessageAction,
   retryAllFailedWhatsAppMessagesAction,
   cancelWhatsAppMessageAction,
+  cancelAllQueuedWhatsAppMessagesAction,
   processWhatsAppQueueAction,
 } from "@/actions/whatsapp"
 import { BRAND_COLORS } from "@/lib/constants"
@@ -111,6 +112,19 @@ export function QueueMgmt({ messages, total, page, pageSize, statusFilter, templ
               Retry All Failed
             </Button>
           )}
+          <Button
+            variant="outline"
+            disabled={isPending}
+            onClick={() => {
+              if (confirm("Cancel ALL queued messages that haven't been sent yet? This can't be undone.")) {
+                run(() => cancelAllQueuedWhatsAppMessagesAction())
+              }
+            }}
+            className="h-9 text-red-600 border-red-200 hover:bg-red-50"
+          >
+            <XCircle className="h-4 w-4 mr-1.5" />
+            Cancel All
+          </Button>
           <Button
             disabled={isPending}
             onClick={() => setSendOpen(true)}
