@@ -179,7 +179,7 @@ export const metaService = {
    * Meta's limits so a long label can never make the whole send fail.
    */
   async sendInteractiveMessage(to: string, msg: OutMsg): Promise<MetaSendResult> {
-    if (!msg.ui) return metaService.sendTextMessage(to, msg.text)
+    if (!msg.ui) return metaService.sendTextMessage(to, msg.footer ? `${msg.text}\n\n${msg.footer}` : msg.text)
     let config: MetaConfig
     try {
       config = await loadConfig()
@@ -187,12 +187,14 @@ export const metaService = {
       return { success: false, error: err instanceof Error ? err.message : "Not configured", permanent: false }
     }
     const body = { text: msg.text.slice(0, 1024) }
+    const footer = msg.footer ? { footer: { text: msg.footer.slice(0, 60) } } : {}
     const ui = msg.ui
     const interactive =
       ui.kind === "buttons"
         ? {
             type: "button",
             body,
+            ...footer,
             action: {
               buttons: ui.items.slice(0, 3).map((i) => ({ type: "reply", reply: { id: i.id, title: i.title.slice(0, 20) } })),
             },
@@ -201,6 +203,7 @@ export const metaService = {
           ? {
               type: "list",
               body,
+              ...footer,
               action: {
                 button: ui.button.slice(0, 20),
                 sections: [
@@ -218,6 +221,7 @@ export const metaService = {
           : {
               type: "cta_url",
               body,
+              ...footer,
               action: { name: "cta_url", parameters: { display_text: ui.label.slice(0, 20), url: ui.url } },
             }
 
