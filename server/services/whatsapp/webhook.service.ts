@@ -22,8 +22,11 @@ interface MetaInboundMessage {
   id?: string // wamid
   type?: string
   text?: { body?: string }
-  button?: { text?: string }
-  interactive?: { list_reply?: { title?: string }; button_reply?: { title?: string } }
+  button?: { text?: string; payload?: string } // template quick-reply
+  interactive?: {
+    list_reply?: { id?: string; title?: string }
+    button_reply?: { id?: string; title?: string }
+  }
 }
 
 export const webhookService = {
@@ -107,10 +110,12 @@ export const webhookService = {
               m.interactive?.list_reply?.title ??
               m.interactive?.button_reply?.title
             if (!m.from || !body) continue
+            // Tapped button / list row id — routes the bot independent of display text.
+            const replyId = m.interactive?.button_reply?.id ?? m.interactive?.list_reply?.id ?? m.button?.payload
             eventType = eventType ?? "message.inbound"
             firstMetaId = firstMetaId ?? m.id
             const { chatbotService } = await import("@/server/services/whatsapp/chatbot.service")
-            await chatbotService.handleInbound({ fromPhone: m.from, wamid: m.id, text: body }).catch(() => {})
+            await chatbotService.handleInbound({ fromPhone: m.from, wamid: m.id, text: body, replyId }).catch(() => {})
             handled++
           }
         }

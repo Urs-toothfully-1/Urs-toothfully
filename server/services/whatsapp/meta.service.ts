@@ -1,6 +1,7 @@
 import { whatsappSettingsRepository } from "@/server/repositories/whatsapp-settings.repository"
 import { decryptSecret } from "@/lib/whatsapp/crypto"
 import type { WhatsAppTemplate } from "@prisma/client"
+import type { OutMsg } from "@/lib/whatsapp/chat-flow"
 
 /**
  * Thin Meta WhatsApp Cloud API (Graph API) client.
@@ -156,6 +157,74 @@ export const metaService = {
           type: "text",
           text: { body },
         }),
+      })
+      if (!ok) {
+        const errObj = data.error as { code?: number } | undefined
+        return {
+          success: false,
+          error: graphErrorMessage(data),
+          permanent: errObj?.code !== undefined && PERMANENT_ERROR_CODES.has(errObj.code),
+        }
+      }
+      const messages = data.messages as Array<{ id?: string }> | undefined
+      return { success: true, metaMessageId: messages?.[0]?.id }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : "Network error", permanent: false }
+    }
+  },
+
+  /**
+   * Sends an interactive session message (reply buttons, list menu or link
+   * button) — free within the 24h customer-service window. Titles are clipped to
+   * Meta's limits so a long label can never make the whole send fail.
+   */
+  async sendInteractiveMessage(to: string, msg: OutMsg): Promise<MetaSendResult> {
+    if (!msg.ui) return metaService.sendTextMessage(to, msg.text)
+    let config: MetaConfig
+    try {
+      config = await loadConfig()
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : "Not configured", permanent: false }
+    }
+    const body = { text: msg.text.slice(0, 1024) }
+    const ui = msg.ui
+    const interactive =
+      ui.kind === "buttons"
+        ? {
+            type: "button",
+            body,
+            action: {
+              buttons: ui.items.slice(0, 3).map((i) => ({ type: "reply", reply: { id: i.id, title: i.title.slice(0, 20) } })),
+            },
+          }
+        : ui.kind === "list"
+          ? {
+              type: "list",
+              body,
+              action: {
+                button: ui.button.slice(0, 20),
+                sections: [
+                  {
+                    title: "Options",
+                    rows: ui.items.slice(0, 10).map((i) => ({
+                      id: i.id,
+                      title: i.title.slice(0, 24),
+                      ...(i.description && { description: i.description.slice(0, 72) }),
+                    })),
+                  },
+                ],
+              },
+            }
+          : {
+              type: "cta_url",
+              body,
+              action: { name: "cta_url", parameters: { display_text: ui.label.slice(0, 20), url: ui.url } },
+            }
+
+    try {
+      const { ok, data } = await graphFetch(config, `${config.phoneNumberId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, type: "interactive", interactive }),
       })
       if (!ok) {
         const errObj = data.error as { code?: number } | undefined
