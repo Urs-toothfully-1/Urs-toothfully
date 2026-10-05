@@ -15,6 +15,7 @@ const TABS = [
   { label: "Treatment Progress", href: "/progress" },
   { label: "Payments", href: "/payments", count: "payments" },
   { label: "Documents", href: "/documents", count: "documents" },
+  { label: "Referrals", href: "/referrals" },
 ] as const
 
 interface Props {

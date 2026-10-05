@@ -12,6 +12,8 @@ import { BookFollowUpDialog } from "@/components/appointments/BookFollowUpDialog
 import { PrescriptionEditor, ExamTemplate, TreatmentOption, PrescriptionEditorHandle } from "@/components/prescriptions/PrescriptionEditor"
 import { EstimateBuilder, type EstimateBuilderHandle } from "@/components/estimates/EstimateBuilder"
 import { PaymentAgreementCard, type PaymentAgreementCardHandle } from "@/components/estimates/PaymentAgreementCard"
+import { PaymentOptionsCard } from "@/components/estimates/PaymentOptionsCard"
+import type { PaymentOption } from "@/lib/payment-options"
 import { BRAND_COLORS } from "@/lib/constants"
 import { updateQueueStatusAction } from "@/actions/queue"
 import { toast } from "sonner"
@@ -26,6 +28,8 @@ interface WizardEstimateItem {
   toothNumber: string | null
   quantity: number
   unitRate: number
+  unitRateMax?: number | null
+  isAlternative?: boolean
   plannedSittings: number
   status: string
 }
@@ -59,6 +63,11 @@ interface Props {
   queueId: string | null
   /** Referral reward credit the patient can spend on this estimate. */
   availableReferralCredit?: number
+  /** New workflow (default): quote + payment options, billed per treatment invoice. False = legacy estimate. */
+  invoiceBilling?: boolean
+  /** Top of the quoted range; null = fixed price. */
+  estimateTotalMax?: number | null
+  paymentOptions?: PaymentOption[]
 }
 
 const STEPS = [
@@ -76,6 +85,9 @@ export function EstimateWizard({
   paymentAgreementStages, paymentAgreementRep, paymentAgreementTermsAccepted, paymentAgreementSignedAt,
   queueId,
   availableReferralCredit = 0,
+  invoiceBilling = true,
+  estimateTotalMax = null,
+  paymentOptions = [],
 }: Props) {
   const [step, setStep] = useState(1)
   const [isFinishing, startFinishing] = useTransition()
@@ -105,6 +117,8 @@ export function EstimateWizard({
         toothNumber: i.toothNumber ?? "",
         quantity: i.quantity,
         unitRate: i.unitRate,
+        unitRateMax: i.unitRateMax ?? null,
+        isAlternative: i.isAlternative ?? false,
         plannedSittings: i.plannedSittings,
       }))
     }
@@ -363,7 +377,18 @@ export function EstimateWizard({
 
       {/* ── STEP 3: Treatment Agreement ──────────────────────────── */}
       {step === 3 && (
-        hasEstimate ? (
+        hasEstimate && invoiceBilling ? (
+          <PaymentOptionsCard
+            ref={agreementRef}
+            estimateId={currentEstimateId!}
+            quoteMin={agreementTotal}
+            quoteMax={estimateTotalMax ?? agreementTotal}
+            initialOptions={paymentOptions}
+            initialRep={paymentAgreementRep}
+            initialTermsAccepted={paymentAgreementTermsAccepted}
+            initialPatientSignedAt={paymentAgreementSignedAt}
+          />
+        ) : hasEstimate ? (
           <PaymentAgreementCard
             ref={agreementRef}
             estimateId={currentEstimateId!}

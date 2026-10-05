@@ -95,6 +95,7 @@ export default async function EditEstimatePage({ params, searchParams }: Props) 
               toothNumber: i.toothNumber ?? "",
               quantity: i.quantity,
               unitRate: Number(i.unitRate),
+              unitRateMax: i.unitRateMax != null ? Number(i.unitRateMax) : null,
               discountValue: i.discountValue ? Number(i.discountValue) : 0,
               discountIsPercent: i.discountIsPercent ?? true,
               plannedSittings: i.plannedSittings ?? 1,

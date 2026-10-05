@@ -9,6 +9,8 @@ import { paymentAgreementService } from "@/server/services/payment-agreement.ser
 import { ShareActions } from "@/components/share/ShareActions"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { owedAmount } from "@/lib/estimate-owed"
+import { formatRange } from "@/lib/payment-options"
 import { toothLabel } from "@/lib/teeth"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChevronRight, ClipboardList, FileText, Printer } from "lucide-react"
@@ -44,7 +46,11 @@ export default async function EstimateDetailPage({ params }: Props) {
 
   const total = Number(estimate.total)
   const paid = estimate.payments.reduce((s: number, p: { amount: unknown }) => s + Number(p.amount), 0)
-  const balance = Math.max(0, total - paid)
+  const quoteOnly = estimate.invoiceBilling
+  const totalMax = estimate.totalMax != null ? Number(estimate.totalMax) : total
+  // Quote-only: the patient owes what has been invoiced, not the quote.
+  const owed = owedAmount(estimate)
+  const balance = Math.max(0, owed - paid)
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
@@ -175,7 +181,7 @@ export default async function EstimateDetailPage({ params }: Props) {
                       {(item.completedSittings ?? 0)} / {(item.plannedSittings ?? 1)}
                     </td>
                     <td className="py-2.5 px-2 text-xs" style={{ color: BRAND_COLORS.bodyText }}>
-                      {formatCurrency(Number(item.unitRate))}
+                      {item.unitRateMax != null ? formatRange(Number(item.unitRate), Number(item.unitRateMax)) : formatCurrency(Number(item.unitRate))}
                     </td>
                     <td className="py-2.5 px-2 text-sm font-semibold" style={{ color: BRAND_COLORS.bodyText }}>
                       {formatCurrency(Number(item.amount))}
@@ -215,9 +221,15 @@ export default async function EstimateDetailPage({ params }: Props) {
               </div>
             )}
             <div className="flex justify-between text-base font-bold">
-              <span style={{ color: BRAND_COLORS.bodyText }}>Total</span>
-              <span style={{ color: BRAND_COLORS.primaryTeal }}>{formatCurrency(total)}</span>
+              <span style={{ color: BRAND_COLORS.bodyText }}>{quoteOnly ? "Quote" : "Total"}</span>
+              <span style={{ color: BRAND_COLORS.primaryTeal }}>{quoteOnly ? formatRange(total, totalMax) : formatCurrency(total)}</span>
             </div>
+            {quoteOnly && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: BRAND_COLORS.borderDivider }}>Billed (invoices)</span>
+                <span style={{ color: BRAND_COLORS.bodyText }}>{formatCurrency(owed)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm">
               <span style={{ color: BRAND_COLORS.borderDivider }}>Paid</span>
               <span style={{ color: BRAND_COLORS.secondaryGreen }}>{formatCurrency(paid)}</span>
@@ -228,7 +240,13 @@ export default async function EstimateDetailPage({ params }: Props) {
                 <span style={{ color: "#C2410C" }}>{formatCurrency(balance)}</span>
               </div>
             )}
-            {Number(estimate.advanceRequired) > 0 && (
+            {quoteOnly && paid > owed && (
+              <div className="flex justify-between text-sm">
+                <span style={{ color: BRAND_COLORS.borderDivider }}>Advance held</span>
+                <span style={{ color: BRAND_COLORS.secondaryGreen }}>{formatCurrency(paid - owed)}</span>
+              </div>
+            )}
+            {!quoteOnly && Number(estimate.advanceRequired) > 0 && (
               <div className="flex justify-between text-sm">
                 <span style={{ color: BRAND_COLORS.borderDivider }}>Advance Required</span>
                 <span style={{ color: BRAND_COLORS.bodyText }}>{formatCurrency(Number(estimate.advanceRequired))}</span>

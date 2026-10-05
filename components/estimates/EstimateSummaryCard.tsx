@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { owedAmount } from "@/lib/estimate-owed"
+import { formatRange } from "@/lib/payment-options"
 import { Card, CardContent } from "@/components/ui/card"
 import { FileText, Printer } from "lucide-react"
 
@@ -8,6 +10,9 @@ interface Estimate {
   id: string
   estimateNo: string
   total: number | string
+  totalMax?: number | string | null
+  invoiceBilling?: boolean
+  invoicedTotal?: number | string
   status: string
   createdAt: Date | string
   doctor: { name: string }
@@ -24,8 +29,11 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
 
 export function EstimateSummaryCard({ estimate }: { estimate: Estimate }) {
   const total = Number(estimate.total)
+  const quoteOnly = !!estimate.invoiceBilling
   const paid = (estimate.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
-  const balance = Math.max(0, total - paid)
+  // Quote-only estimates: the patient owes what was invoiced, not the quote.
+  const owed = owedAmount({ invoiceBilling: quoteOnly, total, invoicedTotal: Number(estimate.invoicedTotal ?? 0) })
+  const balance = Math.max(0, owed - paid)
   const style = STATUS_STYLE[estimate.status] ?? STATUS_STYLE.ACTIVE
 
   return (
@@ -85,11 +93,17 @@ export function EstimateSummaryCard({ estimate }: { estimate: Estimate }) {
         >
           <div className="flex gap-4 text-xs">
             <span>
-              <span style={{ color: BRAND_COLORS.borderDivider }}>Total </span>
+              <span style={{ color: BRAND_COLORS.borderDivider }}>{quoteOnly ? "Quote " : "Total "}</span>
               <span className="font-semibold" style={{ color: BRAND_COLORS.bodyText }}>
-                {formatCurrency(total)}
+                {quoteOnly ? formatRange(total, Number(estimate.totalMax ?? total)) : formatCurrency(total)}
               </span>
             </span>
+            {quoteOnly && (
+              <span>
+                <span style={{ color: BRAND_COLORS.borderDivider }}>Billed </span>
+                <span className="font-semibold" style={{ color: BRAND_COLORS.bodyText }}>{formatCurrency(owed)}</span>
+              </span>
+            )}
             <span>
               <span style={{ color: BRAND_COLORS.borderDivider }}>Paid </span>
               <span className="font-semibold" style={{ color: BRAND_COLORS.secondaryGreen }}>
@@ -105,7 +119,7 @@ export function EstimateSummaryCard({ estimate }: { estimate: Estimate }) {
               Balance {formatCurrency(balance)}
             </span>
           )}
-          {balance === 0 && paid > 0 && (
+          {balance === 0 && paid > 0 && (!quoteOnly || paid === owed) && (
             <span
               className="text-xs font-bold px-2 py-0.5 rounded"
               style={{ backgroundColor: "#D1FAE5", color: "#065F46" }}

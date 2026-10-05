@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { AlertCircle, AlertTriangle, ArrowLeft, ArrowRight, Loader2, UserSearch } from "lucide-react"
+import { ReferrerPicker } from "@/components/referrals/ReferrerPicker"
 import { BRAND_COLORS } from "@/lib/constants"
 import { DentalHistoryFields } from "@/components/patients/dental-history/DentalHistoryFields"
 import { LEAD_SOURCES } from "@/lib/lead-sources"
@@ -363,25 +364,13 @@ export function PatientRegistrationForm({ branches, defaultBranchId, isAdmin }: 
               </div>
             )}
 
-            {/* Referral code — links a reward-eligible referral to an existing patient */}
-            {leadSource === "Referral" && (
-              <div>
-                <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
-                  Referral Code <span className="font-normal" style={{ color: BRAND_COLORS.borderDivider }}>(optional)</span>
-                </label>
-                <input
-                  name="referralCode"
-                  type="text"
-                  placeholder="e.g. 7K2F9Q"
-                  maxLength={12}
-                  className={`${inputCls} uppercase`}
-                  style={{ textTransform: "uppercase" }}
-                />
-                <p className="text-xs mt-1" style={{ color: BRAND_COLORS.borderDivider }}>
-                  The referrer&apos;s code — links them to a referral reward.
-                </p>
-              </div>
-            )}
+            {/* Referrer — by referral code or mobile; links the referral reward */}
+            <div>
+              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+                Referred by a patient? <span className="font-normal" style={{ color: BRAND_COLORS.borderDivider }}>(code or mobile, optional)</span>
+              </label>
+              <ReferrerPicker />
+            </div>
 
             {/* Reason for Visit */}
             <div className="md:col-span-2">

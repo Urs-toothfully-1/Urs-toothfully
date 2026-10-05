@@ -96,10 +96,7 @@ export async function collectTreatmentPaymentAction(
   const estimate = await estimateRepository.findById(estimateId)
   if (!estimate) return { error: "Estimate not found." }
 
-  const outstanding = await paymentService.getOutstandingByEstimate(
-    estimateId,
-    Number(estimate.total)
-  )
+  const outstanding = await paymentService.getOutstandingByEstimate(estimateId)
 
   if (amount > outstanding + 0.01) {
     return { error: `Amount (₹${amount}) exceeds outstanding balance (₹${outstanding.toFixed(2)}).` }
@@ -164,7 +161,7 @@ export async function collectStagePaymentAction(
   const estimate = await estimateRepository.findById(estimateId)
   if (!estimate) return { error: "Estimate not found." }
 
-  const outstanding = await paymentService.getOutstandingByEstimate(estimateId, Number(estimate.total))
+  const outstanding = await paymentService.getOutstandingByEstimate(estimateId)
   if (amount > outstanding + 0.01) {
     return { error: `Amount (₹${amount.toFixed(2)}) exceeds outstanding balance (₹${outstanding.toFixed(2)}).` }
   }

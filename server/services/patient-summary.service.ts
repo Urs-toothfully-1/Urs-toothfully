@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { owedAmount, OWED_SELECT } from "@/lib/estimate-owed"
 
 /**
  * The numbers shown around a patient's profile: what they owe, and how much sits
@@ -11,9 +12,12 @@ import { prisma } from "@/lib/prisma"
  */
 
 export type PatientBalance = {
+  /** What the patient has been billed: legacy estimate totals + invoiced treatment. */
   estimated: number
   paid: number
   outstanding: number
+  /** Paid ahead of billing on quote-only estimates (advance not yet used up by invoices). */
+  credit: number
 }
 
 /** Active estimates only — a cancelled plan is not money owed. */
@@ -21,7 +25,7 @@ export async function getPatientBalance(patientId: string): Promise<PatientBalan
   const estimates = await prisma.estimate.findMany({
     where: { patientId, isDeleted: false, status: "ACTIVE" },
     select: {
-      total: true,
+      ...OWED_SELECT,
       payments: {
         where: { isDeleted: false, paymentType: { in: ["ADVANCE", "TREATMENT"] } },
         select: { amount: true },
@@ -29,12 +33,20 @@ export async function getPatientBalance(patientId: string): Promise<PatientBalan
     },
   })
 
-  const estimated = estimates.reduce((s, e) => s + Number(e.total), 0)
-  const paid = estimates.reduce(
-    (s, e) => s + e.payments.reduce((ps, p) => ps + Number(p.amount), 0),
-    0
-  )
-  return { estimated, paid, outstanding: Math.max(0, estimated - paid) }
+  let estimated = 0
+  let paid = 0
+  let outstanding = 0
+  let credit = 0
+  for (const e of estimates) {
+    const owed = owedAmount(e)
+    const p = e.payments.reduce((ps, x) => ps + Number(x.amount), 0)
+    estimated += owed
+    paid += p
+    // Per estimate, so one plan's advance never hides another plan's dues.
+    outstanding += Math.max(0, owed - p)
+    credit += Math.max(0, p - owed)
+  }
+  return { estimated, paid, outstanding, credit }
 }
 
 export type PatientTabCounts = {

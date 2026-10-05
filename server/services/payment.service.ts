@@ -69,10 +69,24 @@ export const paymentService = {
     return paymentRepository.findByPatient(patientId)
   },
 
-  async getOutstandingByEstimate(estimateId: string, estimateTotal: number) {
+  /**
+   * Most that can still be collected against an estimate.
+   * - Legacy estimate: its quoted total is owed → total − paid.
+   * - Quote-only estimate: an advance is allowed before anything is billed, up to
+   *   the top of the quoted range (or what's been invoiced, if that's higher).
+   */
+  async getOutstandingByEstimate(estimateId: string) {
+    const est = await prisma.estimate.findUnique({
+      where: { id: estimateId },
+      select: { invoiceBilling: true, total: true, totalMax: true, invoicedTotal: true },
+    })
+    if (!est) return 0
     const payments = await paymentRepository.findByEstimate(estimateId)
     const paid = payments.reduce((sum, p) => sum + Number(p.amount), 0)
-    return Math.max(0, estimateTotal - paid)
+    const cap = est.invoiceBilling
+      ? Math.max(Number(est.totalMax ?? est.total), Number(est.invoicedTotal))
+      : Number(est.total)
+    return Math.max(0, cap - paid)
   },
 
   async create(input: CreatePaymentInput, collectedById: string, opts?: { paymentDate?: Date }) {
@@ -87,7 +101,7 @@ export const paymentService = {
       })
       if (!estimate || estimate.isDeleted) throw new Error("Estimate not found")
       if (estimate.patientId !== input.patientId) throw new Error("Estimate does not belong to this patient")
-      const outstanding = await this.getOutstandingByEstimate(input.estimateId, Number(estimate.total))
+      const outstanding = await this.getOutstandingByEstimate(input.estimateId)
       // Tolerance absorbs rounding on percentage-split instalments.
       if (input.amount > outstanding + 0.01) {
         throw new Error(

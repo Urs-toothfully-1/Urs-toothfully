@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { generateReferralCode } from "@/lib/referral-code"
 import { appointmentService } from "@/server/services/appointment.service"
 import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
 
@@ -41,6 +42,7 @@ export async function findOrCreateStubPatient(
       gender: "OTHER",
       leadSource: input.leadSource ?? "Online Appointment Request",
       reasonForVisit: input.problem?.trim() || undefined,
+      referralCode: generateReferralCode(),
       createdById,
     },
     select: { id: true },

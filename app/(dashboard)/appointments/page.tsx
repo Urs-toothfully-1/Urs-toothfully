@@ -67,8 +67,9 @@ export default async function AppointmentsPage({ searchParams }: Props) {
 
   const isDoctor = session.role === "DOCTOR"
   const isReception = session.role === "RECEPTIONIST"
-  // Reception sees own branch by default; "All Branches" removes the filter.
-  const allBranches = !isReception || scope === "all"
+  // Every branch's bookings are visible by default (a patient booked at New
+  // Alipore may walk into Outram). Reception can narrow to its own branch.
+  const allBranches = !isReception || scope !== "mine"
   const branchFilter = isReception && !allBranches ? session.branchId : undefined
   const doctorFilter = isDoctor ? session.userId : undefined
 
@@ -119,7 +120,7 @@ export default async function AppointmentsPage({ searchParams }: Props) {
   for (let d = 1; d <= daysInMonth; d++) cells.push(`${monthStr}-${pad(d)}`)
   while (cells.length % 7 !== 0) cells.push(null)
 
-  const scopeQs = allBranches && isReception ? "&scope=all" : ""
+  const scopeQs = !allBranches && isReception ? "&scope=mine" : ""
   const cellHref = (d: string) => `/appointments?date=${d}&month=${monthStr}&view=${isWeek ? "week" : "day"}${scopeQs}`
   const fmtShort = (d: string) =>
     new Date(`${d}T12:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" })
@@ -141,12 +142,12 @@ export default async function AppointmentsPage({ searchParams }: Props) {
         <div className="flex items-center gap-2">
           {isReception && (
             <Link
-              href={allBranches ? `/appointments?date=${day}&month=${monthStr}` : `/appointments?date=${day}&month=${monthStr}&scope=all`}
+              href={allBranches ? `/appointments?date=${day}&month=${monthStr}&scope=mine` : `/appointments?date=${day}&month=${monthStr}`}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium border"
               style={{ borderColor: BRAND_COLORS.lightBackground, color: BRAND_COLORS.bodyText }}
             >
               {allBranches ? <Building2 className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} /> : <Globe className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />}
-              {allBranches ? "My Branch" : "All Branches"}
+              {allBranches ? "My Branch Only" : "All Branches"}
             </Link>
           )}
           {!isDoctor && <NewAppointmentDialog doctors={doctors.map((d) => ({ id: d.id, name: d.name }))} canBackdate={session.role === "ADMIN" || isReception} />}

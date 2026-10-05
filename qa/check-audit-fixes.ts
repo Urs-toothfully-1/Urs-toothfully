@@ -20,7 +20,7 @@ async function main() {
   const estimates = await prisma.estimate.findMany({ where: { isDeleted: false }, orderBy: { createdAt: "desc" } })
   let estimate: (typeof estimates)[number] | undefined
   for (const e of estimates) {
-    if ((await paymentService.getOutstandingByEstimate(e.id, Number(e.total))) >= 1) { estimate = e; break }
+    if ((await paymentService.getOutstandingByEstimate(e.id)) >= 1) { estimate = e; break }
   }
   assert.ok(estimate, "no estimate with an unpaid balance in this database")
   const a = await prisma.patient.findUniqueOrThrow({ where: { id: estimate.patientId } })

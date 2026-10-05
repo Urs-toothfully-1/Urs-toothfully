@@ -7,10 +7,13 @@ import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { paymentAgreementService } from "@/server/services/payment-agreement.service"
 import { PaymentCard } from "@/components/payments/PaymentCard"
 import { BRAND_COLORS } from "@/lib/constants"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, formatDate } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CalendarClock, CheckCircle2, CreditCard, PlusCircle } from "lucide-react"
+import { CalendarClock, CheckCircle2, CreditCard, PlusCircle, Receipt } from "lucide-react"
 import { QuickInvoiceButton } from "@/components/payments/QuickInvoiceButton"
+import { BillingStrip } from "@/components/invoices/BillingStrip"
+import { DeleteInvoiceButton } from "@/components/invoices/DeleteInvoiceButton"
+import { invoiceService } from "@/server/services/invoice.service"
 
 export const metadata: Metadata = { title: "Payments" }
 
@@ -22,9 +25,10 @@ export default async function PaymentsPage({ params }: Props) {
 
   const { patientId } = await params
 
-  const [payments, estimates] = await Promise.all([
+  const [payments, estimates, invoices] = await Promise.all([
     paymentRepository.findByPatient(patientId),
     estimateRepository.findByPatient(patientId),
+    invoiceService.listByPatient(patientId),
   ])
 
   // Fetch payment schedule for each active estimate (saved or auto-suggested).
@@ -83,7 +87,8 @@ export default async function PaymentsPage({ params }: Props) {
   const estimatesWithSchedule = activeEstimates
     .map((e: any) => {
       const agreement = agreementByEstimate[e.id]
-      if (!agreement) return null
+      // Quote-only estimates have payment options, not a stage schedule.
+      if (!agreement || agreement.stages.length === 0) return null
       const stages = agreement.stages as any[]
       return {
         id: e.id,
@@ -133,6 +138,41 @@ export default async function PaymentsPage({ params }: Props) {
             Collect Payment
           </Link>
         </div>
+      )}
+
+      <BillingStrip patientId={patientId} />
+
+      {/* Treatment invoices (quote-only estimates are billed per visit) */}
+      {invoices.length > 0 && (
+        <Card className="border-[#E0E3E5] bg-white">
+          <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
+            <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
+              <Receipt className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
+              Treatment Invoices
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-3 divide-y divide-[#F2F4F6]">
+            {invoices.map((inv) => (
+              <div key={inv.id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium" style={{ color: BRAND_COLORS.bodyText }}>
+                    <Link href={`/print/invoice/${inv.id}`} target="_blank" className="hover:underline">{inv.invoiceNo}</Link>
+                    <span className="ml-2 text-xs font-normal" style={{ color: BRAND_COLORS.borderDivider }}>
+                      {formatDate(inv.invoiceDate)} · {inv.estimate.estimateNo} · by {inv.createdBy.name}
+                    </span>
+                  </p>
+                  <p className="text-xs truncate" style={{ color: BRAND_COLORS.borderDivider }}>
+                    {inv.items.map((i) => i.treatmentName).join(", ")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-sm font-semibold" style={{ color: BRAND_COLORS.primaryTeal }}>{formatCurrency(Number(inv.total))}</span>
+                  {session.role === "ADMIN" && <DeleteInvoiceButton invoiceId={inv.id} invoiceNo={inv.invoiceNo} patientId={patientId} />}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       )}
 
       {/* Payment Agreement Schedule */}

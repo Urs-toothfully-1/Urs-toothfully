@@ -1,4 +1,6 @@
 import { Metadata } from "next"
+import { owedAmount } from "@/lib/estimate-owed"
+import { paymentService } from "@/server/services/payment.service"
 import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import { requireRole } from "@/lib/auth"
@@ -43,19 +45,24 @@ export default async function CollectPaymentPage({ searchParams }: Props) {
 
   const defaultFee = parseFloat(consultationFee ?? "1000")
 
-  // Calculate outstanding balance per estimate
+  // Per estimate: what's billed, paid, and how much can be collected now. For a
+  // quote-only estimate that includes an advance before anything is invoiced.
   const estimatesWithBalance = await Promise.all(
     estimates.map(async (e: any) => {
-      const balance = await paymentRepository.findByEstimate(e.id).then((payments) => {
-        const paid = payments.reduce((s: number, p: { amount: unknown }) => s + Number(p.amount), 0)
-        return Math.max(0, Number(e.total) - paid)
-      })
+      const payments = await paymentRepository.findByEstimate(e.id)
+      const paid = payments.reduce((s: number, p: { amount: unknown }) => s + Number(p.amount), 0)
+      const billed = owedAmount(e)
+      const collectable = await paymentService.getOutstandingByEstimate(e.id)
       return {
         id: e.id,
         estimateNo: e.estimateNo,
-        total: Number(e.total),
-        paid: Number(e.total) - balance,
-        balance,
+        total: billed,
+        paid,
+        balance: collectable,
+        note: e.invoiceBilling
+          ? `Invoiced ${formatCurrency(billed)} · due ${formatCurrency(Math.max(0, billed - paid))}` +
+            (paid > billed ? ` · advance held ${formatCurrency(paid - billed)}` : "")
+          : undefined,
       }
     })
   )

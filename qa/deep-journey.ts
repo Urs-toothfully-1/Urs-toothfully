@@ -21,6 +21,7 @@ import { appointmentService } from "@/server/services/appointment.service"
 import { queueRepository } from "@/server/repositories/queue.repository"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { treatmentRepository } from "@/server/repositories/treatment.repository"
+import { settingsRepository } from "@/server/repositories/settings.repository"
 import type { PrescriptionData } from "@/lib/prescription-types"
 
 const OUTRAM = "branch-outram-0000-0000-000000000001"
@@ -171,10 +172,14 @@ async function main() {
     },
     doctor.id
   )
+  // This journey exercises the LEGACY rule (owed = estimate total, stage schedule).
+  // The new quote + invoice flow is covered by qa/check-invoice-referral-flow.ts.
+  await prisma.estimate.update({ where: { id: est1.id }, data: { invoiceBilling: false } })
   check("estimate number issued", /^EST-\d{4}-\d{5}$/.test(est1.estimateNo), est1.estimateNo)
   check("subtotal = 9000 + 70000", Number(est1.subtotal) === 79000, Number(est1.subtotal))
   check("10% discount applied", Number(est1.total) === 71100, Number(est1.total))
-  check("advance = 20% of total", Math.round(Number(est1.advanceRequired)) === 14220, Number(est1.advanceRequired))
+  const advPct = Number((await settingsRepository.get("advance_percent", OUTRAM)) ?? 0)
+  check(`advance = ${advPct}% of total`, Math.round(Number(est1.advanceRequired)) === Math.round(71100 * advPct / 100), Number(est1.advanceRequired))
   const customItem = est1.items.find((i: any) => /Implant/.test(i.treatmentName))
   check("custom item saved with a null treatmentId", customItem?.treatmentId === null, customItem?.treatmentId)
   check("multi-tooth string survived to the estimate item", customItem?.toothNumber === "16,48", customItem?.toothNumber)
@@ -207,7 +212,7 @@ async function main() {
     reception.id
   )
   check("advance payment recorded", Number(advance.payment.amount) === 15800, Number(advance.payment.amount))
-  const outstanding = await paymentService.getOutstandingByEstimate(est1.id, 79000)
+  const outstanding = await paymentService.getOutstandingByEstimate(est1.id)
   check("outstanding = total − advance", Number(outstanding) === 63200, Number(outstanding))
   const acc = await prisma.accountingEntry.count({ where: { branchId: OUTRAM } })
   check("accounting entries written for payments", acc >= 2, acc)
@@ -248,7 +253,7 @@ async function main() {
       reception.id
     )
   }
-  const outstanding2 = await paymentService.getOutstandingByEstimate(est1.id, 79000)
+  const outstanding2 = await paymentService.getOutstandingByEstimate(est1.id)
   check("outstanding after instalments = 23200", Number(outstanding2) === 23200, Number(outstanding2))
   await expectThrows("overpayment beyond the estimate total is rejected", () =>
     paymentService.create(
@@ -303,6 +308,7 @@ async function main() {
     },
     doctor2.id
   )
+  await prisma.estimate.update({ where: { id: est2.id }, data: { invoiceBilling: false } })
   check("second estimate is independent of the first", est2.id !== est1.id && est2.estimateNo !== est1.estimateNo)
   const allEstimates = await estimateService.getByPatient(patient.id)
   check("patient now has 2 estimates on file", allEstimates.length === 2, allEstimates.length)

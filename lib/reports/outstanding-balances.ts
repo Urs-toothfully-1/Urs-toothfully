@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { owedAmount } from "@/lib/estimate-owed"
 
 export interface OutstandingRow {
   estimateId: string
@@ -40,7 +41,8 @@ export async function getOutstandingBalances(branchId?: string): Promise<Outstan
   return estimates
     .map((e) => {
       const paid = e.payments.reduce((s, p) => s + Number(p.amount), 0)
-      const balance = Math.max(0, Number(e.total) - paid)
+      const owed = owedAmount(e) // quote-only estimates: only what's been invoiced
+      const balance = Math.max(0, owed - paid)
       const daysSince = Math.floor(
         (today.getTime() - new Date(e.createdAt).getTime()) / (1000 * 60 * 60 * 24)
       )
@@ -53,7 +55,7 @@ export async function getOutstandingBalances(branchId?: string): Promise<Outstan
         branchName: e.branch.name,
         estimateDate: e.createdAt,
         daysSince,
-        total: Number(e.total),
+        total: owed,
         paid,
         balance,
       }

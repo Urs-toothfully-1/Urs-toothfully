@@ -9,6 +9,7 @@ import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { toothLabel } from "@/lib/teeth"
 import { PaymentStage } from "@/lib/payment-agreement"
+import { discountLabel, formatRange, optionAmounts, parsePaymentOptions } from "@/lib/payment-options"
 import { PrintButtons } from "@/components/print/PrintButtons"
 import { ShareActions } from "@/components/share/ShareActions"
 
@@ -44,6 +45,11 @@ export default async function PrintEstimatePage({ params }: Props) {
   const paid = estimate.payments.reduce((s: number, p: { amount: unknown }) => s + Number(p.amount), 0)
   const balance = Math.max(0, total - paid)
   const received = agreementStages.filter((s) => s.received).reduce((sum, s) => sum + s.amount, 0)
+  // New workflow: a quote (possibly a range) with printed payment options; the
+  // patient is billed per treatment invoice, so no advance/balance lines here.
+  const quoteOnly = estimate.invoiceBilling
+  const totalMax = estimate.totalMax != null ? Number(estimate.totalMax) : total
+  const paymentOptions = quoteOnly ? parsePaymentOptions(agreement?.options) : []
 
   return (
     <>
@@ -210,7 +216,9 @@ export default async function PrintEstimatePage({ params }: Props) {
                   {item.quantity}
                 </td>
                 <td className="py-2 px-3 text-right" style={{ color: BRAND_COLORS.bodyText }}>
-                  {formatCurrency(Number(item.unitRate))}
+                  {item.unitRateMax != null
+                    ? formatRange(Number(item.unitRate), Number(item.unitRateMax))
+                    : formatCurrency(Number(item.unitRate))}
                 </td>
                 {/* Per-line discount — shown as % or ₹ exactly as entered */}
                 <td className="py-2 px-3 text-right" style={{ color: lineDisc > 0 ? "#DC2626" : BRAND_COLORS.borderDivider }}>
@@ -231,6 +239,11 @@ export default async function PrintEstimatePage({ params }: Props) {
                     </>
                   ) : (
                     formatCurrency(gross)
+                  )}
+                  {item.unitRateMax != null && (
+                    <span className="block" style={{ fontSize: "11px", fontWeight: 400 }}>
+                      to {formatCurrency(item.quantity * Number(item.unitRateMax) - lineDisc)}
+                    </span>
                   )}
                 </td>
               </tr>
@@ -272,13 +285,18 @@ export default async function PrintEstimatePage({ params }: Props) {
               className="flex justify-between font-bold text-base pt-2 border-t"
               style={{ borderColor: BRAND_COLORS.primaryTeal, color: BRAND_COLORS.primaryTeal }}
             >
-              <span>TOTAL</span>
-              <span>{formatCurrency(total)}</span>
+              <span>{quoteOnly && totalMax > total ? "ESTIMATED COST" : "TOTAL"}</span>
+              <span>{quoteOnly ? formatRange(total, totalMax) : formatCurrency(total)}</span>
             </div>
+            {quoteOnly && totalMax > total && (
+              <p style={{ color: BRAND_COLORS.borderDivider, fontSize: "11px" }}>
+                Final charges depend on the treatment performed and are billed per visit.
+              </p>
+            )}
             {/* Only shown when an advance is actually required. With the
                 advance_percent setting at 0 the line is omitted entirely rather
                 than printing "Advance Required ₹0" on the patient's copy. */}
-            {Number(estimate.advanceRequired) > 0 && (
+            {!quoteOnly && Number(estimate.advanceRequired) > 0 && (
               <div className="flex justify-between text-sm">
                 <span style={{ color: BRAND_COLORS.borderDivider }}>Advance Required</span>
                 <span style={{ color: BRAND_COLORS.secondaryGreen, fontWeight: 600 }}>
@@ -286,7 +304,7 @@ export default async function PrintEstimatePage({ params }: Props) {
                 </span>
               </div>
             )}
-            {paid > 0 && (
+            {!quoteOnly && paid > 0 && (
               <>
                 <div className="flex justify-between">
                   <span style={{ color: BRAND_COLORS.borderDivider }}>Amount Paid</span>
@@ -304,6 +322,36 @@ export default async function PrintEstimatePage({ params }: Props) {
             )}
           </div>
         </div>
+
+        {paymentOptions.length > 0 && (
+          <div className="mb-5">
+            <p className="text-sm font-bold mb-2" style={{ color: BRAND_COLORS.primaryTeal }}>PAYMENT OPTIONS</p>
+            <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
+              <tbody>
+                {paymentOptions.map((o, i) => {
+                  const a = optionAmounts(o, total, totalMax)
+                  return (
+                    <tr key={i} style={{ borderBottom: `1px solid ${BRAND_COLORS.lightBackground}` }}>
+                      <td className="py-2 px-3" style={{ color: BRAND_COLORS.bodyText }}>
+                        <strong>{o.title}</strong>
+                        {discountLabel(o) && <span style={{ color: BRAND_COLORS.secondaryGreen }}> — {discountLabel(o)}</span>}
+                        {o.note && <span className="block" style={{ color: BRAND_COLORS.borderDivider, fontSize: "11px" }}>{o.note}</span>}
+                        {a.instalments.length > 1 && (
+                          <span className="block" style={{ color: BRAND_COLORS.borderDivider, fontSize: "11px" }}>
+                            {a.instalments.map((s, j) => `Instalment ${j + 1} (${s.pct}%): ${formatRange(s.min, s.max)}`).join(" · ")}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 text-right font-semibold" style={{ color: BRAND_COLORS.bodyText, whiteSpace: "nowrap" }}>
+                        {o.splits.length === 0 && o.discountType === "NONE" ? "Per visit" : formatRange(a.min, a.max)}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {estimate.notes && (
           <div

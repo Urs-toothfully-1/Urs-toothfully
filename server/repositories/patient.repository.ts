@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { generateReferralCode } from "@/lib/referral-code"
 import { Gender, Patient, Prisma } from "@prisma/client"
 
 export type PatientWithBranch = Patient & {
@@ -75,7 +76,9 @@ export const patientRepository = {
     createdById: string
   }): Promise<PatientWithBranch> {
     return prisma.patient.create({
-      data,
+      // Every patient gets a referral code at birth (6 chars, ~887M space; the
+      // unique index guards the rare collision).
+      data: { ...data, referralCode: generateReferralCode() },
       include: {
         registrationBranch: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },

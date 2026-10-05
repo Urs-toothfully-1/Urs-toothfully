@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
+import { owedAmount, OWED_SELECT } from "@/lib/estimate-owed"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Users, CreditCard, ClipboardList, AlertCircle,
@@ -45,7 +46,7 @@ async function getAdminKPIs(branchId: string) {
     // Outstanding balances (all active estimates)
     prisma.estimate.findMany({
       where: { status: "ACTIVE", isDeleted: false },
-      select: { total: true, payments: { where: { isDeleted: false, paymentType: { in: ["ADVANCE", "TREATMENT"] } }, select: { amount: true } } },
+      select: { ...OWED_SELECT, payments: { where: { isDeleted: false, paymentType: { in: ["ADVANCE", "TREATMENT"] } }, select: { amount: true } } },
     }),
 
     // Estimates this month
@@ -64,9 +65,9 @@ async function getAdminKPIs(branchId: string) {
     prisma.accountingEntry.count({ where: { isDeleted: false, status: "PENDING_REVIEW" } }),
   ])
 
-  const totalOutstanding = outstandingEstimates.reduce((s: number, e: { total: unknown; payments: { amount: unknown }[] }) => {
-    const paid = e.payments.reduce((ps: number, p: { amount: unknown }) => ps + Number(p.amount), 0)
-    return s + Math.max(0, Number(e.total) - paid)
+  const totalOutstanding = outstandingEstimates.reduce((s, e) => {
+    const paid = e.payments.reduce((ps, p) => ps + Number(p.amount), 0)
+    return s + Math.max(0, owedAmount(e) - paid)
   }, 0)
 
   return {

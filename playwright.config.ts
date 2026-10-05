@@ -69,7 +69,7 @@ export default defineConfig({
     },
     {
       name: "doctor",
-      testMatch: /(doctor|prescriptions|templates|prescription-editor)\.spec\.ts/,
+      testMatch: /(doctor|prescriptions|templates|prescription-editor|invoice-referral)\.spec\.ts/,
       dependencies: ["setup"],
       use: {
         ...devices["Desktop Chrome"],

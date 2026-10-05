@@ -179,6 +179,7 @@ model Branch {
   appointmentRequests   AppointmentRequest[]
   ledgerEntries         LedgerEntry[]
   referrals             Referral[]
+  invoices              Invoice[]
   diagnoses             Diagnosis[]
   diagnosisUsages       DiagnosisUsage[]
   medicines             Medicine[]
@@ -224,6 +225,7 @@ model User {
   deletedLedgerEntries  LedgerEntry[]          @relation("LedgerDeletedBy")
   createdReferrals      Referral[]             @relation("ReferralCreatedBy")
   grantedReferrals      Referral[]             @relation("ReferralGrantedBy")
+  createdInvoices       Invoice[]              @relation("InvoiceCreatedBy")
   exportBatches         ExportBatch[]
   settings              SystemSetting[]
   treatmentMaster       TreatmentMaster[]
@@ -304,6 +306,7 @@ model Patient {
   appointments       Appointment[]
   referralsMade      Referral[]           @relation("ReferralsMade")
   referredBy         Referral?            @relation("ReferredBy")
+  invoices           Invoice[]
 
   @@index([mobile])
   @@index([registrationBranchId, createdAt])
@@ -541,6 +544,14 @@ model Estimate {
   globalDiscountValue     Decimal  @default(0) @db.Decimal(10, 2) // estimate-wide discount applied on top of per-line: a % or ₹
   globalDiscountIsPercent Boolean  @default(true)
   referralCreditApplied   Decimal  @default(0) @db.Decimal(10, 2) // referral reward credit consumed by this estimate
+  /// Upper end of the quoted total when any line is a price range (e.g. RCT
+  /// ₹6,000–₹12,000). Null = a fixed quote; `total` is always the lower end.
+  totalMax        Decimal?       @db.Decimal(10, 2)
+  /// true = quote-only estimate: what the patient owes is what's been invoiced at
+  /// treatment visits (`invoicedTotal`), not the quote. false = legacy estimate
+  /// where `total` itself is owed. Every estimate created after the switch is true.
+  invoiceBilling  Boolean        @default(false)
+  invoicedTotal   Decimal        @default(0) @db.Decimal(10, 2) // Σ non-deleted invoice totals (kept in sync)
   notes           String?
   status          EstimateStatus @default(ACTIVE)
   createdAt       DateTime       @default(now())
@@ -556,10 +567,59 @@ model Estimate {
   payments           Payment[]
   generatedDocuments GeneratedDocument[]
   paymentAgreement   PaymentAgreement?
+  invoices           Invoice[]
 
   @@index([patientId, status])
   @@index([branchId, createdAt])
   @@index([visitId])
+}
+
+/// A bill for treatment actually performed at a visit, raised against an
+/// invoice-billing estimate. The doctor picks today's treatments (from the
+/// estimate or ad hoc) and enters the real price.
+model Invoice {
+  id                String        @id @default(uuid())
+  invoiceNo         String        @unique @db.VarChar(20)
+  estimateId        String
+  estimate          Estimate      @relation(fields: [estimateId], references: [id])
+  patientId         String
+  patient           Patient       @relation(fields: [patientId], references: [id])
+  branchId          String
+  branch            Branch        @relation(fields: [branchId], references: [id])
+  visitId           String?
+  invoiceDate       DateTime      @default(now())
+  subtotal          Decimal       @db.Decimal(10, 2)
+  discountValue     Decimal       @default(0) @db.Decimal(10, 2) // a % or a ₹ amount per discountIsPercent
+  discountIsPercent Boolean       @default(false)
+  discountAmount    Decimal       @default(0) @db.Decimal(10, 2)
+  total             Decimal       @db.Decimal(10, 2)
+  notes             String?       @db.VarChar(500)
+  createdById       String
+  createdBy         User          @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  createdAt         DateTime      @default(now())
+  isDeleted         Boolean       @default(false)
+  deletedAt         DateTime?
+  deletedById       String?
+  deletionReason    String?
+  items             InvoiceItem[]
+
+  @@index([patientId, invoiceDate])
+  @@index([estimateId])
+}
+
+model InvoiceItem {
+  id             String  @id @default(uuid())
+  invoiceId      String
+  invoice        Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  estimateItemId String? // the planned treatment this bills, if any
+  treatmentName  String  @db.VarChar(200)
+  toothNumber    String? @db.VarChar(120)
+  quantity       Int     @default(1)
+  unitRate       Decimal @db.Decimal(10, 2)
+  amount         Decimal @db.Decimal(10, 2)
+  sortOrder      Int     @default(0)
+
+  @@index([invoiceId])
 }
 
 model PaymentAgreement {
@@ -567,6 +627,9 @@ model PaymentAgreement {
   estimateId           String    @unique
   estimate             Estimate  @relation(fields: [estimateId], references: [id])
   stages               Json      // Array of { name: string, amount: number, dueDate: string, received: boolean }
+  /// Invoice-billing estimates: payment offers printed for the patient, e.g.
+  /// { title, discountType: "NONE"|"PERCENT"|"FLAT", discountValue, splits: number[] (% instalments), note }[]
+  options              Json?
   clinicRepresentative String?   @db.VarChar(200)
   termsAccepted        Boolean   @default(false)
   patientSignedAt      DateTime?
@@ -585,6 +648,8 @@ model EstimateItem {
   toothNumber       String?         @db.VarChar(120) // one or more FDI numbers, comma-separated
   quantity          Int             @default(1)
   unitRate          Decimal         @db.Decimal(10, 2)
+  /// Upper end of a price range (e.g. RCT 6000–12000 → unitRate 6000, unitRateMax 12000). Null = fixed price.
+  unitRateMax       Decimal?        @db.Decimal(10, 2)
   amount            Decimal         @db.Decimal(10, 2) // gross = quantity × unitRate (per-line discount is applied on top)
   discountValue     Decimal         @default(0) @db.Decimal(10, 2) // per-line discount: a % or a ₹ amount per discountIsPercent
   discountIsPercent Boolean         @default(true)
@@ -743,7 +808,9 @@ enum ReferralStatus {
 
 enum ReferralRewardType {
   MONETARY
-  DISCOUNT_CREDIT
+  DISCOUNT_CREDIT // a ₹ discount the referrer gets on a future bill
+  FREE_CHECKUP
+  FREE_TREATMENT // rewardNote names the treatment
 }
 
 model Referral {
@@ -763,6 +830,8 @@ model Referral {
   rewardNote          String?             @db.VarChar(300)
   rewardLedgerEntryId String? // monetary reward → the Cash Book LedgerEntry it created
   redeemedEstimateId  String? // discount credit → the estimate that consumed it
+  redeemedInvoiceId   String? // reward used on this invoice, if billed
+  redeemedNote        String?             @db.VarChar(300) // how/when the reward was used
   redeemedAt          DateTime?
   grantedById         String?
   grantedBy           User?               @relation("ReferralGrantedBy", fields: [grantedById], references: [id])
@@ -804,6 +873,7 @@ model GeneratedDocument {
 
   @@index([patientId, documentType, generatedAt])
   @@index([estimateId])
+  @@index([documentType, generatedAt]) // created in 20260819080000_cache_generated_pdfs
 }
 
 model AuditLog {

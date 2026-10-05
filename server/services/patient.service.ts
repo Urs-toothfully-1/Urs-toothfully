@@ -1,4 +1,5 @@
 import { Gender } from "@prisma/client"
+import { generateReferralCode } from "@/lib/referral-code"
 import { prisma } from "@/lib/prisma"
 import { patientRepository } from "@/server/repositories/patient.repository"
 import { createAuditLog } from "@/lib/audit"
@@ -142,6 +143,7 @@ export const patientService = {
           leadSource: input.leadSource || undefined,
           referenceName: input.referenceName || undefined,
           reasonForVisit: input.reasonForVisit || undefined,
+          referralCode: generateReferralCode(),
           createdById,
         },
       })

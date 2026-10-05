@@ -8,8 +8,8 @@ import { settingsRepository } from "@/server/repositories/settings.repository"
 import { prescriptionService } from "@/server/services/prescription.service"
 import { paymentAgreementService } from "@/server/services/payment-agreement.service"
 import { queueRepository } from "@/server/repositories/queue.repository"
-import { referralService } from "@/server/services/referral.service"
 import { EstimateWizard } from "@/components/estimates/EstimateWizard"
+import { ReferralBanner } from "@/components/referrals/ReferralBanner"
 import type { PrescriptionData } from "@/lib/prescription-types"
 import type { PaymentStage } from "@/lib/payment-agreement"
 
@@ -45,7 +45,7 @@ export default async function ConsultationPage({ params }: Props) {
   const existing = await estimateRepository.findByVisit(visitId)
   const estimate = existing ? await estimateRepository.findById(existing.id) : null
 
-  const [paymentAgreement, queueEntry, examTemplates, treatments, allowDisc, referralCredit] = await Promise.all([
+  const [paymentAgreement, queueEntry, examTemplates, treatments, allowDisc] = await Promise.all([
     estimate ? paymentAgreementService.getOrSuggest(estimate.id) : Promise.resolve(null),
     queueRepository.findByVisit(visitId),
     prisma.examinationTemplate
@@ -53,7 +53,6 @@ export default async function ConsultationPage({ params }: Props) {
       .catch(() => []),
     treatmentRepository.findAll(),
     settingsRepository.get("allow_discount", visit.branchId),
-    referralService.availableCreditForPatient(visit.patientId),
   ])
 
   const prescriptionData = (prescription?.prescriptionData ?? {}) as unknown as PrescriptionData
@@ -80,6 +79,8 @@ export default async function ConsultationPage({ params }: Props) {
     : null
 
   return (
+    <>
+    <ReferralBanner patientId={visit.patientId} />
     <EstimateWizard
       estimateId={estimate?.id ?? null}
       estimateNo={estimate?.estimateNo ?? null}
@@ -91,6 +92,7 @@ export default async function ConsultationPage({ params }: Props) {
         toothNumber: i.toothNumber ?? null,
         quantity: i.quantity,
         unitRate: Number(i.unitRate),
+        unitRateMax: i.unitRateMax != null ? Number(i.unitRateMax) : null,
         plannedSittings: i.plannedSittings ?? 1,
         isAlternative: i.isAlternative ?? false,
         status: i.status,
@@ -118,7 +120,12 @@ export default async function ConsultationPage({ params }: Props) {
       paymentAgreementTermsAccepted={paymentAgreement?.termsAccepted ?? false}
       paymentAgreementSignedAt={paymentAgreement?.patientSignedAt?.toISOString() ?? null}
       queueId={queueEntry?.id ?? null}
-      availableReferralCredit={referralCredit}
+      // Referral discounts are now taken on the treatment invoice, not the estimate.
+      availableReferralCredit={0}
+      invoiceBilling={estimate ? estimate.invoiceBilling : true}
+      estimateTotalMax={estimate?.totalMax != null ? Number(estimate.totalMax) : null}
+      paymentOptions={paymentAgreement?.options ?? []}
     />
+    </>
   )
 }

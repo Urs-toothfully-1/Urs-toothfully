@@ -13,7 +13,7 @@ import { formatCurrency } from "@/lib/utils"
 import { ToothSelector } from "@/components/dental/ToothSelector"
 import { CUSTOM_TREATMENT } from "@/lib/estimate-item"
 import { istTodayStr } from "@/lib/ist"
-import { computeEstimateTotals, lineDiscountAmount } from "@/lib/estimate-totals"
+import { computeEstimateTotals, computeEstimateTotalMax, lineDiscountAmount } from "@/lib/estimate-totals"
 
 interface Treatment {
   id: string
@@ -31,6 +31,8 @@ interface EstimateItem {
   toothNumber: string
   quantity: number
   unitRate: number
+  /** Top of a price range ("starts from 6,000 – up to 12,000"); null = fixed price. */
+  unitRateMax: number | null
   amount: number
   discountValue: number
   discountIsPercent: boolean
@@ -47,6 +49,7 @@ interface InitialItem {
   toothNumber: string
   quantity: number
   unitRate: number
+  unitRateMax?: number | null
   discountValue?: number
   discountIsPercent?: boolean
   plannedSittings?: number
@@ -125,6 +128,7 @@ function newItem(): EstimateItem {
     toothNumber: "",
     quantity: 1,
     unitRate: 0,
+    unitRateMax: null,
     amount: 0,
     discountValue: 0,
     discountIsPercent: true,
@@ -166,6 +170,7 @@ export const EstimateBuilder = forwardRef<EstimateBuilderHandle, Props>(function
           isAlternative: i.isAlternative ?? false,
           discountValue: i.discountValue ?? 0,
           discountIsPercent: i.discountIsPercent ?? true,
+          unitRateMax: i.unitRateMax ?? null,
           amount: i.quantity * i.unitRate,
           _key: makeRowKey(),
         }))
@@ -254,12 +259,9 @@ export const EstimateBuilder = forwardRef<EstimateBuilderHandle, Props>(function
   const alternativesTotal = items.filter((i) => i.isAlternative).reduce((s, i) => s + i.amount, 0)
   // On an existing estimate the credit is fixed; on a new one it's applied when opted in.
   const creditForPreview = isEdit ? initialReferralCreditApplied : (applyReferralCredit ? availableReferralCredit : 0)
-  const totals = computeEstimateTotals(
-    items.map((i) => ({ quantity: i.quantity, unitRate: i.unitRate, discountValue: allowDiscount ? i.discountValue : 0, discountIsPercent: i.discountIsPercent, isAlternative: i.isAlternative })),
-    allowDiscount ? globalDiscountValue : 0,
-    globalDiscountIsPercent,
-    creditForPreview
-  )
+  const totalLines = items.map((i) => ({ quantity: i.quantity, unitRate: i.unitRate, unitRateMax: i.unitRateMax, discountValue: allowDiscount ? i.discountValue : 0, discountIsPercent: i.discountIsPercent, isAlternative: i.isAlternative }))
+  const totals = computeEstimateTotals(totalLines, allowDiscount ? globalDiscountValue : 0, globalDiscountIsPercent, creditForPreview)
+  const totalMax = computeEstimateTotalMax(totalLines, allowDiscount ? globalDiscountValue : 0, globalDiscountIsPercent, creditForPreview)
   const subtotal = totals.subtotal
   const discountAmount = totals.discountAmount
   const total = totals.total
@@ -292,6 +294,7 @@ export const EstimateBuilder = forwardRef<EstimateBuilderHandle, Props>(function
       prev.map((item) => {
         if (item._key !== key) return item
         const updated = { ...item, [field]: value }
+        if (field === "unitRateMax" && !value) updated.unitRateMax = null
         updated.amount = updated.quantity * updated.unitRate
         if (field === "treatmentId") updated.treatmentId = value as string
         return updated
@@ -374,7 +377,7 @@ export const EstimateBuilder = forwardRef<EstimateBuilderHandle, Props>(function
                 Sittings
               </th>
               <th className="text-right px-2 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-                Rate (₹)
+                Rate (₹) <span className="font-normal">from – up to</span>
               </th>
               {allowDiscount && (
                 <th className="text-center px-2 py-2.5 font-semibold text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
@@ -480,6 +483,19 @@ export const EstimateBuilder = forwardRef<EstimateBuilderHandle, Props>(function
                     value={item.unitRate}
                     onChange={(e) => handleChange(item._key, "unitRate", parseFloat(e.target.value) || 0)}
                     className={`${inputCls} text-right min-w-[84px]`}
+                    aria-label="Rate from"
+                  />
+                  {/* Optional top of range — e.g. root canal 6,000 – 12,000 */}
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={item.unitRateMax ?? ""}
+                    placeholder="up to (optional)"
+                    onChange={(e) => handleChange(item._key, "unitRateMax", parseFloat(e.target.value) || 0)}
+                    className={`${inputCls} text-right min-w-[84px] mt-1 text-xs ${item.unitRateMax && item.unitRateMax <= item.unitRate ? "border-red-400" : ""}`}
+                    title="Leave empty for a fixed price. The final price is set on the treatment invoice."
+                    aria-label="Rate up to"
                   />
                 </td>
 
@@ -526,6 +542,11 @@ export const EstimateBuilder = forwardRef<EstimateBuilderHandle, Props>(function
                         </span>
                       )}
                       {formatCurrency(item.amount - lineDisc)}
+                      {item.unitRateMax != null && item.unitRateMax > item.unitRate && (
+                        <span className="block text-[11px] font-normal" style={{ color: BRAND_COLORS.borderDivider }}>
+                          to {formatCurrency(item.quantity * item.unitRateMax - lineDisc)}
+                        </span>
+                      )}
                     </td>
                   )
                 })()}
@@ -694,8 +715,15 @@ export const EstimateBuilder = forwardRef<EstimateBuilderHandle, Props>(function
             style={{ borderColor: BRAND_COLORS.lightBackground }}
           >
             <span style={{ color: BRAND_COLORS.bodyText }}>Total</span>
-            <span style={{ color: BRAND_COLORS.primaryTeal }}>{formatCurrency(total)}</span>
+            <span style={{ color: BRAND_COLORS.primaryTeal }}>
+              {formatCurrency(total)}{totalMax != null && <> – {formatCurrency(totalMax)}</>}
+            </span>
           </div>
+          {totalMax != null && (
+            <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+              Price range — the final amount is billed on the treatment invoice.
+            </p>
+          )}
 
           {/* Advance and the rest of the money talk live in the Payment Plan
               step, so the estimate stays a plain statement of the work. */}

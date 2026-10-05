@@ -143,7 +143,7 @@ export async function registerPatientWithHistoryAction(
   }
 
   const whatsappConsent = formData.get("whatsappConsent") === "on"
-  const referralCode = formData.get("referralCode")?.toString() ?? ""
+  const referrerId = formData.get("referrerId")?.toString() ?? ""
 
   try {
     const patient = await patientService.createWithHistory(parsed.data, history, session.userId)
@@ -151,17 +151,11 @@ export async function registerPatientWithHistoryAction(
     if (whatsappConsent) {
       await whatsappService.setConsent(patient.id, true).catch(() => null)
     }
-    // Link the referral if a valid code was entered — invalid codes are ignored
-    // (the free-text "how did you hear" field still captures those). Non-blocking.
-    if (referralCode.trim()) {
+    // Link the referrer picked by code/mobile. Non-blocking: it can also be set
+    // later from the patient's Referrals tab.
+    if (referrerId) {
       try {
-        const referrer = await referralService.findReferrerByCode(referralCode)
-        if (referrer && referrer.id !== patient.id) {
-          await referralService.createReferral({
-            referrerId: referrer.id, refereeId: patient.id,
-            branchId: patient.registrationBranchId, createdById: session.userId,
-          })
-        }
+        await referralService.linkReferrer({ refereeId: patient.id, referrerId, userId: session.userId })
       } catch { /* referral capture must never block registration */ }
     }
     redirect(`/patients/${patient.id}`)

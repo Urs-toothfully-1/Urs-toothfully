@@ -9,7 +9,7 @@ import { settingsRepository } from "@/server/repositories/settings.repository"
 import { treatmentIdOrNull } from "@/lib/estimate-item"
 import { numericSetting } from "@/lib/settings-value"
 import { createAuditLog } from "@/lib/audit"
-import { computeEstimateTotals } from "@/lib/estimate-totals"
+import { computeEstimateTotals, computeEstimateTotalMax } from "@/lib/estimate-totals"
 import { Decimal } from "@prisma/client/runtime/library"
 import type { ItemStatus } from "@prisma/client"
 
@@ -48,6 +48,7 @@ export async function createEstimateAction(
     toothNumber?: string
     quantity?: string | number
     unitRate?: string | number
+    unitRateMax?: string | number | null
     discountValue?: string | number
     discountIsPercent?: boolean
     plannedSittings?: string | number
@@ -88,6 +89,7 @@ export async function createEstimateAction(
           toothNumber: item.toothNumber || undefined,
           quantity: parseInt(String(item.quantity), 10),
           unitRate: parseFloat(String(item.unitRate)),
+          unitRateMax: parseFloat(String(item.unitRateMax ?? "")) || undefined,
           discountValue: item.discountValue ? Math.max(0, parseFloat(String(item.discountValue))) || 0 : 0,
           discountIsPercent: item.discountIsPercent !== false,
           plannedSittings: item.plannedSittings ? Math.max(1, parseInt(String(item.plannedSittings), 10)) : 1,
@@ -137,6 +139,7 @@ export async function updateEstimateAction(
     id?: string
     treatmentId?: string; treatmentName?: string; category?: string
     toothNumber?: string; quantity?: string | number; unitRate?: string | number
+    unitRateMax?: string | number | null
     discountValue?: string | number; discountIsPercent?: boolean
     plannedSittings?: string | number
     /** Quoted as an option, not charged — excluded from the total. */
@@ -152,6 +155,7 @@ export async function updateEstimateAction(
     const mappedItems = items.map((item, idx) => {
       const qty = parseInt(String(item.quantity), 10)
       const rate = parseFloat(String(item.unitRate))
+      const rateMax = parseFloat(String(item.unitRateMax ?? "")) || 0
       const dv = item.discountValue ? Math.max(0, parseFloat(String(item.discountValue))) || 0 : 0
       return {
         id: item.id && !item.id.startsWith("new-") ? item.id : undefined,
@@ -161,6 +165,7 @@ export async function updateEstimateAction(
         toothNumber: item.toothNumber || undefined,
         quantity: qty,
         unitRate: new Decimal(rate),
+        unitRateMax: rateMax > rate ? new Decimal(rateMax) : null,
         amount: new Decimal(qty * rate),
         discountValue: new Decimal(dv),
         discountIsPercent: item.discountIsPercent !== false,
@@ -175,14 +180,13 @@ export async function updateEstimateAction(
     const existingCredit = await estimateRepository.getReferralCreditApplied(estimateId)
 
     // All discount math (per-line, then global, then credit) lives in one shared helper.
-    const totals = computeEstimateTotals(
-      mappedItems.map((i) => ({
-        quantity: i.quantity, unitRate: i.unitRate.toNumber(),
-        discountValue: i.discountValue.toNumber(), discountIsPercent: i.discountIsPercent,
-        isAlternative: i.isAlternative,
-      })),
-      globalDiscountValue, globalDiscountIsPercent, existingCredit
-    )
+    const lines = mappedItems.map((i) => ({
+      quantity: i.quantity, unitRate: i.unitRate.toNumber(), unitRateMax: i.unitRateMax?.toNumber() ?? null,
+      discountValue: i.discountValue.toNumber(), discountIsPercent: i.discountIsPercent,
+      isAlternative: i.isAlternative,
+    }))
+    const totals = computeEstimateTotals(lines, globalDiscountValue, globalDiscountIsPercent, existingCredit)
+    const totalMax = computeEstimateTotalMax(lines, globalDiscountValue, globalDiscountIsPercent, existingCredit)
 
     const advancePct = await settingsRepository.get("advance_percent", branchId)
     const advanceRequired = totals.total * (numericSetting("advance_percent", advancePct) / 100)
@@ -199,6 +203,7 @@ export async function updateEstimateAction(
       globalDiscountValue: new Decimal(globalDiscountValue),
       globalDiscountIsPercent,
       referralCreditApplied: new Decimal(existingCredit),
+      totalMax: totalMax != null ? new Decimal(totalMax) : null,
       notes: notes || null,
       documentDate: documentDate && /^\d{4}-\d{2}-\d{2}$/.test(documentDate) ? new Date(`${documentDate}T12:00:00Z`) : undefined,
       items: mappedItems,
@@ -245,15 +250,15 @@ export async function updateEstimateDiscountAction(
     // `discountPercent` here is the GLOBAL discount from the payment-plan box; it
     // applies on top of each line's own discount, via the shared helper — so per-line
     // discounts set in the estimate builder are preserved, never overwritten.
-    const totals = computeEstimateTotals(
-      (estimate.items as { quantity: number; unitRate: unknown; discountValue: unknown; discountIsPercent: boolean; isAlternative?: boolean }[]).map((i) => ({
-        quantity: i.quantity, unitRate: Number(i.unitRate),
-        discountValue: Number(i.discountValue), discountIsPercent: i.discountIsPercent,
-        isAlternative: i.isAlternative,
-      })),
-      discountPercent, true,
-      Number((estimate as { referralCreditApplied?: unknown }).referralCreditApplied ?? 0)
-    )
+    const lines = (estimate.items as { quantity: number; unitRate: unknown; unitRateMax?: unknown; discountValue: unknown; discountIsPercent: boolean; isAlternative?: boolean }[]).map((i) => ({
+      quantity: i.quantity, unitRate: Number(i.unitRate),
+      unitRateMax: i.unitRateMax != null ? Number(i.unitRateMax) : null,
+      discountValue: Number(i.discountValue), discountIsPercent: i.discountIsPercent,
+      isAlternative: i.isAlternative,
+    }))
+    const credit = Number((estimate as { referralCreditApplied?: unknown }).referralCreditApplied ?? 0)
+    const totals = computeEstimateTotals(lines, discountPercent, true, credit)
+    const totalMax = computeEstimateTotalMax(lines, discountPercent, true, credit)
     const subtotal = totals.subtotal
     const total = totals.total
     const discountAmount = totals.discountAmount
@@ -272,6 +277,7 @@ export async function updateEstimateDiscountAction(
       discountAmount: discountAmount > 0 ? new Decimal(discountAmount) : null,
       globalDiscountValue: new Decimal(discountPercent),
       globalDiscountIsPercent: true,
+      totalMax: totalMax != null ? new Decimal(totalMax) : null,
     })
 
     await createAuditLog({

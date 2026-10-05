@@ -1,6 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
+import { generateReferralCode } from "@/lib/referral-code"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
@@ -156,6 +157,7 @@ export async function submitIntakeAction(
         address: parsed.data.address || undefined,
         leadSource: parsed.data.leadSource || "Online Form",
         reasonForVisit: parsed.data.reasonForVisit || undefined,
+        referralCode: generateReferralCode(),
         createdById: creator.id,
       },
     })

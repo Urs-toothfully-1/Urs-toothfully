@@ -87,6 +87,10 @@ export const estimateRepository = {
     referralCreditApplied?: Prisma.Decimal
     notes?: string
     documentDate?: Date
+    /** Top of the quoted range (null = fixed price). */
+    totalMax?: Prisma.Decimal | null
+    /** New workflow: the patient owes what is invoiced, not the quote. */
+    invoiceBilling?: boolean
     items: Array<{
       treatmentId?: string
       treatmentName: string
@@ -94,6 +98,7 @@ export const estimateRepository = {
       toothNumber?: string
       quantity: number
       unitRate: Prisma.Decimal
+      unitRateMax?: Prisma.Decimal | null
       amount: Prisma.Decimal
       discountValue?: Prisma.Decimal
       discountIsPercent?: boolean
@@ -149,6 +154,7 @@ export const estimateRepository = {
       referralCreditApplied?: Prisma.Decimal
       notes?: string | null
       documentDate?: Date
+      totalMax?: Prisma.Decimal | null
       items: Array<{
         id?: string
         treatmentId?: string
@@ -157,6 +163,7 @@ export const estimateRepository = {
         toothNumber?: string
         quantity: number
         unitRate: Prisma.Decimal
+        unitRateMax?: Prisma.Decimal | null
         amount: Prisma.Decimal
         discountValue?: Prisma.Decimal
         discountIsPercent?: boolean
@@ -195,6 +202,7 @@ export const estimateRepository = {
           toothNumber: it.toothNumber,
           quantity: it.quantity,
           unitRate: it.unitRate,
+          unitRateMax: it.unitRateMax ?? null,
           amount: it.amount,
           discountValue: it.discountValue ?? new Prisma.Decimal(0),
           discountIsPercent: it.discountIsPercent ?? true,
@@ -233,6 +241,7 @@ export const estimateRepository = {
       discountAmount: Prisma.Decimal | null
       globalDiscountValue?: Prisma.Decimal
       globalDiscountIsPercent?: boolean
+      totalMax?: Prisma.Decimal | null
     }
   ) {
     return prisma.estimate.update({ where: { id }, data })
@@ -252,6 +261,7 @@ export const estimateRepository = {
         subtotal: new Prisma.Decimal(0),
         total: new Prisma.Decimal(0),
         advanceRequired: new Prisma.Decimal(0),
+        invoiceBilling: true,
       },
       include: { items: true },
     })

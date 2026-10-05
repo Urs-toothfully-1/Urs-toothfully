@@ -8,6 +8,8 @@
 export interface DiscountLine {
   quantity: number
   unitRate: number
+  /** Top of a quoted price range, e.g. RCT 6,000–12,000. Absent = fixed price. */
+  unitRateMax?: number | null
   discountValue: number
   discountIsPercent: boolean
   /** Alternatives are quoted for comparison, never charged. */
@@ -69,6 +71,22 @@ export function computeEstimateTotals(
   return { subtotal, lineDiscountTotal, afterLine, globalDiscount, referralCredit, total, discountAmount, discountPercent }
 }
 
+/**
+ * Top of the quoted range: the same discounts applied with each line at its max
+ * rate. Returns null when no line has a range (a fixed-price quote).
+ */
+export function computeEstimateTotalMax(
+  items: DiscountLine[],
+  globalDiscountValue: number,
+  globalDiscountIsPercent: boolean,
+  referralCreditAvailable = 0
+): number | null {
+  const ranged = items.some((i) => !i.isAlternative && (Number(i.unitRateMax) || 0) > i.unitRate)
+  if (!ranged) return null
+  const atMax = items.map((i) => ({ ...i, unitRate: Math.max(i.unitRate, Number(i.unitRateMax) || 0) }))
+  return computeEstimateTotals(atMax, globalDiscountValue, globalDiscountIsPercent, referralCreditAvailable).total
+}
+
 // ── self-check (run: npx tsx lib/estimate-totals.ts) ─────────────────────────
 // `typeof module` guard first — `module` is undefined in the browser bundle, and
 // referencing it directly (require.main === module) throws there.
@@ -111,5 +129,13 @@ if (typeof module !== "undefined" && typeof require !== "undefined" && require.m
   // Credit clamped to what remains.
   const t4 = computeEstimateTotals([{ quantity: 1, unitRate: 1000, discountValue: 0, discountIsPercent: true }], 0, true, 99999)
   assert(t4.referralCredit === 1000 && t4.total === 0, `credit clamp: ${t4.referralCredit}/${t4.total}`)
+  // Range: RCT 6,000–12,000 + scaling 1,000 fixed, 10% global → 6,300 – 11,700.
+  const rl = [
+    { quantity: 1, unitRate: 6000, unitRateMax: 12000, discountValue: 0, discountIsPercent: true },
+    { quantity: 1, unitRate: 1000, discountValue: 0, discountIsPercent: true },
+  ]
+  assert(computeEstimateTotals(rl, 10, true).total === 6300, "range min")
+  assert(computeEstimateTotalMax(rl, 10, true) === 11700, "range max")
+  assert(computeEstimateTotalMax([rl[1]], 10, true) === null, "no range → null")
   console.log("estimate-totals self-check passed")
 }

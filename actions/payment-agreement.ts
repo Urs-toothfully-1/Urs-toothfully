@@ -12,8 +12,17 @@ const stageSchema = z.object({
   received: z.boolean().default(false),
 })
 
+const optionSchema = z.object({
+  title: z.string().trim().min(1).max(80),
+  discountType: z.enum(["NONE", "PERCENT", "FLAT"]),
+  discountValue: z.number().min(0).max(10_000_000),
+  splits: z.array(z.number().positive().max(100)).max(6),
+  note: z.string().max(200).default(""),
+})
+
 const saveSchema = z.object({
   estimateId: z.string().uuid(),
+  options: z.array(optionSchema).max(8).optional(),
   stages: z.array(stageSchema).max(10),
   clinicRepresentative: z.string().max(200).optional().nullable(),
   termsAccepted: z.boolean().default(false),
@@ -48,7 +57,8 @@ export async function savePaymentAgreementAction(
       parsed.stages as PaymentStage[],
       parsed.clinicRepresentative ?? null,
       parsed.termsAccepted,
-      parsed.patientSignedAt ? new Date(parsed.patientSignedAt) : null
+      parsed.patientSignedAt ? new Date(parsed.patientSignedAt) : null,
+      parsed.options
     )
     return { success: true }
   } catch (err) {

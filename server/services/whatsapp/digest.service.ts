@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { owedAmount, OWED_SELECT } from "@/lib/estimate-owed"
 import { whatsappSettingsRepository } from "@/server/repositories/whatsapp-settings.repository"
 import { whatsappTemplateRepository } from "@/server/repositories/whatsapp-template.repository"
 import { whatsappQueueService } from "@/server/services/whatsapp/queue.service"
@@ -29,7 +30,7 @@ export const digestService = {
       prisma.estimate.findMany({
         where: { status: "ACTIVE", isDeleted: false },
         select: {
-          total: true,
+          ...OWED_SELECT,
           payments: { where: { isDeleted: false, paymentType: { in: ["ADVANCE", "TREATMENT"] } }, select: { amount: true } },
         },
       }),
@@ -37,7 +38,7 @@ export const digestService = {
 
     const totalOutstanding = outstandingEstimates.reduce((s, e) => {
       const paid = e.payments.reduce((ps, p) => ps + Number(p.amount), 0)
-      return s + Math.max(0, Number(e.total) - paid)
+      return s + Math.max(0, owedAmount(e) - paid)
     }, 0)
 
     const fmt = (n: number) => n.toLocaleString("en-IN", { maximumFractionDigits: 0 })

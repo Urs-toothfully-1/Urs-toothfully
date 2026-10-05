@@ -141,6 +141,14 @@ export default async function PatientProfileLayout({ children, params }: Props) 
                     {formatCurrency(balance.outstanding)}
                   </p>
                 </div>
+                {balance.credit > 0 && (
+                  <div className="text-right">
+                    <p className="text-[11px] uppercase tracking-wide" style={{ color: BRAND_COLORS.borderDivider }}>Advance</p>
+                    <p className="text-sm font-bold" style={{ color: BRAND_COLORS.secondaryGreen }} title="Paid ahead — used up by future treatment invoices">
+                      {formatCurrency(balance.credit)}
+                    </p>
+                  </div>
+                )}
               </div>
               <HealthAlertBadges history={dentalHistory as any} />
               {(session.role === "ADMIN" || session.role === "RECEPTIONIST") && (

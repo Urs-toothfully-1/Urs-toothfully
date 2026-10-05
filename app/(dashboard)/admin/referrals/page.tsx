@@ -2,10 +2,10 @@ import { Metadata } from "next"
 import Link from "next/link"
 import { requireRole } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { referralService } from "@/server/services/referral.service"
+import { referralService, rewardLabel } from "@/server/services/referral.service"
 import { GrantRewardDialog } from "@/components/referrals/GrantRewardDialog"
 import { BRAND_COLORS } from "@/lib/constants"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatDate } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
 import { Users, Clock, CheckCircle2, Gift } from "lucide-react"
 
@@ -48,7 +48,7 @@ export default async function ReferralsPage({ searchParams }: Props) {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>Referrals</h1>
         <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
-          Patients who referred new patients. Qualified referrals are ready to reward.
+          Patients who referred new patients. The doctor can give a reward any time after a referral is recorded.
         </p>
       </div>
 
@@ -126,11 +126,11 @@ export default async function ReferralsPage({ searchParams }: Props) {
                       </td>
                       <td className="py-2.5 px-2 text-xs" style={{ color: BRAND_COLORS.bodyText }}>
                         {r.rewardType
-                          ? `${r.rewardType === "MONETARY" ? "Cash" : "Credit"} ${formatCurrency(Number(r.rewardAmount))}`
+                          ? <>{rewardLabel(r.rewardType, r.rewardAmount, r.rewardNote)}{r.redeemedAt && <span className="block text-[11px]" style={{ color: BRAND_COLORS.borderDivider }}>Used {formatDate(r.redeemedAt)}</span>}</>
                           : <span style={{ color: BRAND_COLORS.borderDivider }}>—</span>}
                       </td>
                       <td className="py-2.5 px-2 text-right">
-                        {r.status === "QUALIFIED" && (
+                        {(r.status === "PENDING" || r.status === "QUALIFIED") && (
                           <GrantRewardDialog referralId={r.id} referrerName={r.referrer.fullName} refereeName={r.referee.fullName} />
                         )}
                       </td>

@@ -3,7 +3,7 @@ import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
 import { numericSetting } from "@/lib/settings-value"
 import { createAuditLog } from "@/lib/audit"
-import { computeEstimateTotals } from "@/lib/estimate-totals"
+import { computeEstimateTotals, computeEstimateTotalMax } from "@/lib/estimate-totals"
 import { z } from "zod"
 
 export const estimateItemSchema = z.object({
@@ -15,6 +15,8 @@ export const estimateItemSchema = z.object({
   toothNumber: z.string().max(120).optional(),
   quantity: z.number().int().positive().default(1),
   unitRate: z.number().positive(),
+  /** Top of the quoted range (e.g. 6,000–12,000). Absent/≤ unitRate = fixed price. */
+  unitRateMax: z.number().positive().optional(),
   // Per-line discount: a % or a ₹ amount, per discountIsPercent. Optional so
   // existing callers/scripts that don't discount can omit them.
   discountValue: z.number().min(0).optional(),
@@ -69,6 +71,7 @@ export const estimateService = {
     const items = input.items.map((item) => ({
       ...item,
       unitRate: new Decimal(item.unitRate),
+      unitRateMax: item.unitRateMax && item.unitRateMax > item.unitRate ? new Decimal(item.unitRateMax) : null,
       amount: new Decimal(item.quantity * item.unitRate),
       discountValue: new Decimal(item.discountValue ?? 0),
       discountIsPercent: item.discountIsPercent ?? true,
@@ -79,6 +82,7 @@ export const estimateService = {
     const discountLines = input.items.map((i) => ({
       quantity: i.quantity,
       unitRate: i.unitRate,
+      unitRateMax: i.unitRateMax,
       discountValue: i.discountValue ?? 0,
       discountIsPercent: i.discountIsPercent ?? true,
       isAlternative: i.isAlternative,
@@ -100,6 +104,7 @@ export const estimateService = {
     }
 
     const totals = computeEstimateTotals(discountLines, globalValue, globalIsPercent, creditApplied)
+    const totalMax = computeEstimateTotalMax(discountLines, globalValue, globalIsPercent, creditApplied)
 
     const advancePercent = await settingsRepository.get("advance_percent", input.branchId)
     const advanceRequired = totals.total * (numericSetting("advance_percent", advancePercent) / 100)
@@ -124,6 +129,8 @@ export const estimateService = {
       globalDiscountValue: new Decimal(input.globalDiscountValue ?? 0),
       globalDiscountIsPercent: input.globalDiscountIsPercent ?? true,
       referralCreditApplied: new Decimal(creditApplied),
+      totalMax: totalMax != null ? new Decimal(totalMax) : null,
+      invoiceBilling: true,
       notes: input.notes,
       // Noon UTC so the @db.Date column keeps the intended calendar day regardless
       // of the DB/session timezone (local-midnight shifts a day back — a known trap here).

@@ -36,6 +36,8 @@ interface EstimateOption {
   paid: number
   balance: number
   stages: Stage[]
+  /** Quote-only estimates: billed/due/advance summary shown under the amount. */
+  note?: string
 }
 
 interface Props {
@@ -315,9 +317,10 @@ export function AgreementAwarePaymentForm({ patientId, branchId, estimates }: Pr
         </div>
         {selectedEstimate && (
           <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-            Outstanding balance:{" "}
+            {selectedEstimate.note ? "Can collect up to" : "Outstanding balance"}:{" "}
             <strong style={{ color: "#C2410C" }}>{formatCurrency(selectedEstimate.balance)}</strong>
             {selectedStageIndex === null && " · Custom amount"}
+            {selectedEstimate.note && <span className="block mt-0.5">{selectedEstimate.note}</span>}
           </p>
         )}
       </div>

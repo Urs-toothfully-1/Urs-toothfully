@@ -15,6 +15,8 @@ import { SittingsTracker } from "@/components/estimates/SittingsTracker"
 import { VisitPrescriptionButton } from "@/components/queue/VisitPrescriptionButton"
 import { BookFollowUpDialog } from "@/components/appointments/BookFollowUpDialog"
 import { SessionClinicalNotes } from "@/components/clinical-notes/SessionClinicalNotes"
+import { ReferralBanner } from "@/components/referrals/ReferralBanner"
+import { BillingStrip } from "@/components/invoices/BillingStrip"
 import {
   ChevronLeft,
   User,
@@ -198,6 +200,9 @@ export default async function TreatmentSessionPage({ params }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      <ReferralBanner patientId={entry.patient.id} />
+      <BillingStrip patientId={entry.patient.id} visitId={entry.visit.id} />
 
       {/* Medical alerts strip */}
       {alerts.length > 0 && (
