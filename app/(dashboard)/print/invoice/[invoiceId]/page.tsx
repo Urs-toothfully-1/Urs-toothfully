@@ -4,11 +4,16 @@ import { getSession } from "@/lib/auth"
 import { BRAND_COLORS } from "@/lib/constants"
 import { PrintButtons } from "@/components/print/PrintButtons"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { toothLabel } from "@/lib/teeth"
+import { amountInWords } from "@/lib/amount-in-words"
 import { invoiceService } from "@/server/services/invoice.service"
 
 export const metadata: Metadata = { title: "Print Invoice" }
 
 type Props = { params: Promise<{ invoiceId: string }> }
+
+const muted = { color: BRAND_COLORS.borderDivider }
+const body = { color: BRAND_COLORS.bodyText }
 
 export default async function PrintInvoicePage({ params }: Props) {
   const session = await getSession()
@@ -26,7 +31,8 @@ export default async function PrintInvoicePage({ params }: Props) {
   const paidOnPlan = est.payments.reduce((s, p) => s + Number(p.amount), 0)
   const dueOnPlan = Math.max(0, billedOnPlan - paidOnPlan)
   const advanceHeld = Math.max(0, paidOnPlan - billedOnPlan)
-  const cell = { borderBottom: `1px solid ${BRAND_COLORS.lightBackground}` }
+  const signer = invoice.createdBy
+  const signerName = signer.role === "DOCTOR" ? `Dr. ${signer.name.replace(/^Dr\.?\s*/i, "")}` : signer.name
 
   return (
     <>
@@ -36,126 +42,155 @@ export default async function PrintInvoicePage({ params }: Props) {
           @page { margin: 10mm; size: A4; }
           html, body { margin: 0 !important; padding: 0 !important; height: auto !important; overflow: visible !important; background: white !important; }
           aside, header, nav { display: none !important; }
-          * { overflow: visible !important; height: auto !important; max-height: none !important; }
+          * { overflow: visible !important; max-height: none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .print-doc { max-width: 100% !important; padding: 0 !important; margin: 0 auto !important; }
+          .sheet { min-height: 277mm !important; }
+          .logo-crop { overflow: hidden !important; height: 118px !important; }
         }
         body { font-family: Arial, Helvetica, sans-serif; background: white; }
+        .sheet { display: flex; flex-direction: column; min-height: 1040px; }
+        .sheet-footer { margin-top: auto; }
       `}</style>
 
       <PrintButtons />
 
-      <div className="print-doc max-w-[680px] mx-auto p-6">
-        <div className="mb-4">
-          <img src="/Header.jpg" alt="Header" className="w-full" />
-        </div>
-
-        <div className="text-center py-2 mb-4 rounded" style={{ backgroundColor: BRAND_COLORS.primaryTeal }}>
-          <h1 className="text-lg font-bold text-white tracking-wider">TREATMENT INVOICE</h1>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 text-sm mb-4">
-          <div>
-            <span style={{ color: BRAND_COLORS.borderDivider }}>Invoice No: </span>
-            <strong style={{ color: BRAND_COLORS.primaryTeal }}>{invoice.invoiceNo}</strong>
-          </div>
-          <div className="text-right">
-            <span style={{ color: BRAND_COLORS.borderDivider }}>Date: </span>
-            <strong style={{ color: BRAND_COLORS.bodyText }}>{formatDate(invoice.invoiceDate)}</strong>
-          </div>
-          <div>
-            <span style={{ color: BRAND_COLORS.borderDivider }}>Branch: </span>
-            <strong style={{ color: BRAND_COLORS.bodyText }}>{invoice.branch.name}</strong>
-          </div>
-          <div className="text-right">
-            <span style={{ color: BRAND_COLORS.borderDivider }}>Estimate: </span>
-            <strong style={{ color: BRAND_COLORS.bodyText }}>{est.estimateNo}</strong>
-          </div>
-        </div>
-
-        <div className="border-t-2 border-b mb-4" style={{ borderColor: BRAND_COLORS.primaryTeal }} />
-
-        <div className="mb-4 p-3 rounded" style={{ backgroundColor: BRAND_COLORS.lightBackground }}>
-          <p className="text-sm">
-            <span style={{ color: BRAND_COLORS.borderDivider }}>Patient: </span>
-            <strong style={{ color: BRAND_COLORS.bodyText }}>{invoice.patient.fullName}</strong>
-            <span className="ml-2 text-xs" style={{ color: BRAND_COLORS.borderDivider }}>({invoice.patient.patientId})</span>
-          </p>
-          <p className="text-sm mt-1">
-            <span style={{ color: BRAND_COLORS.borderDivider }}>Mobile: </span>
-            <span style={{ color: BRAND_COLORS.bodyText }}>{invoice.patient.mobile}</span>
-          </p>
-        </div>
-
-        <table className="w-full text-sm mb-3" style={{ borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ backgroundColor: BRAND_COLORS.lightBackground }}>
-              <th className="py-2 px-2 text-left">#</th>
-              <th className="py-2 px-2 text-left">Treatment</th>
-              <th className="py-2 px-2 text-left">Tooth</th>
-              <th className="py-2 px-2 text-right">Qty</th>
-              <th className="py-2 px-2 text-right">Rate</th>
-              <th className="py-2 px-2 text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {invoice.items.map((it, i) => (
-              <tr key={it.id} style={cell}>
-                <td className="py-2 px-2">{i + 1}</td>
-                <td className="py-2 px-2 font-medium" style={{ color: BRAND_COLORS.bodyText }}>{it.treatmentName}</td>
-                <td className="py-2 px-2">{it.toothNumber ?? "—"}</td>
-                <td className="py-2 px-2 text-right">{it.quantity}</td>
-                <td className="py-2 px-2 text-right">{formatCurrency(Number(it.unitRate))}</td>
-                <td className="py-2 px-2 text-right font-medium">{formatCurrency(Number(it.amount))}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="ml-auto w-72 text-sm space-y-1 mb-4">
-          <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-          {discount > 0 && (
-            <div className="flex justify-between" style={{ color: BRAND_COLORS.secondaryGreen }}>
-              <span>Discount{invoice.discountIsPercent ? ` (${Number(invoice.discountValue)}%)` : ""}</span>
-              <span>− {formatCurrency(discount)}</span>
+      <div className="print-doc max-w-[800px] mx-auto p-6 bg-white">
+        <div className="sheet">
+          {/* ── Header: clinic logo (left) · INVOICE + numbers (right) ── */}
+          <div className="flex items-start justify-between gap-6 pb-4 border-b-4" style={{ borderColor: BRAND_COLORS.primaryTeal }}>
+            {/* Logo panel cropped from the letterhead (no "Estimate" title baked in) */}
+            <div className="logo-crop rounded-md" style={{ width: 216, height: 118, overflow: "hidden", flexShrink: 0 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/hader1.jpg" alt="Ur's Toothfully" style={{ width: 561, maxWidth: "none", display: "block" }} />
             </div>
-          )}
-          <div
-            className="flex justify-between p-2 rounded font-bold text-base"
-            style={{ backgroundColor: `${BRAND_COLORS.primaryTeal}10`, border: `2px solid ${BRAND_COLORS.primaryTeal}`, color: BRAND_COLORS.primaryTeal }}
-          >
-            <span>INVOICE TOTAL</span>
-            <span>{formatCurrency(total)}</span>
+            <div className="text-right">
+              <h1 className="text-4xl font-bold tracking-[0.2em]" style={{ color: BRAND_COLORS.primaryTeal }}>INVOICE</h1>
+              <table className="ml-auto mt-3 text-sm">
+                <tbody>
+                  <tr><td className="pr-3 text-right" style={muted}>Invoice No.</td><td className="font-bold text-right" style={body}>{invoice.invoiceNo}</td></tr>
+                  <tr><td className="pr-3 text-right" style={muted}>Invoice Date</td><td className="font-semibold text-right" style={body}>{formatDate(invoice.invoiceDate)}</td></tr>
+                  <tr><td className="pr-3 text-right" style={muted}>Treatment Plan</td><td className="text-right" style={body}>{est.estimateNo}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* ── From / Bill to ── */}
+          <div className="grid grid-cols-2 gap-6 py-5 text-sm">
+            <div>
+              <p className="text-[11px] font-bold tracking-wider mb-1" style={{ color: BRAND_COLORS.primaryTeal }}>FROM</p>
+              <p className="font-bold" style={body}>Ur&apos;s Toothfully — {invoice.branch.name}</p>
+              <p style={muted}>{invoice.branch.address}</p>
+              <p style={muted}>Phone: {invoice.branch.phone}</p>
+              {invoice.branch.email && <p style={muted}>{invoice.branch.email}</p>}
+            </div>
+            <div>
+              <p className="text-[11px] font-bold tracking-wider mb-1" style={{ color: BRAND_COLORS.primaryTeal }}>BILL TO</p>
+              <p className="font-bold" style={body}>{invoice.patient.fullName}</p>
+              <p style={muted}>Patient ID: {invoice.patient.patientId}</p>
+              <p style={muted}>Mobile: {invoice.patient.mobile}</p>
+              {invoice.patient.address && <p style={muted}>{invoice.patient.address}</p>}
+            </div>
+          </div>
+
+          {/* ── Line items ── */}
+          <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ backgroundColor: BRAND_COLORS.primaryTeal, color: "white" }}>
+                <th className="py-2 px-3 text-left w-10">#</th>
+                <th className="py-2 px-3 text-left">Description</th>
+                <th className="py-2 px-3 text-center w-14">Qty</th>
+                <th className="py-2 px-3 text-right w-28">Rate</th>
+                <th className="py-2 px-3 text-right w-32">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoice.items.map((it, i) => (
+                <tr key={it.id} style={{ borderBottom: "1px solid #E0E3E5", backgroundColor: i % 2 ? "#FAFAFA" : "white" }}>
+                  <td className="py-2.5 px-3 align-top" style={muted}>{i + 1}</td>
+                  <td className="py-2.5 px-3 align-top">
+                    <p className="font-medium" style={body}>{it.treatmentName}</p>
+                    {toothLabel(it.toothNumber) && <p className="text-xs" style={muted}>{toothLabel(it.toothNumber)}</p>}
+                  </td>
+                  <td className="py-2.5 px-3 text-center align-top" style={body}>{it.quantity}</td>
+                  <td className="py-2.5 px-3 text-right align-top" style={body}>{formatCurrency(Number(it.unitRate))}</td>
+                  <td className="py-2.5 px-3 text-right align-top font-semibold" style={body}>{formatCurrency(Number(it.amount))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* ── Totals ── */}
+          <div className="flex justify-between gap-6 mt-4">
+            <div className="text-xs max-w-[55%] pt-1" style={muted}>
+              <p className="font-semibold" style={body}>Amount in words</p>
+              <p className="mt-0.5">{amountInWords(total)}</p>
+              {invoice.notes && (
+                <>
+                  <p className="font-semibold mt-3" style={body}>Notes</p>
+                  <p className="mt-0.5">{invoice.notes}</p>
+                </>
+              )}
+            </div>
+            <table className="text-sm w-72">
+              <tbody>
+                <tr><td className="py-1" style={muted}>Subtotal</td><td className="py-1 text-right" style={body}>{formatCurrency(subtotal)}</td></tr>
+                {discount > 0 && (
+                  <tr>
+                    <td className="py-1" style={muted}>Discount{invoice.discountIsPercent ? ` (${Number(invoice.discountValue)}%)` : ""}</td>
+                    <td className="py-1 text-right" style={{ color: "#DC2626" }}>− {formatCurrency(discount)}</td>
+                  </tr>
+                )}
+                <tr style={{ backgroundColor: BRAND_COLORS.primaryTeal, color: "white" }}>
+                  <td className="py-2 px-2 font-bold">TOTAL</td>
+                  <td className="py-2 px-2 text-right font-bold text-base">{formatCurrency(total)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* ── Account summary for this treatment plan ── */}
+          <div className="mt-5 rounded-md border text-xs grid grid-cols-3" style={{ borderColor: "#E0E3E5" }}>
+            <div className="p-2.5 border-r" style={{ borderColor: "#E0E3E5" }}>
+              <p style={muted}>Total billed ({est.estimateNo})</p>
+              <p className="font-bold text-sm" style={body}>{formatCurrency(billedOnPlan)}</p>
+            </div>
+            <div className="p-2.5 border-r" style={{ borderColor: "#E0E3E5" }}>
+              <p style={muted}>Total paid</p>
+              <p className="font-bold text-sm" style={{ color: BRAND_COLORS.secondaryGreen }}>{formatCurrency(paidOnPlan)}</p>
+            </div>
+            <div className="p-2.5">
+              {advanceHeld > 0 ? (
+                <><p style={muted}>Advance remaining</p><p className="font-bold text-sm" style={{ color: BRAND_COLORS.secondaryGreen }}>{formatCurrency(advanceHeld)}</p></>
+              ) : (
+                <><p style={muted}>Balance due</p><p className="font-bold text-sm" style={{ color: dueOnPlan > 0 ? "#C2410C" : BRAND_COLORS.secondaryGreen }}>{dueOnPlan > 0 ? formatCurrency(dueOnPlan) : "Nil"}</p></>
+              )}
+            </div>
+          </div>
+
+          {/* ── Signature ── */}
+          <div className="flex justify-end mt-10">
+            <div className="w-56 text-center text-xs">
+              <div className="h-12 flex items-end justify-center border-b border-gray-400">
+                {signer.signatureData && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={signer.signatureData} alt="Signature" style={{ maxHeight: 44, maxWidth: "100%", objectFit: "contain" }} />
+                )}
+              </div>
+              <p className="mt-1 font-semibold" style={body}>{signerName}</p>
+              {signer.doctorRegNo && <p style={muted}>Reg. No. {signer.doctorRegNo}</p>}
+              <p style={muted}>Authorised Signatory</p>
+            </div>
+          </div>
+
+          <div className="sheet-footer pt-6">
+            <p className="text-center text-[11px] mb-2" style={muted}>
+              Thank you for choosing Ur&apos;s Toothfully. This is a computer-generated invoice.
+            </p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/fotter2.jpg" alt="Footer" className="w-full" />
           </div>
         </div>
-
-        {/* Where this leaves the treatment plan */}
-        <div className="text-xs p-3 rounded mb-4 grid grid-cols-3 gap-2" style={{ backgroundColor: BRAND_COLORS.lightBackground, color: BRAND_COLORS.bodyText }}>
-          <div>Billed on plan: <strong>{formatCurrency(billedOnPlan)}</strong></div>
-          <div>Paid on plan: <strong>{formatCurrency(paidOnPlan)}</strong></div>
-          <div>
-            {advanceHeld > 0 ? <>Advance held: <strong>{formatCurrency(advanceHeld)}</strong></> : <>Balance due: <strong>{formatCurrency(dueOnPlan)}</strong></>}
-          </div>
-        </div>
-
-        {invoice.notes && <p className="text-sm mb-4" style={{ color: BRAND_COLORS.borderDivider }}>Note: {invoice.notes}</p>}
-
-        <div className="mt-8 grid grid-cols-2 gap-8 text-sm">
-          <div>
-            <div className="border-b border-gray-400 mb-1 h-8" />
-            <p style={{ color: BRAND_COLORS.borderDivider }}>Patient Signature</p>
-          </div>
-          <div>
-            <div className="border-b border-gray-400 mb-1 h-8" />
-            <p style={{ color: BRAND_COLORS.borderDivider }}>Doctor ({invoice.createdBy.name})</p>
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <img src="/fotter2.jpg" alt="Footer" className="w-full" />
-        </div>
-        <p className="text-center text-xs mt-2" style={{ color: BRAND_COLORS.borderDivider }}>
-          This is a computer-generated invoice.
-        </p>
       </div>
     </>
   )

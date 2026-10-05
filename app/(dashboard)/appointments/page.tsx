@@ -89,6 +89,7 @@ export default async function AppointmentsPage({ searchParams }: Props) {
     fullName: r.fullName,
     mobile: r.mobile,
     problem: r.problem,
+    referralCode: r.referralCode,
     preferredDate: toDayString(r.preferredDate),
     createdAt: r.createdAt.toISOString(),
     branch: { id: r.branch.id, name: r.branch.name },

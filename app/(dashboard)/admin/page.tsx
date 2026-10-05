@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Users, CreditCard, ClipboardList, AlertCircle,
   FileText, TrendingUp, Building2, Clock,
-  BarChart2, BookOpen, FileSpreadsheet, Shield,
+  BarChart2, BookOpen, FileSpreadsheet, Shield, Download, Upload, Gift,
 } from "lucide-react"
 
 export const metadata: Metadata = { title: "Admin Dashboard" }
@@ -111,17 +111,29 @@ export default async function AdminPage() {
     { title: "Tally Export", desc: "CSV for Tally", href: "/admin/tally", icon: FileSpreadsheet },
     { title: "Treatment Master", desc: "Manage treatments & prices", href: "/admin/treatments", icon: ClipboardList },
     { title: "Doctor Availability", desc: "Set working schedules", href: "/admin/availability", icon: Clock },
+    { title: "Rewards & Referrals", desc: "Campaigns, points, top referrers", href: "/admin/referrals", icon: Gift },
+    { title: "Potential Clients", desc: "Imported leads · WhatsApp", href: "/admin/potential-clients", icon: Upload },
     { title: "Audit Log", desc: "All system changes", href: "/admin/audit", icon: Shield },
     { title: "Settings", desc: "Branch & system config", href: "/admin/settings", icon: Building2 },
   ]
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>Admin Dashboard</h1>
-        <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
-          All branches · {today.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>Admin Dashboard</h1>
+          <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
+            All branches · {today.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <a href="/api/admin/patients/export" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <Download className="h-4 w-4" /> Export patients (CSV)
+          </a>
+          <Link href="/admin/potential-clients" className="inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium text-white" style={{ background: "linear-gradient(135deg, #005E97, #006B5F)" }}>
+            <Upload className="h-4 w-4" /> Import potential clients
+          </Link>
+        </div>
       </div>
 
       {/* KPI Grid */}

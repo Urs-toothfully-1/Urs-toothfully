@@ -13,7 +13,7 @@ export function ReferAndEarnButton({ patientId, patientName }: { patientId: stri
   const [pending, startTransition] = useTransition()
   const [code, setCode] = useState<string | null>(null)
 
-  const link = code && typeof window !== "undefined" ? `${window.location.origin}/intake?ref=${code}` : ""
+  const link = code && typeof window !== "undefined" ? `${window.location.origin}/rewards/${code}` : ""
   const message = `Get your dental care at ${APP_NAME}! Register with my referral link and we both get a reward: ${link}`
 
   function openShare() {

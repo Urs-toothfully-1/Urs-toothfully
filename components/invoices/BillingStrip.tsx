@@ -1,5 +1,5 @@
 import { invoiceService } from "@/server/services/invoice.service"
-import { referralService } from "@/server/services/referral.service"
+import { rewardService } from "@/server/services/reward.service"
 import { getPatientBalance } from "@/server/services/patient-summary.service"
 import { CreateInvoiceButton } from "@/components/invoices/CreateInvoiceButton"
 import { BRAND_COLORS } from "@/lib/constants"
@@ -10,7 +10,7 @@ import { Receipt } from "lucide-react"
 export async function BillingStrip({ patientId, visitId }: { patientId: string; visitId?: string }) {
   const [estimates, rewards, balance] = await Promise.all([
     invoiceService.billableEstimates(patientId),
-    referralService.availableRewards(patientId),
+    rewardService.availableDiscounts(patientId),
     getPatientBalance(patientId),
   ])
   if (estimates.length === 0) return null
@@ -23,6 +23,15 @@ export async function BillingStrip({ patientId, visitId }: { patientId: string; 
       <span className="text-sm" style={{ color: BRAND_COLORS.borderDivider }}>
         Due: <strong style={{ color: balance.outstanding > 0 ? "#B91C1C" : BRAND_COLORS.bodyText }}>{formatCurrency(balance.outstanding)}</strong>
       </span>
+      {balance.dueFromOlderEstimates.length > 0 && (
+        <span className="text-xs w-full md:w-auto" style={{ color: BRAND_COLORS.borderDivider }}>
+          {formatCurrency(balance.dueFromOlderEstimates.reduce((s, e) => s + e.due, 0))} from older estimate
+          {balance.dueFromOlderEstimates.length > 1 ? "s" : ""}{" "}
+          {balance.dueFromOlderEstimates.map((e) => e.estimateNo.replace(/^EST-\d{4}-/, "EST-")).join(" / ")}
+          {" · "}
+          {formatCurrency(balance.dueFromInvoices)} from invoices
+        </span>
+      )}
       {balance.credit > 0 && (
         <span className="text-sm" style={{ color: BRAND_COLORS.borderDivider }}>
           Advance held: <strong style={{ color: "#065F46" }}>{formatCurrency(balance.credit)}</strong>

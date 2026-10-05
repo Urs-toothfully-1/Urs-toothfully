@@ -30,8 +30,8 @@ export const createInvoiceSchema = z.object({
   discountValue: z.number().min(0).max(10_000_000).default(0),
   discountIsPercent: z.boolean().default(false),
   notes: z.string().trim().max(500).optional(),
-  /** A referral reward the doctor is using up on this bill. */
-  redeemReferralId: z.string().min(1).optional(),
+  /** A referral-points discount reward the doctor is using up on this bill. */
+  redeemRewardId: z.string().min(1).optional(),
 })
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>
 
@@ -99,16 +99,11 @@ export const invoiceService = {
       })
       await syncInvoicedTotal(tx, estimate.id)
 
-      if (input.redeemReferralId) {
-        // Only the referrer's own, granted, unused reward can be used here.
-        const used = await tx.referral.updateMany({
-          where: {
-            id: input.redeemReferralId,
-            referrerId: estimate.patientId,
-            status: "REWARDED",
-            redeemedAt: null,
-          },
-          data: { redeemedAt: new Date(), redeemedInvoiceId: created.id, redeemedNote: `Used on ${invoiceNo}` },
+      if (input.redeemRewardId) {
+        // Only this patient's own, unused reward — and only once.
+        const used = await tx.referralRedemption.updateMany({
+          where: { id: input.redeemRewardId, patientId: estimate.patientId, usedAt: null },
+          data: { usedAt: new Date(), invoiceId: created.id, usedNote: `Used on ${invoiceNo}` },
         })
         if (used.count === 0) throw new Error("That referral reward is not available to use.")
       }
@@ -136,9 +131,9 @@ export const invoiceService = {
       })
       await syncInvoicedTotal(tx, inv.estimateId)
       // A reward used on this bill becomes available again.
-      await tx.referral.updateMany({
-        where: { redeemedInvoiceId: id },
-        data: { redeemedAt: null, redeemedInvoiceId: null, redeemedNote: null },
+      await tx.referralRedemption.updateMany({
+        where: { invoiceId: id },
+        data: { usedAt: null, invoiceId: null, usedNote: null },
       })
     })
     await createAuditLog({
@@ -200,7 +195,7 @@ export const invoiceService = {
         patient: true,
         branch: true,
         estimate: { select: { id: true, estimateNo: true, total: true, totalMax: true, invoicedTotal: true, payments: { where: { isDeleted: false, paymentType: { in: ["ADVANCE", "TREATMENT"] } }, select: { amount: true } } } },
-        createdBy: { select: { name: true } },
+        createdBy: { select: { name: true, role: true, doctorRegNo: true, signatureData: true } },
       },
     })
   },

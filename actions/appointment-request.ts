@@ -8,6 +8,7 @@ import { verifyTurnstileToken } from "@/lib/turnstile"
 import { checkBotSignals, warnIfTurnstileMissing } from "@/lib/bot-guard"
 import { checkIntakeRateLimit, recordIntakeAttempt, getClientIp } from "@/lib/rate-limit"
 import { validateMobile } from "@/lib/whatsapp/phone"
+import { normalizeReferralCode } from "@/lib/referral-code"
 
 export type BookingFormState = {
   error?: string
@@ -35,6 +36,10 @@ export async function submitAppointmentRequestAction(
     problem: formData.get("problem")?.toString() ?? "",
   }
   const whatsappConsent = formData.get("whatsappConsent") === "on"
+  // From a /rewards/<code> link. Only the shape is checked here; the referrer is
+  // looked up (and the referral linked) when reception confirms the request.
+  const rawRef = normalizeReferralCode(formData.get("referralCode")?.toString() ?? "")
+  const referralCode = /^[A-Z0-9]{4,12}$/.test(rawRef) ? rawRef : undefined
 
   const hdrs = await headers()
   const clientIp = getClientIp(hdrs)
@@ -93,10 +98,11 @@ export async function submitAppointmentRequestAction(
         preferredDate: preferred,
         whatsappConsent,
         consentIp: whatsappConsent ? clientIp || undefined : undefined,
+        referralCode,
       },
     })
     await recordIntakeAttempt(clientIp, true)
-    redirect(`/book/success?name=${encodeURIComponent(parsed.data.fullName.trim())}`)
+    redirect(`/book/success?name=${encodeURIComponent(parsed.data.fullName.trim())}${referralCode ? `&ref=${referralCode}` : ""}`)
   } catch (err) {
     if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) throw err
     return { error: "Could not submit your request. Please try again or call 7890008331.", fields: raw }

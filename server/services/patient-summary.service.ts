@@ -18,14 +18,19 @@ export type PatientBalance = {
   outstanding: number
   /** Paid ahead of billing on quote-only estimates (advance not yet used up by invoices). */
   credit: number
+  /** Where `outstanding` comes from: older estimates (full total owed) vs. treatment invoices. */
+  dueFromOlderEstimates: { estimateNo: string; due: number }[]
+  dueFromInvoices: number
 }
 
 /** Active estimates only — a cancelled plan is not money owed. */
 export async function getPatientBalance(patientId: string): Promise<PatientBalance> {
   const estimates = await prisma.estimate.findMany({
     where: { patientId, isDeleted: false, status: "ACTIVE" },
+    orderBy: { createdAt: "asc" },
     select: {
       ...OWED_SELECT,
+      estimateNo: true,
       payments: {
         where: { isDeleted: false, paymentType: { in: ["ADVANCE", "TREATMENT"] } },
         select: { amount: true },
@@ -37,16 +42,23 @@ export async function getPatientBalance(patientId: string): Promise<PatientBalan
   let paid = 0
   let outstanding = 0
   let credit = 0
+  let dueFromInvoices = 0
+  const dueFromOlderEstimates: { estimateNo: string; due: number }[] = []
   for (const e of estimates) {
     const owed = owedAmount(e)
     const p = e.payments.reduce((ps, x) => ps + Number(x.amount), 0)
     estimated += owed
     paid += p
     // Per estimate, so one plan's advance never hides another plan's dues.
-    outstanding += Math.max(0, owed - p)
+    const due = Math.max(0, owed - p)
+    outstanding += due
     credit += Math.max(0, p - owed)
+    if (due > 0) {
+      if (e.invoiceBilling) dueFromInvoices += due
+      else dueFromOlderEstimates.push({ estimateNo: e.estimateNo, due })
+    }
   }
-  return { estimated, paid, outstanding, credit }
+  return { estimated, paid, outstanding, credit, dueFromOlderEstimates, dueFromInvoices }
 }
 
 export type PatientTabCounts = {

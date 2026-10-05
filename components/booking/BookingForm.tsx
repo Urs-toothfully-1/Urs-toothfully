@@ -36,7 +36,8 @@ const fieldCls =
   "w-full h-12 rounded-xl border border-[#E0E3E5] bg-white px-4 text-sm text-[#191C1E] focus:outline-none focus:ring-2 focus:ring-[#005E97] focus:border-transparent transition-shadow"
 const labelCls = "block text-[13px] font-semibold mb-2 text-[#404751]"
 
-export function BookingForm({ branches }: { branches: Branch[] }) {
+/** `referralCode` comes from a /rewards/<code> link — submitted so the referral is linked when reception confirms. */
+export function BookingForm({ branches, referralCode }: { branches: Branch[]; referralCode?: string }) {
   const [state, formAction] = useActionState(submitAppointmentRequestAction, {} as BookingFormState)
   const [branchId, setBranchId] = useState(state.fields?.branchId ?? "")
   const fe = state.fieldErrors ?? {}
@@ -56,6 +57,7 @@ export function BookingForm({ branches }: { branches: Branch[] }) {
       <div>
         <label className={labelCls}>Choose your clinic</label>
         <input type="hidden" name="branchId" value={branchId} />
+        {referralCode && <input type="hidden" name="referralCode" value={referralCode} />}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           {branches.map((b) => {
             const c = branchColor(b.name)

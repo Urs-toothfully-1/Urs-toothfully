@@ -1,7 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { Prisma, ReferralRewardType } from "@prisma/client"
 import { generateReferralCode, normalizeReferralCode } from "@/lib/referral-code"
-import { ledgerRepository } from "@/server/repositories/ledger.repository"
 import { createAuditLog } from "@/lib/audit"
 
 export const referralService = {
@@ -147,96 +145,6 @@ export const referralService = {
     })
   },
 
-  /** Grant a reward on a QUALIFIED referral. Monetary rewards post to the Cash Book. */
-  async grantReward(input: {
-    referralId: string
-    type: ReferralRewardType
-    amount: number
-    note?: string
-    grantedById: string
-  }) {
-    const referral = await prisma.referral.findUnique({
-      where: { id: input.referralId },
-      include: { referrer: { select: { fullName: true } }, referee: { select: { fullName: true } } },
-    })
-    if (!referral) throw new Error("Referral not found.")
-    if (referral.status === "REWARDED") throw new Error("This referral has already been rewarded.")
-    if (referral.status === "CANCELLED") throw new Error("This referral was cancelled.")
-    // The doctor decides the reward; it can be given as soon as the referral is recorded.
-    if ((input.type === "DISCOUNT_CREDIT" || input.type === "MONETARY") && !(input.amount > 0)) {
-      throw new Error("Enter the reward amount.")
-    }
-    if (input.type === "FREE_TREATMENT" && !input.note?.trim()) throw new Error("Name the free treatment.")
-
-    let ledgerEntryId: string | undefined
-    if (input.type === "MONETARY") {
-      const entry = await ledgerRepository.create({
-        branchId: referral.branchId,
-        entryDate: new Date(),
-        direction: "OUT",
-        category: "MARKETING",
-        amount: new Prisma.Decimal(input.amount),
-        paymentMode: "CASH",
-        payee: referral.referrer.fullName,
-        notes: `Referral reward for referring ${referral.referee.fullName}`,
-        createdById: input.grantedById,
-      })
-      ledgerEntryId = entry.id
-    }
-
-    await prisma.referral.update({
-      where: { id: input.referralId },
-      data: {
-        status: "REWARDED",
-        rewardType: input.type,
-        rewardAmount: input.amount > 0 ? new Prisma.Decimal(input.amount) : null,
-        rewardNote: input.note?.trim() || null,
-        rewardLedgerEntryId: ledgerEntryId ?? null,
-        grantedById: input.grantedById,
-        grantedAt: new Date(),
-      },
-    })
-
-    await createAuditLog({
-      entityType: "Referral", entityId: input.referralId, action: "UPDATE",
-      changedById: input.grantedById, branchId: referral.branchId,
-      newValues: { rewardType: input.type, rewardAmount: input.amount },
-    })
-  },
-
-  /** Rewards this patient earned as a referrer that are granted but not yet used. */
-  async availableRewards(patientId: string) {
-    const rows = await prisma.referral.findMany({
-      where: {
-        referrerId: patientId,
-        status: "REWARDED",
-        redeemedAt: null,
-        rewardType: { in: ["DISCOUNT_CREDIT", "FREE_CHECKUP", "FREE_TREATMENT"] },
-      },
-      orderBy: { grantedAt: "asc" },
-      select: { id: true, rewardType: true, rewardAmount: true, rewardNote: true, referee: { select: { fullName: true } } },
-    })
-    return rows.map((r) => ({
-      id: r.id,
-      type: r.rewardType!,
-      amount: r.rewardAmount != null ? Number(r.rewardAmount) : null,
-      label: `${rewardLabel(r.rewardType, r.rewardAmount, r.rewardNote)} (for referring ${r.referee.fullName})`,
-    }))
-  },
-
-  /** Mark a granted reward as used, e.g. the free check-up happened. */
-  async markRewardUsed(referralId: string, note: string, userId: string) {
-    const res = await prisma.referral.updateMany({
-      where: { id: referralId, status: "REWARDED", redeemedAt: null },
-      data: { redeemedAt: new Date(), redeemedNote: note.trim().slice(0, 300) || "Used" },
-    })
-    if (res.count === 0) throw new Error("This reward is not available to mark as used.")
-    await createAuditLog({
-      entityType: "Referral", entityId: referralId, action: "UPDATE",
-      changedById: userId, newValues: { redeemed: true, note },
-    })
-  },
-
   /** Record who referred a patient after registration (missed at sign-up). */
   async linkReferrer(input: { refereeId: string; referrerId: string; userId: string }) {
     if (input.refereeId === input.referrerId) throw new Error("A patient can't refer themselves.")
@@ -265,45 +173,4 @@ export const referralService = {
     return created
   },
 
-  /** Everything the patient's Referrals tab shows. */
-  async overviewForPatient(patientId: string) {
-    const code = await referralService.ensureCode(patientId)
-    const [patient, referredBy, made] = await Promise.all([
-      prisma.patient.findUnique({ where: { id: patientId }, select: { mobile: true } }),
-      prisma.referral.findUnique({
-        where: { refereeId: patientId },
-        select: { id: true, createdAt: true, status: true, referrer: { select: { id: true, fullName: true, patientId: true, mobile: true } } },
-      }),
-      prisma.referral.findMany({
-        where: { referrerId: patientId },
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true, status: true, createdAt: true, qualifiedAt: true,
-          rewardType: true, rewardAmount: true, rewardNote: true, grantedAt: true,
-          redeemedAt: true, redeemedNote: true,
-          grantedBy: { select: { name: true } },
-          referee: { select: { id: true, fullName: true, patientId: true } },
-        },
-      }),
-    ])
-    return { code, mobile: patient?.mobile ?? "", referredBy, made }
-  },
-
-  /** "Referred by" line for consultation / treatment screens. */
-  async referredBy(patientId: string) {
-    return prisma.referral.findUnique({
-      where: { refereeId: patientId },
-      select: { createdAt: true, referrer: { select: { id: true, fullName: true, patientId: true } } },
-    })
-  },
-}
-
-/** "₹500 discount", "Free check-up", "Free treatment: Scaling". */
-export function rewardLabel(type: string | null, amount: unknown, note: string | null): string {
-  const amt = amount != null ? Number(amount) : 0
-  if (type === "DISCOUNT_CREDIT") return `₹${amt.toLocaleString("en-IN")} discount`
-  if (type === "FREE_CHECKUP") return "Free check-up"
-  if (type === "FREE_TREATMENT") return `Free treatment${note ? `: ${note}` : ""}`
-  if (type === "MONETARY") return `₹${amt.toLocaleString("en-IN")} cash`
-  return "—"
 }

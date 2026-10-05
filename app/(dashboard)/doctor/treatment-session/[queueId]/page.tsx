@@ -15,7 +15,7 @@ import { SittingsTracker } from "@/components/estimates/SittingsTracker"
 import { VisitPrescriptionButton } from "@/components/queue/VisitPrescriptionButton"
 import { BookFollowUpDialog } from "@/components/appointments/BookFollowUpDialog"
 import { SessionClinicalNotes } from "@/components/clinical-notes/SessionClinicalNotes"
-import { ReferralBanner } from "@/components/referrals/ReferralBanner"
+import { ReferralPanel } from "@/components/referrals/ReferralPanel"
 import { BillingStrip } from "@/components/invoices/BillingStrip"
 import {
   ChevronLeft,
@@ -32,6 +32,16 @@ import {
 } from "lucide-react"
 
 export const metadata: Metadata = { title: "Treatment Session" }
+
+/** "₹6,000" or "₹6,000" with "to ₹12,000" underneath — fits the narrow amount column. */
+function Amount({ min, max }: { min: number; max: number }) {
+  return (
+    <>
+      {formatCurrency(min)}
+      {max > min && <span className="block text-[11px] font-normal" style={{ color: BRAND_COLORS.borderDivider }}>to {formatCurrency(max)}</span>}
+    </>
+  )
+}
 export const dynamic = "force-dynamic"
 
 type Props = { params: Promise<{ queueId: string }> }
@@ -77,15 +87,34 @@ export default async function TreatmentSessionPage({ params }: Props) {
           toothNumber: true,
           quantity: true,
           unitRate: true,
+          unitRateMax: true,
+          isAlternative: true,
           amount: true,
           status: true,
           category: true,
           plannedSittings: true,
           completedSittings: true,
+          estimate: { select: { id: true, estimateNo: true, invoiceBilling: true, createdAt: true } },
         },
-        orderBy: { sortOrder: "asc" },
+        orderBy: [{ estimate: { createdAt: "asc" } }, { sortOrder: "asc" }],
       })
     : []
+
+  // Pending-treatments panel: grouped by estimate, optional (alternative) lines
+  // left out, ranged lines shown as min – max.
+  const pendingGroups = Object.values(
+    fullItems.filter((i) => !i.isAlternative).reduce<Record<string, { estimate: (typeof fullItems)[number]["estimate"]; items: typeof fullItems }>>((acc, i) => {
+      ;(acc[i.estimate.id] ??= { estimate: i.estimate, items: [] }).items.push(i)
+      return acc
+    }, {})
+  ).map((g) => {
+    const min = g.items.reduce((s, i) => s + i.quantity * Number(i.unitRate), 0)
+    const max = g.items.reduce((s, i) => s + i.quantity * Number(i.unitRateMax ?? i.unitRate), 0)
+    return { ...g, min, max }
+  })
+  const pendingCount = pendingGroups.reduce((n, g) => n + g.items.length, 0)
+  const pendingMin = pendingGroups.reduce((s, g) => s + g.min, 0)
+  const pendingMax = pendingGroups.reduce((s, g) => s + g.max, 0)
 
   // The active estimate that these treatments belong to (for editable estimate + agreement)
   const activeEstimateId = (pendingItems[0] as any)?.estimate?.id as string | undefined
@@ -201,7 +230,7 @@ export default async function TreatmentSessionPage({ params }: Props) {
         </CardContent>
       </Card>
 
-      <ReferralBanner patientId={entry.patient.id} />
+      <ReferralPanel patientId={entry.patient.id} canReward />
       <BillingStrip patientId={entry.patient.id} visitId={entry.visit.id} />
 
       {/* Medical alerts strip */}
@@ -360,12 +389,12 @@ export default async function TreatmentSessionPage({ params }: Props) {
                 className="ml-auto text-xs px-2 py-0.5 rounded-full font-normal"
                 style={{ backgroundColor: `${BRAND_COLORS.primaryTeal}15`, color: BRAND_COLORS.primaryTeal }}
               >
-                {fullItems.length} item{fullItems.length !== 1 ? "s" : ""}
+                {pendingCount} item{pendingCount !== 1 ? "s" : ""}
               </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
-            {fullItems.length === 0 ? (
+            {pendingGroups.length === 0 ? (
               <p className="text-sm text-center py-6" style={{ color: BRAND_COLORS.borderDivider }}>
                 No pending treatments found.
               </p>
@@ -375,52 +404,60 @@ export default async function TreatmentSessionPage({ params }: Props) {
                   <thead>
                     <tr style={{ borderBottom: `1px solid #F2F4F6` }}>
                       {["#", "Treatment", "Tooth", "Qty", "Rate", "Amount"].map((h) => (
-                        <th
-                          key={h}
-                          className="text-left py-2 px-2 text-xs font-semibold"
-                          style={{ color: BRAND_COLORS.borderDivider }}
-                        >
+                        <th key={h} className="text-left py-2 px-2 text-xs font-semibold" style={{ color: BRAND_COLORS.borderDivider }}>
                           {h}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody>
-                    {fullItems.map((item, idx) => (
-                      <tr key={item.id} style={{ borderBottom: "1px solid #F7F9FB" }}>
-                        <td className="py-2.5 px-2 text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-                          {idx + 1}
-                        </td>
-                        <td className="py-2.5 px-2">
-                          <p className="font-medium" style={{ color: BRAND_COLORS.bodyText }}>
-                            {item.treatmentName}
-                          </p>
-                          <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-                            {item.category}
-                          </p>
-                        </td>
-                        <td className="py-2.5 px-2 text-xs" style={{ color: BRAND_COLORS.bodyText }}>
-                          {toothLabel(item.toothNumber) || "—"}
-                        </td>
-                        <td className="py-2.5 px-2 text-xs text-center" style={{ color: BRAND_COLORS.bodyText }}>
-                          {item.quantity}
-                        </td>
-                        <td className="py-2.5 px-2 text-xs" style={{ color: BRAND_COLORS.bodyText }}>
-                          {formatCurrency(Number(item.unitRate))}
-                        </td>
-                        <td className="py-2.5 px-2 text-sm font-semibold" style={{ color: BRAND_COLORS.bodyText }}>
-                          {formatCurrency(Number(item.amount))}
+                  {pendingGroups.map((g) => (
+                    <tbody key={g.estimate.id}>
+                      <tr style={{ backgroundColor: "#F7F9FB" }}>
+                        <td colSpan={6} className="py-1.5 px-2 text-xs">
+                          <Link href={`/doctor/estimate/${g.estimate.id}`} className="font-semibold hover:underline" style={{ color: BRAND_COLORS.primaryTeal }}>
+                            {g.estimate.estimateNo}
+                          </Link>
+                          <span className="ml-2" style={{ color: BRAND_COLORS.borderDivider }}>
+                            {g.estimate.invoiceBilling ? "Quote — billed per invoice" : "Older estimate — full amount counts as due"}
+                          </span>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
+                      {g.items.map((item, idx) => (
+                        <tr key={item.id} style={{ borderBottom: "1px solid #F7F9FB" }}>
+                          <td className="py-2.5 px-2 text-xs" style={{ color: BRAND_COLORS.borderDivider }}>{idx + 1}</td>
+                          <td className="py-2.5 px-2">
+                            <p className="font-medium" style={{ color: BRAND_COLORS.bodyText }}>{item.treatmentName}</p>
+                            <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>{item.category}</p>
+                          </td>
+                          <td className="py-2.5 px-2 text-xs" style={{ color: BRAND_COLORS.bodyText }}>{toothLabel(item.toothNumber) || "—"}</td>
+                          <td className="py-2.5 px-2 text-xs text-center" style={{ color: BRAND_COLORS.bodyText }}>{item.quantity}</td>
+                          <td className="py-2.5 px-2 text-xs whitespace-nowrap" style={{ color: BRAND_COLORS.bodyText }}>
+                            <Amount min={Number(item.unitRate)} max={Number(item.unitRateMax ?? item.unitRate)} />
+                          </td>
+                          <td className="py-2.5 px-2 text-sm font-semibold whitespace-nowrap" style={{ color: BRAND_COLORS.bodyText }}>
+                            <Amount min={item.quantity * Number(item.unitRate)} max={item.quantity * Number(item.unitRateMax ?? item.unitRate)} />
+                          </td>
+                        </tr>
+                      ))}
+                      {pendingGroups.length > 1 && (
+                        <tr>
+                          <td colSpan={5} className="py-1.5 px-2 text-xs text-right" style={{ color: BRAND_COLORS.borderDivider }}>
+                            {g.estimate.estimateNo} pending
+                          </td>
+                          <td className="py-1.5 px-2 text-xs font-semibold whitespace-nowrap" style={{ color: BRAND_COLORS.bodyText }}>
+                            <Amount min={g.min} max={g.max} />
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  ))}
                   <tfoot>
                     <tr style={{ borderTop: `2px solid #E0E3E5` }}>
                       <td colSpan={5} className="py-2 px-2 text-xs font-semibold text-right" style={{ color: BRAND_COLORS.borderDivider }}>
-                        Total Pending
+                        Total pending work <span className="font-normal">(before discounts; optional items excluded)</span>
                       </td>
-                      <td className="py-2 px-2 text-sm font-bold" style={{ color: BRAND_COLORS.primaryTeal }}>
-                        {formatCurrency(fullItems.reduce((s, i) => s + Number(i.amount), 0))}
+                      <td className="py-2 px-2 text-sm font-bold whitespace-nowrap" style={{ color: BRAND_COLORS.primaryTeal }}>
+                        <Amount min={pendingMin} max={pendingMax} />
                       </td>
                     </tr>
                   </tfoot>

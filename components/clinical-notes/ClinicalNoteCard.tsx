@@ -1,6 +1,7 @@
 import { BRAND_COLORS } from "@/lib/constants"
 import { NOTE_TYPE_LABELS } from "@/lib/queue-helpers"
 import { formatDate } from "@/lib/utils"
+import { toothLabel } from "@/lib/teeth"
 
 interface Note {
   id: string
@@ -40,7 +41,8 @@ export function ClinicalNoteCard({ note }: { note: Note }) {
             {note.doctor.name}
           </span>
           {note.toothNumbers &&
-            note.toothNumbers.split(",").map((t) => (
+            // Full arch / full mouth collapses to one "All teeth" chip.
+            (toothLabel(note.toothNumbers).startsWith("All") ? [toothLabel(note.toothNumbers)] : note.toothNumbers.split(",")).map((t) => (
               <span
                 key={t}
                 className="text-xs font-semibold px-1.5 py-0.5 rounded"

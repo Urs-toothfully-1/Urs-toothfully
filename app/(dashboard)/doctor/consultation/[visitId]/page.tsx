@@ -9,7 +9,7 @@ import { prescriptionService } from "@/server/services/prescription.service"
 import { paymentAgreementService } from "@/server/services/payment-agreement.service"
 import { queueRepository } from "@/server/repositories/queue.repository"
 import { EstimateWizard } from "@/components/estimates/EstimateWizard"
-import { ReferralBanner } from "@/components/referrals/ReferralBanner"
+import { ReferralPanel } from "@/components/referrals/ReferralPanel"
 import type { PrescriptionData } from "@/lib/prescription-types"
 import type { PaymentStage } from "@/lib/payment-agreement"
 
@@ -80,7 +80,7 @@ export default async function ConsultationPage({ params }: Props) {
 
   return (
     <>
-    <ReferralBanner patientId={visit.patientId} />
+    <div className="mb-3"><ReferralPanel patientId={visit.patientId} canReward /></div>
     <EstimateWizard
       estimateId={estimate?.id ?? null}
       estimateNo={estimate?.estimateNo ?? null}

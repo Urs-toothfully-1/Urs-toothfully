@@ -47,11 +47,20 @@ function SettingRow({ settingKey, value, branchId }: { settingKey: SettingKey; v
   const [saved, setSaved] = useState(false)
   const [isPending, startTransition] = useTransition()
 
+  // Last value the server confirmed — compared against to know if there's anything unsaved.
+  const [savedVal, setSavedVal] = useState(value)
+  const dirty = val !== savedVal
+
   function handleSave() {
+    if (!dirty || isPending) return
+    const toSave = settingKey.type === "text" ? val.trim() : val
     startTransition(async () => {
-      const result = await updateSettingAction(settingKey.key, val, branchId)
+      const result = await updateSettingAction(settingKey.key, toSave, branchId)
       if (result.success) {
+        setVal(toSave)
+        setSavedVal(toSave)
         setSaved(true)
+        toast.success(`${settingKey.label} saved`)
         setTimeout(() => setSaved(false), 2000)
       } else {
         toast.error(result.error ?? "Failed to save")
@@ -80,12 +89,17 @@ function SettingRow({ settingKey, value, branchId }: { settingKey: SettingKey; v
             type={settingKey.type === "number" ? "number" : "text"}
             value={val}
             onChange={(e) => setVal(e.target.value)}
-            className={`h-9 ${settingKey.type === "number" ? "w-36" : "w-64"} border-[#E0E3E5] bg-[#F2F4F6] text-sm`}
+            // Text settings (e.g. the Google review link) save on Enter or when leaving
+            // the box — a pasted link used to vanish unless the small icon was clicked.
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSave() } }}
+            onBlur={() => { if (settingKey.type === "text") handleSave() }}
+            className={`h-9 ${settingKey.type === "number" ? "w-36" : "w-64"} text-sm ${dirty ? "border-amber-400 bg-amber-50" : "border-[#E0E3E5] bg-[#F2F4F6]"}`}
           />
         )}
         <button
           onClick={handleSave}
-          disabled={isPending || val === value}
+          disabled={isPending || !dirty}
+          title={dirty ? "Save" : "Saved"}
           className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-40"
         >
           {isPending ? <Loader2 className="h-4 w-4 animate-spin" style={{ color: BRAND_COLORS.borderDivider }} />

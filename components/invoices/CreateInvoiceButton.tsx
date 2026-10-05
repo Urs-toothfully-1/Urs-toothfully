@@ -13,6 +13,7 @@ import { computeInvoiceTotals } from "@/lib/invoice-totals"
 import { formatRange } from "@/lib/payment-options"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
+import { toothLabel } from "@/lib/teeth"
 
 export interface BillableEstimate {
   id: string
@@ -27,11 +28,12 @@ export interface BillableEstimate {
   }[]
 }
 
+/** An unused referral-points discount (from rewardService.availableDiscounts). */
 export interface AvailableReward {
   id: string
-  label: string // e.g. "₹500 discount — referred Priya Das"
-  type: "DISCOUNT_CREDIT" | "FREE_CHECKUP" | "FREE_TREATMENT" | "MONETARY"
-  amount: number | null
+  label: string // e.g. "₹500 off — 2 referral points (Diwali Smiles)"
+  kind: "DISCOUNT_FLAT" | "DISCOUNT_PERCENT"
+  value: number
 }
 
 interface PlannedLine {
@@ -117,11 +119,10 @@ export function CreateInvoiceButton({
   function pickReward(id: string) {
     setRewardId(id)
     const r = rewards.find((x) => x.id === id)
-    // A ₹ discount reward fills the discount; free check-up/treatment: the doctor
-    // enters ₹0 for that line herself, the reward is just marked used.
-    if (r?.type === "DISCOUNT_CREDIT" && r.amount) {
-      setDiscountIsPercent(false)
-      setDiscountValue(r.amount)
+    // The reward fills the discount box; the reward is marked used with this invoice.
+    if (r) {
+      setDiscountIsPercent(r.kind === "DISCOUNT_PERCENT")
+      setDiscountValue(r.value)
     }
   }
 
@@ -158,7 +159,7 @@ export function CreateInvoiceButton({
         discountValue,
         discountIsPercent,
         notes: notes.trim() || undefined,
-        redeemReferralId: rewardId || undefined,
+        redeemRewardId: rewardId || undefined,
       })
       if (!res.success || !res.invoiceId) {
         toast.error(res.error ?? "Failed to create invoice")
@@ -239,7 +240,7 @@ export function CreateInvoiceButton({
                       </td>
                       <td className="px-2 py-2">
                         <span className="font-medium" style={{ color: BRAND_COLORS.bodyText }}>{l.treatmentName}</span>
-                        {l.toothNumber && <span className="text-xs ml-1" style={{ color: BRAND_COLORS.borderDivider }}>· {l.toothNumber}</span>}
+                        {l.toothNumber && <span className="text-xs ml-1" style={{ color: BRAND_COLORS.borderDivider }}>· {toothLabel(l.toothNumber)}</span>}
                       </td>
                       <td className="px-2 py-2 text-xs" style={{ color: BRAND_COLORS.borderDivider }}>{formatRange(l.quoteMin, l.quoteMax)}</td>
                       <td className="px-2 py-1">

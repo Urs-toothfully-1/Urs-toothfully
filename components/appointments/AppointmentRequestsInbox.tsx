@@ -12,6 +12,8 @@ export interface RequestView {
   fullName: string
   mobile: string
   problem: string | null
+  /** Booked from a friend's /rewards/<code> invite. */
+  referralCode?: string | null
   preferredDate: string // yyyy-mm-dd
   createdAt: string
   branch: { id: string; name: string }
@@ -60,6 +62,11 @@ function ConfirmRow({ req, doctors }: { req: RequestView; doctors: Props["doctor
             <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{req.mobile}</span>
             <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Prefers {prettyDate}</span>
             <BranchBadge name={req.branch.name} />
+            {req.referralCode && (
+              <span className="px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: "#E6F4F2", color: "#006B5F" }}>
+                🎁 Referral invite · {req.referralCode}
+              </span>
+            )}
           </div>
           {req.problem && <p className="text-xs mt-1.5" style={{ color: BRAND_COLORS.secondaryText }}>“{req.problem}”</p>}
         </div>

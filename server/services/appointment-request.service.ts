@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { generateReferralCode } from "@/lib/referral-code"
 import { appointmentService } from "@/server/services/appointment.service"
 import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
+import { referralService } from "@/server/services/referral.service"
 
 import { UNKNOWN_DOB } from "@/lib/patient-dob"
 
@@ -74,10 +75,21 @@ export const appointmentRequestService = {
     if (!request) throw new Error("Request not found")
     if (request.status !== "PENDING") throw new Error("This request has already been handled.")
 
+    const referrer = request.referralCode ? await referralService.findReferrerByCode(request.referralCode).catch(() => null) : null
     const patient = await findOrCreateStubPatient(
-      { fullName: request.fullName, mobile: request.mobile, branchId: request.branchId, problem: request.problem },
+      {
+        fullName: request.fullName, mobile: request.mobile, branchId: request.branchId, problem: request.problem,
+        leadSource: referrer ? "Referral" : undefined,
+      },
       handledById
     )
+    // Booked from a friend's /rewards link → record who referred them. No-op if
+    // they already have a referrer or the link is their own.
+    if (referrer && referrer.id !== patient.id) {
+      await referralService
+        .createReferral({ referrerId: referrer.id, refereeId: patient.id, branchId: request.branchId, createdById: handledById })
+        .catch(() => null)
+    }
 
     // Record the opt-in captured on the public form against the real patient.
     // Must happen BEFORE create() — that is what fires the confirmation, and

@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Users, ClipboardList,
   BookOpen, BarChart2, Stethoscope, Settings, UserCog,
   CalendarClock, CalendarDays, Shield, FileSpreadsheet, UserPlus, MessageCircle, PenLine,
-  LibraryBig, Wallet, Gift,
+  LibraryBig, Wallet, Gift, Contact,
 } from "lucide-react"
 
 interface NavItem {
@@ -42,7 +42,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle, roles: ["ADMIN"], matchPrefix: true, section: "Operations" },
   // Insights (admin)
   { label: "Reports", href: "/admin/reports", icon: BarChart2, roles: ["ADMIN"], matchPrefix: true, section: "Insights" },
-  { label: "Referrals", href: "/admin/referrals", icon: Gift, roles: ["ADMIN"], matchPrefix: true, section: "Insights" },
+  { label: "Rewards & Referrals", href: "/admin/referrals", icon: Gift, roles: ["ADMIN"], matchPrefix: true, section: "Insights" },
+  { label: "Potential Clients", href: "/admin/potential-clients", icon: Contact, roles: ["ADMIN"], section: "Insights" },
   { label: "Tally Export", href: "/admin/tally", icon: FileSpreadsheet, roles: ["ADMIN"], section: "Insights" },
   { label: "Audit Log", href: "/admin/audit", icon: Shield, roles: ["ADMIN"], section: "Insights" },
   // Manage (admin)

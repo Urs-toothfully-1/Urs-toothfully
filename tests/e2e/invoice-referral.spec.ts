@@ -61,16 +61,18 @@ test.describe("Doctor", () => {
     await expect(page.getByRole("link", { name: ids.referrerName })).toBeVisible()
   })
 
-  test("doctor gives the referrer a free check-up and marks it used", async ({ page }) => {
+  test("doctor spends the referrer's point on a reward — once only", async ({ page }) => {
     await page.goto(`/patients/${ids.referrer}/referrals`)
-    await expect(page.getByText(ids.friendName)).toBeVisible()
-    await page.getByRole("button", { name: /give reward/i }).click()
-    await page.getByRole("button", { name: "Free check-up" }).click()
-    await page.getByRole("dialog").getByRole("button", { name: /give reward/i }).click()
-    await expect(page.getByText("Free check-up").first()).toBeVisible()
-    page.once("dialog", (d) => d.accept("Done today"))
-    await page.getByRole("button", { name: /mark used/i }).click()
-    await expect(page.getByText(/Used .*Done today/)).toBeVisible()
+    await expect(page.getByText(ids.friendName).first()).toBeVisible()
+    await expect(page.getByText("1 point available", { exact: true })).toBeVisible()
+    await page.getByRole("button", { name: /use points/i }).click()
+    const dialog = page.getByRole("dialog")
+    await dialog.locator("select").last().selectOption("FREE_CHECKUP")
+    await dialog.getByRole("button", { name: /give reward/i }).click()
+    await expect(page.getByRole("dialog")).toHaveCount(0)
+    await expect(page.getByText("0 points available", { exact: true })).toBeVisible()
+    await expect(page.getByText(/Used .*Given at the visit/)).toBeVisible()
+    await expect(page.getByRole("button", { name: /use points/i })).toBeDisabled()
   })
 
   test("quote is not pending; billing a treatment creates the invoice", async ({ page, context }) => {
@@ -107,5 +109,81 @@ test.describe("Reception", () => {
     await page.getByPlaceholder("Referral code or mobile no.").fill(ids.referrerMobile)
     await page.getByRole("button", { name: "Find" }).click()
     await expect(page.getByText(ids.referrerName)).toBeVisible()
+  })
+})
+
+test.describe("Admin", () => {
+  test.use({ storageState: "tests/e2e/.auth/admin.json" })
+
+  test("creates a reward campaign that shows on the public invite page", async ({ page, browser }) => {
+    await page.goto("/admin/referrals")
+    await expect(page.getByRole("heading", { name: "Rewards & Referrals" })).toBeVisible()
+    await page.getByRole("button", { name: /new campaign/i }).first().click()
+    const d = page.getByRole("dialog")
+    await d.getByPlaceholder(/Campaign name/).fill(`E2E Campaign ${stamp}`)
+    await d.getByPlaceholder(/Offer shown to patients/).first().fill("₹700 off your next visit")
+    await d.getByPlaceholder(/Offer shown to patients/).last().fill(`E2E welcome gift ${stamp}`)
+    await d.getByRole("button", { name: /create campaign/i }).click()
+    await expect(page.getByText(`E2E Campaign ${stamp}`).first()).toBeVisible()
+
+    const code = (await prisma.patient.findUniqueOrThrow({ where: { id: ids.referrer }, select: { referralCode: true } })).referralCode!
+    const pub = await (await browser.newContext({ storageState: { cookies: [], origins: [] } })).newPage()
+    await pub.goto(`/rewards/${code.toLowerCase()}`)
+    await expect(pub.getByText(/You.ve been referred by/)).toBeVisible()
+    await expect(pub.getByText(ids.referrerName.split(" ")[0]).first()).toBeVisible()
+    await expect(pub.getByText(`E2E welcome gift ${stamp}`)).toBeVisible()
+    // Full surname is never shown publicly.
+    await expect(pub.getByText(ids.referrerName)).toHaveCount(0)
+    await pub.goto("/rewards/NOPE99")
+    await expect(pub.getByText(/invite link isn.t valid/)).toBeVisible()
+    await prisma.rewardCampaign.deleteMany({ where: { name: `E2E Campaign ${stamp}` } })
+  })
+
+  test("exports all patients as CSV", async ({ page }) => {
+    const res = await page.request.get("/api/admin/patients/export")
+    expect(res.status()).toBe(200)
+    expect(res.headers()["content-type"]).toContain("text/csv")
+    const text = await res.text()
+    expect(text).toContain("Patient ID,Name,Mobile")
+    expect(text).toContain(ids.friendName)
+  })
+
+  test("imports potential clients from a CSV", async ({ page }) => {
+    await page.goto("/admin/potential-clients")
+    await page.getByRole("button", { name: /import csv/i }).click()
+    const csv = `Name,Phone,City
+E2E Lead ${stamp},93${stamp}11,Salt Lake
+Bad Row,12345,
+`
+    await page.locator('input[type="file"]').setInputFiles({ name: "leads.csv", mimeType: "text/csv", buffer: Buffer.from(csv) })
+    await expect(page.getByText("2 rows found")).toBeVisible()
+    await page.getByRole("button", { name: /import 2 rows/i }).click()
+    await expect(page.getByText(/1 added · 0 updated · 1 skipped/)).toBeVisible({ timeout: 20_000 })
+    await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).last().click()
+    await expect(page.getByRole("dialog")).toHaveCount(0)
+    await expect(page.getByRole("main").getByText(`E2E Lead ${stamp}`)).toBeVisible()
+    await prisma.potentialClient.deleteMany({ where: { fullName: `E2E Lead ${stamp}` } })
+  })
+})
+
+test.describe("Public", () => {
+  test("booking from an invite link completes and keeps the referral", async ({ browser }) => {
+    const code = (await prisma.patient.findUniqueOrThrow({ where: { id: ids.referrer }, select: { referralCode: true } })).referralCode!
+    // Repeated local runs trip the public form's per-device limit — start clean.
+    await prisma.intakeAttempt.deleteMany({ where: { ipAddress: { in: ["", "::1", "127.0.0.1", "::ffff:127.0.0.1", "unknown"] } } })
+    const page = await (await browser.newContext({ storageState: { cookies: [], origins: [] } })).newPage()
+    await page.goto(`/rewards/${code}`)
+    await page.getByRole("button", { name: /outram/i }).first().click()
+    await page.locator('input[name="fullName"]').fill(`E2E Invitee ${stamp}`)
+    await page.locator('input[name="mobile"]').fill(`94${stamp}21`)
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
+    await page.locator('input[name="preferredDate"]').fill(tomorrow)
+    await page.waitForTimeout(3200) // the public form rejects submissions faster than a human (3 s)
+    await page.getByRole("button", { name: /request appointment/i }).click()
+    await expect(page.getByText("Booking complete!")).toBeVisible()
+    await expect(page.getByText(/Your referral from/)).toBeVisible()
+    const req = await prisma.appointmentRequest.findFirst({ where: { fullName: `E2E Invitee ${stamp}` } })
+    expect(req?.referralCode).toBe(code)
+    await prisma.appointmentRequest.deleteMany({ where: { fullName: `E2E Invitee ${stamp}` } })
   })
 })

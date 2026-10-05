@@ -168,7 +168,7 @@ test.describe("Patient list filters", () => {
   test("only one page of patients is rendered, however many exist", async ({ page }) => {
     await page.goto("/patients")
     // 25 per page — the whole point of the rewrite.
-    const cards = page.locator('a[href^="/patients/"]')
+    const cards = page.locator('a[href^="/patients/"]:not([href="/patients/new"])') // not the New Patient buttons
     expect(await cards.count()).toBeLessThanOrEqual(25)
   })
 })

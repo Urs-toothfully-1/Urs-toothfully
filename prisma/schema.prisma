@@ -180,6 +180,7 @@ model Branch {
   ledgerEntries         LedgerEntry[]
   referrals             Referral[]
   invoices              Invoice[]
+  rewardRedemptions     ReferralRedemption[]
   diagnoses             Diagnosis[]
   diagnosisUsages       DiagnosisUsage[]
   medicines             Medicine[]
@@ -187,62 +188,65 @@ model Branch {
 }
 
 model User {
-  id                  String   @id @default(uuid())
+  id                  String    @id @default(uuid())
   branchId            String
-  branch              Branch   @relation(fields: [branchId], references: [id])
-  name                String   @db.VarChar(100)
-  email               String   @unique @db.VarChar(100)
+  branch              Branch    @relation(fields: [branchId], references: [id])
+  name                String    @db.VarChar(100)
+  email               String    @unique @db.VarChar(100)
   passwordHash        String
   role                Role
-  doctorRegNo         String?  @db.VarChar(20)
-  doctorQualification String?  @db.VarChar(200)
-  signatureData       String?  @db.Text  // doctor's digital signature, base64 data URL
-  isActive            Boolean  @default(true)
-  loginAttempts       Int      @default(0)
+  doctorRegNo         String?   @db.VarChar(20)
+  doctorQualification String?   @db.VarChar(200)
+  signatureData       String?   @db.Text // doctor's digital signature, base64 data URL
+  isActive            Boolean   @default(true)
+  loginAttempts       Int       @default(0)
   lockedUntil         DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  availability          DoctorAvailability[]
-  registeredPatients    Patient[]              @relation("PatientCreatedBy")
-  deletedPatients       Patient[]              @relation("PatientDeletedBy")
-  createdDentalHistory  DentalHistory[]
-  doctorVisits          PatientVisit[]         @relation("VisitDoctor")
-  createdVisits         PatientVisit[]         @relation("VisitCreatedBy")
-  claimedQueue          QueueEntry[]           @relation("QueueDoctor")
-  createdQueue          QueueEntry[]           @relation("QueueCreatedBy")
-  clinicalNotes         ClinicalNote[]
-  prescriptionRecords   PrescriptionRecord[]
-  estimates             Estimate[]
-  deletedEstimates      Estimate[]             @relation("EstimateDeletedBy")
-  itemStatusUpdates     EstimateItem[]         @relation("ItemStatusUpdatedBy")
-  collectedPayments     Payment[]              @relation("CollectedBy")
-  deletedPayments       Payment[]              @relation("PaymentDeletedBy")
-  issuedReceipts        Receipt[]
-  auditLogs             AuditLog[]
-  deletedEntries        AccountingEntry[]      @relation("EntryDeletedBy")
-  ledgerEntries         LedgerEntry[]          @relation("LedgerCreatedBy")
-  deletedLedgerEntries  LedgerEntry[]          @relation("LedgerDeletedBy")
-  createdReferrals      Referral[]             @relation("ReferralCreatedBy")
-  grantedReferrals      Referral[]             @relation("ReferralGrantedBy")
-  createdInvoices       Invoice[]              @relation("InvoiceCreatedBy")
-  exportBatches         ExportBatch[]
-  settings              SystemSetting[]
-  treatmentMaster       TreatmentMaster[]
-  deletedTreatments     TreatmentMaster[]      @relation("TreatmentDeletedBy")
-  treatmentPackages     TreatmentPackage[]
-  generatedDocuments    GeneratedDocument[]
-  mergedRecords         PatientMergeLog[]
-  prescriptionTemplates PrescriptionTemplate[]
-  patientDocuments      PatientDocument[]
-  whatsappSettings      WhatsAppSettings[]     @relation("WhatsAppSettingsUpdatedBy")
-  whatsappTemplates     WhatsAppTemplate[]     @relation("WhatsAppTemplateCreatedBy")
-  whatsappMessages      WhatsAppMessage[]      @relation("WhatsAppMessageCreatedBy")
-  doctorAppointments    Appointment[]          @relation("AppointmentDoctor")
-  createdAppointments   Appointment[]          @relation("AppointmentCreatedBy")
-  examinationTemplates  ExaminationTemplate[]  @relation("DoctorExaminationTemplates")
-  handledRequests       AppointmentRequest[]
-  diagnosisUsages       DiagnosisUsage[]       @relation("DoctorDiagnosisUsage")
+  availability            DoctorAvailability[]
+  registeredPatients      Patient[]              @relation("PatientCreatedBy")
+  deletedPatients         Patient[]              @relation("PatientDeletedBy")
+  createdDentalHistory    DentalHistory[]
+  doctorVisits            PatientVisit[]         @relation("VisitDoctor")
+  createdVisits           PatientVisit[]         @relation("VisitCreatedBy")
+  claimedQueue            QueueEntry[]           @relation("QueueDoctor")
+  createdQueue            QueueEntry[]           @relation("QueueCreatedBy")
+  clinicalNotes           ClinicalNote[]
+  prescriptionRecords     PrescriptionRecord[]
+  estimates               Estimate[]
+  deletedEstimates        Estimate[]             @relation("EstimateDeletedBy")
+  itemStatusUpdates       EstimateItem[]         @relation("ItemStatusUpdatedBy")
+  collectedPayments       Payment[]              @relation("CollectedBy")
+  deletedPayments         Payment[]              @relation("PaymentDeletedBy")
+  issuedReceipts          Receipt[]
+  auditLogs               AuditLog[]
+  deletedEntries          AccountingEntry[]      @relation("EntryDeletedBy")
+  ledgerEntries           LedgerEntry[]          @relation("LedgerCreatedBy")
+  deletedLedgerEntries    LedgerEntry[]          @relation("LedgerDeletedBy")
+  createdReferrals        Referral[]             @relation("ReferralCreatedBy")
+  grantedReferrals        Referral[]             @relation("ReferralGrantedBy")
+  createdInvoices         Invoice[]              @relation("InvoiceCreatedBy")
+  createdCampaigns        RewardCampaign[]       @relation("RewardCampaignCreatedBy")
+  createdRedemptions      ReferralRedemption[]   @relation("RedemptionCreatedBy")
+  createdPotentialClients PotentialClient[]      @relation("PotentialClientCreatedBy")
+  exportBatches           ExportBatch[]
+  settings                SystemSetting[]
+  treatmentMaster         TreatmentMaster[]
+  deletedTreatments       TreatmentMaster[]      @relation("TreatmentDeletedBy")
+  treatmentPackages       TreatmentPackage[]
+  generatedDocuments      GeneratedDocument[]
+  mergedRecords           PatientMergeLog[]
+  prescriptionTemplates   PrescriptionTemplate[]
+  patientDocuments        PatientDocument[]
+  whatsappSettings        WhatsAppSettings[]     @relation("WhatsAppSettingsUpdatedBy")
+  whatsappTemplates       WhatsAppTemplate[]     @relation("WhatsAppTemplateCreatedBy")
+  whatsappMessages        WhatsAppMessage[]      @relation("WhatsAppMessageCreatedBy")
+  doctorAppointments      Appointment[]          @relation("AppointmentDoctor")
+  createdAppointments     Appointment[]          @relation("AppointmentCreatedBy")
+  examinationTemplates    ExaminationTemplate[]  @relation("DoctorExaminationTemplates")
+  handledRequests         AppointmentRequest[]
+  diagnosisUsages         DiagnosisUsage[]       @relation("DoctorDiagnosisUsage")
 }
 
 model DoctorAvailability {
@@ -307,6 +311,7 @@ model Patient {
   referralsMade      Referral[]           @relation("ReferralsMade")
   referredBy         Referral?            @relation("ReferredBy")
   invoices           Invoice[]
+  rewardRedemptions  ReferralRedemption[]
 
   @@index([mobile])
   @@index([registrationBranchId, createdAt])
@@ -400,41 +405,41 @@ model PatientVisit {
 }
 
 model QueueEntry {
-  id          String      @id @default(uuid())
-  visitId     String      @unique
+  id          String       @id @default(uuid())
+  visitId     String       @unique
   visit       PatientVisit @relation(fields: [visitId], references: [id])
   patientId   String
-  patient     Patient     @relation(fields: [patientId], references: [id])
+  patient     Patient      @relation(fields: [patientId], references: [id])
   branchId    String
-  branch      Branch      @relation(fields: [branchId], references: [id])
+  branch      Branch       @relation(fields: [branchId], references: [id])
   doctorId    String?
-  doctor      User?       @relation("QueueDoctor", fields: [doctorId], references: [id])
+  doctor      User?        @relation("QueueDoctor", fields: [doctorId], references: [id])
   tokenNumber Int
-  status      QueueStatus @default(WAITING)
-  sentAt      DateTime    @default(now())
+  status      QueueStatus  @default(WAITING)
+  sentAt      DateTime     @default(now())
   claimedAt   DateTime?
   calledAt    DateTime?
   completedAt DateTime?
   createdById String
-  createdBy   User        @relation("QueueCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime    @default(now())
+  createdBy   User         @relation("QueueCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
 
   @@index([branchId, status, createdAt])
   @@index([doctorId, status])
 }
 
 model ClinicalNote {
-  id        String       @id @default(uuid())
-  patientId String
-  patient   Patient      @relation(fields: [patientId], references: [id])
-  visitId   String
-  visit     PatientVisit @relation(fields: [visitId], references: [id])
-  doctorId  String
-  doctor    User         @relation(fields: [doctorId], references: [id])
-  noteType  String       @db.VarChar(50) @default("GENERAL")
-  content   String
-  toothNumbers String?   @db.VarChar(120) // comma-separated FDI numbers, e.g. "16,15,46"
-  createdAt DateTime     @default(now())
+  id           String       @id @default(uuid())
+  patientId    String
+  patient      Patient      @relation(fields: [patientId], references: [id])
+  visitId      String
+  visit        PatientVisit @relation(fields: [visitId], references: [id])
+  doctorId     String
+  doctor       User         @relation(fields: [doctorId], references: [id])
+  noteType     String       @default("GENERAL") @db.VarChar(50)
+  content      String
+  toothNumbers String?      @db.VarChar(120) // comma-separated FDI numbers, e.g. "16,15,46"
+  createdAt    DateTime     @default(now())
 
   @@index([patientId, createdAt])
   @@index([visitId])
@@ -526,42 +531,42 @@ model TreatmentPackageItem {
 }
 
 model Estimate {
-  id              String         @id @default(uuid())
-  estimateNo      String         @unique @db.VarChar(20)
-  patientId       String
-  patient         Patient        @relation(fields: [patientId], references: [id])
-  branchId        String
-  branch          Branch         @relation(fields: [branchId], references: [id])
-  doctorId        String
-  doctor          User           @relation(fields: [doctorId], references: [id])
-  visitId         String
-  visit           PatientVisit   @relation(fields: [visitId], references: [id])
-  subtotal        Decimal        @db.Decimal(10, 2) @default(0)
-  total           Decimal        @db.Decimal(10, 2) @default(0)
-  advanceRequired Decimal        @db.Decimal(10, 2) @default(0)
-  discountPercent Decimal?       @db.Decimal(5, 2) // EFFECTIVE overall discount % (line + global), for display/print/reports
-  discountAmount  Decimal?       @db.Decimal(10, 2) // EFFECTIVE overall discount ₹ (subtotal − total)
-  globalDiscountValue     Decimal  @default(0) @db.Decimal(10, 2) // estimate-wide discount applied on top of per-line: a % or ₹
-  globalDiscountIsPercent Boolean  @default(true)
-  referralCreditApplied   Decimal  @default(0) @db.Decimal(10, 2) // referral reward credit consumed by this estimate
+  id                      String         @id @default(uuid())
+  estimateNo              String         @unique @db.VarChar(20)
+  patientId               String
+  patient                 Patient        @relation(fields: [patientId], references: [id])
+  branchId                String
+  branch                  Branch         @relation(fields: [branchId], references: [id])
+  doctorId                String
+  doctor                  User           @relation(fields: [doctorId], references: [id])
+  visitId                 String
+  visit                   PatientVisit   @relation(fields: [visitId], references: [id])
+  subtotal                Decimal        @default(0) @db.Decimal(10, 2)
+  total                   Decimal        @default(0) @db.Decimal(10, 2)
+  advanceRequired         Decimal        @default(0) @db.Decimal(10, 2)
+  discountPercent         Decimal?       @db.Decimal(5, 2) // EFFECTIVE overall discount % (line + global), for display/print/reports
+  discountAmount          Decimal?       @db.Decimal(10, 2) // EFFECTIVE overall discount ₹ (subtotal − total)
+  globalDiscountValue     Decimal        @default(0) @db.Decimal(10, 2) // estimate-wide discount applied on top of per-line: a % or ₹
+  globalDiscountIsPercent Boolean        @default(true)
+  referralCreditApplied   Decimal        @default(0) @db.Decimal(10, 2) // referral reward credit consumed by this estimate
   /// Upper end of the quoted total when any line is a price range (e.g. RCT
   /// ₹6,000–₹12,000). Null = a fixed quote; `total` is always the lower end.
-  totalMax        Decimal?       @db.Decimal(10, 2)
+  totalMax                Decimal?       @db.Decimal(10, 2)
   /// true = quote-only estimate: what the patient owes is what's been invoiced at
   /// treatment visits (`invoicedTotal`), not the quote. false = legacy estimate
   /// where `total` itself is owed. Every estimate created after the switch is true.
-  invoiceBilling  Boolean        @default(false)
-  invoicedTotal   Decimal        @default(0) @db.Decimal(10, 2) // Σ non-deleted invoice totals (kept in sync)
-  notes           String?
-  status          EstimateStatus @default(ACTIVE)
-  createdAt       DateTime       @default(now())
-  documentDate    DateTime?      @db.Date // doctor-settable date shown on the estimate/printout; falls back to createdAt
-  updatedAt       DateTime       @updatedAt
-  isDeleted       Boolean        @default(false)
-  deletedAt       DateTime?
-  deletedById     String?
-  deletedBy       User?          @relation("EstimateDeletedBy", fields: [deletedById], references: [id])
-  deletionReason  String?
+  invoiceBilling          Boolean        @default(false)
+  invoicedTotal           Decimal        @default(0) @db.Decimal(10, 2) // Σ non-deleted invoice totals (kept in sync)
+  notes                   String?
+  status                  EstimateStatus @default(ACTIVE)
+  createdAt               DateTime       @default(now())
+  documentDate            DateTime?      @db.Date // doctor-settable date shown on the estimate/printout; falls back to createdAt
+  updatedAt               DateTime       @updatedAt
+  isDeleted               Boolean        @default(false)
+  deletedAt               DateTime?
+  deletedById             String?
+  deletedBy               User?          @relation("EstimateDeletedBy", fields: [deletedById], references: [id])
+  deletionReason          String?
 
   items              EstimateItem[]
   payments           Payment[]
@@ -626,7 +631,7 @@ model PaymentAgreement {
   id                   String    @id @default(uuid())
   estimateId           String    @unique
   estimate             Estimate  @relation(fields: [estimateId], references: [id])
-  stages               Json      // Array of { name: string, amount: number, dueDate: string, received: boolean }
+  stages               Json // Array of { name: string, amount: number, dueDate: string, received: boolean }
   /// Invoice-billing estimates: payment offers printed for the patient, e.g.
   /// { title, discountType: "NONE"|"PERCENT"|"FLAT", discountValue, splits: number[] (% instalments), note }[]
   options              Json?
@@ -638,32 +643,32 @@ model PaymentAgreement {
 }
 
 model EstimateItem {
-  id                String          @id @default(uuid())
+  id                String           @id @default(uuid())
   estimateId        String
-  estimate          Estimate        @relation(fields: [estimateId], references: [id])
+  estimate          Estimate         @relation(fields: [estimateId], references: [id])
   treatmentId       String?
   treatment         TreatmentMaster? @relation(fields: [treatmentId], references: [id])
-  treatmentName     String          @db.VarChar(200)
-  category          String          @db.VarChar(100)
-  toothNumber       String?         @db.VarChar(120) // one or more FDI numbers, comma-separated
-  quantity          Int             @default(1)
-  unitRate          Decimal         @db.Decimal(10, 2)
+  treatmentName     String           @db.VarChar(200)
+  category          String           @db.VarChar(100)
+  toothNumber       String?          @db.VarChar(120) // one or more FDI numbers, comma-separated
+  quantity          Int              @default(1)
+  unitRate          Decimal          @db.Decimal(10, 2)
   /// Upper end of a price range (e.g. RCT 6000–12000 → unitRate 6000, unitRateMax 12000). Null = fixed price.
-  unitRateMax       Decimal?        @db.Decimal(10, 2)
-  amount            Decimal         @db.Decimal(10, 2) // gross = quantity × unitRate (per-line discount is applied on top)
-  discountValue     Decimal         @default(0) @db.Decimal(10, 2) // per-line discount: a % or a ₹ amount per discountIsPercent
-  discountIsPercent Boolean         @default(true)
-  plannedSittings   Int             @default(1)
-  completedSittings Int             @default(0)
-  sortOrder         Int             @default(0)
+  unitRateMax       Decimal?         @db.Decimal(10, 2)
+  amount            Decimal          @db.Decimal(10, 2) // gross = quantity × unitRate (per-line discount is applied on top)
+  discountValue     Decimal          @default(0) @db.Decimal(10, 2) // per-line discount: a % or a ₹ amount per discountIsPercent
+  discountIsPercent Boolean          @default(true)
+  plannedSittings   Int              @default(1)
+  completedSittings Int              @default(0)
+  sortOrder         Int              @default(0)
   /// An option the patient was shown but is not charged for: several grades of
   /// the same treatment quoted side by side, only one of which counts. Printed
   /// like any other line, but excluded from the estimate total.
-  isAlternative     Boolean         @default(false)
-  status            ItemStatus      @default(PENDING)
+  isAlternative     Boolean          @default(false)
+  status            ItemStatus       @default(PENDING)
   statusUpdatedAt   DateTime?
   statusUpdatedById String?
-  statusUpdatedBy   User?           @relation("ItemStatusUpdatedBy", fields: [statusUpdatedById], references: [id])
+  statusUpdatedBy   User?            @relation("ItemStatusUpdatedBy", fields: [statusUpdatedById], references: [id])
 }
 
 model Payment {
@@ -814,62 +819,68 @@ enum ReferralRewardType {
 }
 
 model Referral {
-  id                  String              @id @default(uuid())
-  referrerId          String
-  referrer            Patient             @relation("ReferralsMade", fields: [referrerId], references: [id])
-  refereeId           String              @unique // a patient can only be referred once
-  referee             Patient             @relation("ReferredBy", fields: [refereeId], references: [id])
-  branchId            String
-  branch              Branch              @relation(fields: [branchId], references: [id])
-  status              ReferralStatus      @default(PENDING)
-  qualifyingPaymentId String? // the referee's first payment that qualified it
-  qualifiedAt         DateTime?
+  id                   String              @id @default(uuid())
+  referrerId           String
+  referrer             Patient             @relation("ReferralsMade", fields: [referrerId], references: [id])
+  refereeId            String              @unique // a patient can only be referred once
+  referee              Patient             @relation("ReferredBy", fields: [refereeId], references: [id])
+  branchId             String
+  branch               Branch              @relation(fields: [branchId], references: [id])
+  status               ReferralStatus      @default(PENDING)
+  qualifyingPaymentId  String? // the referee's first payment that qualified it
+  qualifiedAt          DateTime?
   // Reward — granted manually by admin/doctor once QUALIFIED.
-  rewardType          ReferralRewardType?
-  rewardAmount        Decimal?            @db.Decimal(10, 2)
-  rewardNote          String?             @db.VarChar(300)
-  rewardLedgerEntryId String? // monetary reward → the Cash Book LedgerEntry it created
-  redeemedEstimateId  String? // discount credit → the estimate that consumed it
-  redeemedInvoiceId   String? // reward used on this invoice, if billed
-  redeemedNote        String?             @db.VarChar(300) // how/when the reward was used
-  redeemedAt          DateTime?
-  grantedById         String?
-  grantedBy           User?               @relation("ReferralGrantedBy", fields: [grantedById], references: [id])
-  grantedAt           DateTime?
-  createdById         String
-  createdBy           User                @relation("ReferralCreatedBy", fields: [createdById], references: [id])
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  rewardType           ReferralRewardType?
+  rewardAmount         Decimal?            @db.Decimal(10, 2)
+  rewardNote           String?             @db.VarChar(300)
+  rewardLedgerEntryId  String? // monetary reward → the Cash Book LedgerEntry it created
+  redeemedEstimateId   String? // discount credit → the estimate that consumed it
+  redeemedInvoiceId    String? // reward used on this invoice, if billed
+  redeemedNote         String?             @db.VarChar(300) // how/when the reward was used
+  redeemedAt           DateTime?
+  grantedById          String?
+  grantedBy            User?               @relation("ReferralGrantedBy", fields: [grantedById], references: [id])
+  grantedAt            DateTime?
+  // Points: each referral = 1 point for the referrer and 1 for the referee.
+  // A side is spent once its redemption id is set — never reusable.
+  referrerRedemptionId String?
+  referrerRedemption   ReferralRedemption? @relation("ReferrerPoint", fields: [referrerRedemptionId], references: [id], onDelete: SetNull)
+  refereeRedemptionId  String?
+  refereeRedemption    ReferralRedemption? @relation("RefereePoint", fields: [refereeRedemptionId], references: [id], onDelete: SetNull)
+  createdById          String
+  createdBy            User                @relation("ReferralCreatedBy", fields: [createdById], references: [id])
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
   @@index([status, createdAt])
   @@index([referrerId])
 }
 
 model GeneratedDocument {
-  id             String               @id @default(uuid())
-  documentType   String               @db.VarChar(50)
+  id             String              @id @default(uuid())
+  documentType   String              @db.VarChar(50)
   patientId      String
-  patient        Patient              @relation(fields: [patientId], references: [id])
+  patient        Patient             @relation(fields: [patientId], references: [id])
   estimateId     String?
-  estimate       Estimate?            @relation(fields: [estimateId], references: [id])
-  receiptId      String?              @unique
-  receipt        Receipt?             @relation(fields: [receiptId], references: [id])
-  prescriptionId String?              @unique
-  prescription   PrescriptionRecord?  @relation(fields: [prescriptionId], references: [id])
+  estimate       Estimate?           @relation(fields: [estimateId], references: [id])
+  receiptId      String?             @unique
+  receipt        Receipt?            @relation(fields: [receiptId], references: [id])
+  prescriptionId String?             @unique
+  prescription   PrescriptionRecord? @relation(fields: [prescriptionId], references: [id])
   generatedById  String
-  generatedBy    User                 @relation(fields: [generatedById], references: [id])
-  generatedAt    DateTime             @default(now())
+  generatedBy    User                @relation(fields: [generatedById], references: [id])
+  generatedAt    DateTime            @default(now())
   filePath       String?
   fileSize       Int?
-  mimeType       String?              @db.VarChar(50) @default("application/pdf")
+  mimeType       String?             @default("application/pdf") @db.VarChar(50)
 
   /// Cached PDF bytes. Rendering one costs a headless-Chromium launch plus a
   /// full re-render of the print route, so the same document must not be built
   /// twice. Pruned by the daily cron — see CACHE_TTL_DAYS in pdf.service.
-  content        Bytes?
+  content    Bytes?
   /// Fingerprint of the source record. Any mismatch means the document changed
   /// underneath the cache and the PDF has to be rebuilt.
-  sourceHash     String?              @db.VarChar(64)
+  sourceHash String? @db.VarChar(64)
 
   @@index([patientId, documentType, generatedAt])
   @@index([estimateId])
@@ -1123,25 +1134,25 @@ model SystemSetting {
 // ─── APPOINTMENTS ─────────────────────────────────────────────
 
 model Appointment {
-  id                 String            @id @default(uuid())
+  id                 String              @id @default(uuid())
   patientId          String
-  patient            Patient           @relation(fields: [patientId], references: [id])
+  patient            Patient             @relation(fields: [patientId], references: [id])
   doctorId           String
-  doctor             User              @relation("AppointmentDoctor", fields: [doctorId], references: [id])
+  doctor             User                @relation("AppointmentDoctor", fields: [doctorId], references: [id])
   branchId           String
-  branch             Branch            @relation(fields: [branchId], references: [id])
+  branch             Branch              @relation(fields: [branchId], references: [id])
   scheduledAt        DateTime
-  durationMins       Int               @default(30)
-  reason             String?           @db.VarChar(300)
-  status             AppointmentStatus @default(SCHEDULED)
-  notes              String?           @db.VarChar(500)
+  durationMins       Int                 @default(30)
+  reason             String?             @db.VarChar(300)
+  status             AppointmentStatus   @default(SCHEDULED)
+  notes              String?             @db.VarChar(500)
   reminderSentAt     DateTime?
   cancelledAt        DateTime?
-  cancellationReason String?           @db.VarChar(300)
+  cancellationReason String?             @db.VarChar(300)
   createdById        String
-  createdBy          User              @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  createdBy          User                @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
   request            AppointmentRequest?
 
   @@index([branchId, scheduledAt])
@@ -1153,25 +1164,27 @@ model Appointment {
 // Public appointment requests submitted from the website (pre-patient lead).
 // Reception/admin reviews these and confirms into a real Appointment.
 model AppointmentRequest {
-  id            String                   @id @default(uuid())
-  fullName      String                   @db.VarChar(200)
-  mobile        String                   @db.VarChar(15)
-  problem       String?                  @db.VarChar(500)
-  preferredDate DateTime                 @db.Date
-  branchId      String
-  branch        Branch                   @relation(fields: [branchId], references: [id])
-  status        AppointmentRequestStatus @default(PENDING)
-  notes         String?                  @db.VarChar(500)
+  id              String                   @id @default(uuid())
+  fullName        String                   @db.VarChar(200)
+  mobile          String                   @db.VarChar(15)
+  problem         String?                  @db.VarChar(500)
+  preferredDate   DateTime                 @db.Date
+  branchId        String
+  branch          Branch                   @relation(fields: [branchId], references: [id])
+  status          AppointmentRequestStatus @default(PENDING)
+  notes           String?                  @db.VarChar(500)
   // WhatsApp opt-in captured on the public form; transferred to a real
   // WhatsAppConsent record once the patient exists (at confirm time).
-  whatsappConsent Boolean                @default(false)
-  consentIp       String?                @db.VarChar(45)
-  appointmentId String?                  @unique // set when confirmed
-  appointment   Appointment?             @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
-  handledById   String? // reception/admin who confirmed or declined
-  handledBy     User?                    @relation(fields: [handledById], references: [id])
-  handledAt     DateTime?
-  createdAt     DateTime                 @default(now())
+  whatsappConsent Boolean                  @default(false)
+  consentIp       String?                  @db.VarChar(45)
+  // Referral code from a /rewards/<code> link — linked to the patient at confirm.
+  referralCode    String?                  @db.VarChar(12)
+  appointmentId   String?                  @unique // set when confirmed
+  appointment     Appointment?             @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  handledById     String? // reception/admin who confirmed or declined
+  handledBy       User?                    @relation(fields: [handledById], references: [id])
+  handledAt       DateTime?
+  createdAt       DateTime                 @default(now())
 
   @@index([status, createdAt])
   @@index([branchId, status])
@@ -1184,20 +1197,20 @@ model AppointmentRequest {
 // deliberately shared between DIAGNOSIS and On Examination (the source list is
 // marked as applying to both), so only chief complaints need their own section.
 model Diagnosis {
-  id           String   @id @default(uuid())
-  branchId     String
-  branch       Branch   @relation(fields: [branchId], references: [id])
+  id       String @id @default(uuid())
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
 
-  name         String   @db.VarChar(300)
-  specialty    String   @db.VarChar(100)
+  name      String @db.VarChar(300)
+  specialty String @db.VarChar(100)
   /// DIAGNOSIS (also used for On Examination) | COMPLAINT
-  section      String   @default("DIAGNOSIS") @db.VarChar(20)
+  section   String @default("DIAGNOSIS") @db.VarChar(20)
 
-  isStandard   Boolean  @default(true)  // From the clinic's reference list
-  isActive     Boolean  @default(true)
+  isStandard Boolean @default(true) // From the clinic's reference list
+  isActive   Boolean @default(true)
 
-  createdBy    String?
-  createdAt    DateTime @default(now())
+  createdBy String?
+  createdAt DateTime @default(now())
 
   prescriptionDiagnoses PrescriptionDiagnosis[]
   diagnosisUsages       DiagnosisUsage[]
@@ -1214,19 +1227,19 @@ model Diagnosis {
 // kept only as a migrated placeholder for future structured reporting; wire it
 // up as a derived copy, never as a second source of truth.
 model PrescriptionDiagnosis {
-  id              String   @id @default(uuid())
-  prescriptionId  String
-  prescription    PrescriptionRecord @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  id             String             @id @default(uuid())
+  prescriptionId String
+  prescription   PrescriptionRecord @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
 
-  diagnosisId     String?
-  diagnosis       Diagnosis? @relation(fields: [diagnosisId], references: [id], onDelete: SetNull)
+  diagnosisId String?
+  diagnosis   Diagnosis? @relation(fields: [diagnosisId], references: [id], onDelete: SetNull)
 
-  diagnosisText   String   @db.VarChar(500)  // Editable snapshot
-  specialty       String?  @db.VarChar(100)
-  toothNumbers    String?  @db.VarChar(120)  // "16,15,14" comma-separated FDI
+  diagnosisText String  @db.VarChar(500) // Editable snapshot
+  specialty     String? @db.VarChar(100)
+  toothNumbers  String? @db.VarChar(120) // "16,15,14" comma-separated FDI
 
-  sortOrder       Int      @default(0)
-  createdAt       DateTime @default(now())
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
 
   @@index([prescriptionId])
   @@index([diagnosisId])
@@ -1235,17 +1248,17 @@ model PrescriptionDiagnosis {
 
 // Track diagnosis usage for "Recent" list
 model DiagnosisUsage {
-  id          String   @id @default(uuid())
-  branchId    String
-  branch      Branch   @relation(fields: [branchId], references: [id])
+  id       String @id @default(uuid())
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
 
-  doctorId    String
-  doctor      User     @relation("DoctorDiagnosisUsage", fields: [doctorId], references: [id])
+  doctorId String
+  doctor   User   @relation("DoctorDiagnosisUsage", fields: [doctorId], references: [id])
 
   diagnosisId String
   diagnosis   Diagnosis @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
 
-  usedAt      DateTime @default(now())
+  usedAt DateTime @default(now())
 
   @@unique([doctorId, diagnosisId])
   @@index([doctorId, usedAt])
@@ -1254,13 +1267,13 @@ model DiagnosisUsage {
 // ─── MEDICINE SYSTEM ────────────────────────────────────────────────────
 // Master medicine list — reserved for autocomplete; not populated or read yet.
 model Medicine {
-  id        String   @id @default(uuid())
-  branchId  String
-  branch    Branch   @relation(fields: [branchId], references: [id])
+  id       String @id @default(uuid())
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
 
-  name      String   @db.VarChar(300)  // "Tab Augmentin 625mg"
-  category  String   @db.VarChar(100)  // "Antibiotics", "Analgesics", etc.
-  isActive  Boolean  @default(true)
+  name     String  @db.VarChar(300) // "Tab Augmentin 625mg"
+  category String  @db.VarChar(100) // "Antibiotics", "Analgesics", etc.
+  isActive Boolean @default(true)
 
   createdAt DateTime @default(now())
 
@@ -1270,17 +1283,17 @@ model Medicine {
 
 // Doctor-created medicine templates
 model MedicineTemplate {
-  id          String   @id @default(uuid())
-  branchId    String
-  branch      Branch   @relation(fields: [branchId], references: [id])
+  id       String @id @default(uuid())
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
 
-  name        String   @db.VarChar(200)  // "Post-extraction pain"
-  description String?  @db.VarChar(500)
+  name        String  @db.VarChar(200) // "Post-extraction pain"
+  description String? @db.VarChar(500)
 
-  items       MedicineTemplateItem[]
+  items MedicineTemplateItem[]
 
-  createdBy   String
-  createdAt   DateTime @default(now())
+  createdBy String
+  createdAt DateTime @default(now())
 
   @@unique([branchId, name])
   @@index([branchId])
@@ -1288,15 +1301,15 @@ model MedicineTemplate {
 
 // Items in a medicine template
 model MedicineTemplateItem {
-  id         String   @id @default(uuid())
+  id         String           @id @default(uuid())
   templateId String
   template   MedicineTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
-  medicine   String   @db.VarChar(300)  // "Tab Augmentin 625mg"
-  frequency  String   @db.VarChar(20)   // "1-0-1", "0-0-1", "S.O.S"
-  duration   String   @db.VarChar(50)   // "5 days", "7 days"
+  medicine  String @db.VarChar(300) // "Tab Augmentin 625mg"
+  frequency String @db.VarChar(20) // "1-0-1", "0-0-1", "S.O.S"
+  duration  String @db.VarChar(50) // "5 days", "7 days"
 
-  sortOrder  Int      @default(0)
+  sortOrder Int @default(0)
 
   @@unique([templateId, medicine])
 }
@@ -1311,4 +1324,100 @@ model ExaminationTemplate {
   updatedAt DateTime @updatedAt
 
   @@index([doctorId])
+}
+
+// ─── REWARD CAMPAIGNS & REFERRAL POINTS ──────────────────────────────────
+
+enum RewardKind {
+  DISCOUNT_FLAT
+  DISCOUNT_PERCENT
+  FREE_CHECKUP
+  FREE_TREATMENT
+  OTHER
+}
+
+// An offer the clinic runs (several can run at once). It describes what each
+// side gets and suggests a reward; the doctor decides the actual reward.
+model RewardCampaign {
+  id            String     @id @default(uuid())
+  name          String     @db.VarChar(120)
+  tagline       String?    @db.VarChar(200)
+  referrerOffer String     @db.VarChar(300) // what the patient who refers gets
+  refereeOffer  String     @db.VarChar(300) // what the new (referred) patient gets
+  referrerKind  RewardKind @default(OTHER)
+  referrerValue Decimal?   @db.Decimal(10, 2)
+  refereeKind   RewardKind @default(OTHER)
+  refereeValue  Decimal?   @db.Decimal(10, 2)
+  terms         String?    @db.VarChar(1000)
+  startsAt      DateTime   @db.Date
+  endsAt        DateTime?  @db.Date
+  isActive      Boolean    @default(true)
+  theme         String     @default("teal") @db.VarChar(20)
+  createdById   String
+  createdBy     User       @relation("RewardCampaignCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  redemptions ReferralRedemption[]
+
+  @@index([isActive, startsAt])
+}
+
+// A reward the doctor gave by spending a patient's referral points.
+model ReferralRedemption {
+  id          String          @id @default(uuid())
+  patientId   String
+  patient     Patient         @relation(fields: [patientId], references: [id])
+  branchId    String
+  branch      Branch          @relation(fields: [branchId], references: [id])
+  campaignId  String?
+  campaign    RewardCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  points      Int
+  kind        RewardKind
+  value       Decimal?        @db.Decimal(10, 2)
+  description String          @db.VarChar(300)
+  note        String?         @db.VarChar(300)
+  // Used = applied on an invoice or given (check-up done). Unused discounts show in billing.
+  usedAt      DateTime?
+  usedNote    String?         @db.VarChar(300)
+  invoiceId   String?
+  createdById String
+  createdBy   User            @relation("RedemptionCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now())
+
+  referrerPoints Referral[] @relation("ReferrerPoint")
+  refereePoints  Referral[] @relation("RefereePoint")
+
+  @@index([patientId, createdAt])
+  @@index([campaignId])
+}
+
+// ─── POTENTIAL CLIENTS (marketing leads) ─────────────────────────────────
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+  NOT_INTERESTED
+}
+
+model PotentialClient {
+  id             String     @id @default(uuid())
+  fullName       String     @db.VarChar(200)
+  mobile         String     @unique @db.VarChar(15) // 10-digit Indian mobile
+  email          String?    @db.VarChar(150)
+  area           String?    @db.VarChar(150)
+  source         String?    @db.VarChar(100)
+  notes          String?    @db.VarChar(500)
+  // Only opted-in leads can be messaged on WhatsApp.
+  whatsappOptIn  Boolean    @default(false)
+  status         LeadStatus @default(NEW)
+  lastMessagedAt DateTime?
+  messageCount   Int        @default(0)
+  createdById    String
+  createdBy      User       @relation("PotentialClientCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([status, createdAt])
 }
