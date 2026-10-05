@@ -102,7 +102,8 @@ export async function submitAppointmentRequestAction(
       },
     })
     await recordIntakeAttempt(clientIp, true)
-    redirect(`/book/success?name=${encodeURIComponent(parsed.data.fullName.trim())}${referralCode ? `&ref=${referralCode}` : ""}`)
+    const nameQs = `name=${encodeURIComponent(parsed.data.fullName.trim())}`
+    redirect(referralCode ? `/rewards/${referralCode}/booked?${nameQs}` : `/book/success?${nameQs}`)
   } catch (err) {
     if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) throw err
     return { error: "Could not submit your request. Please try again or call 7890008331.", fields: raw }

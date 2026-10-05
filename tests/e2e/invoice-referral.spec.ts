@@ -129,13 +129,13 @@ test.describe("Admin", () => {
     const code = (await prisma.patient.findUniqueOrThrow({ where: { id: ids.referrer }, select: { referralCode: true } })).referralCode!
     const pub = await (await browser.newContext({ storageState: { cookies: [], origins: [] } })).newPage()
     await pub.goto(`/rewards/${code.toLowerCase()}`)
-    await expect(pub.getByText(/You.ve been referred by/)).toBeVisible()
+    await expect(pub.getByText(/You.ve been invited/)).toBeVisible()
     await expect(pub.getByText(ids.referrerName.split(" ")[0]).first()).toBeVisible()
     await expect(pub.getByText(`E2E welcome gift ${stamp}`)).toBeVisible()
     // Full surname is never shown publicly.
     await expect(pub.getByText(ids.referrerName)).toHaveCount(0)
     await pub.goto("/rewards/NOPE99")
-    await expect(pub.getByText(/invite link isn.t valid/)).toBeVisible()
+    await expect(pub.getByText(/isn.t valid/)).toBeVisible()
     await prisma.rewardCampaign.deleteMany({ where: { name: `E2E Campaign ${stamp}` } })
   })
 
@@ -179,9 +179,9 @@ test.describe("Public", () => {
     const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
     await page.locator('input[name="preferredDate"]').fill(tomorrow)
     await page.waitForTimeout(3200) // the public form rejects submissions faster than a human (3 s)
-    await page.getByRole("button", { name: /request appointment/i }).click()
-    await expect(page.getByText("Booking complete!")).toBeVisible()
-    await expect(page.getByText(/Your referral from/)).toBeVisible()
+    await page.getByRole("button", { name: /request my appointment/i }).click()
+    await expect(page.getByText("Booking complete", { exact: true })).toBeVisible()
+    await expect(page.getByText(/YOUR INVITATION IS SAVED/i)).toBeVisible()
     const req = await prisma.appointmentRequest.findFirst({ where: { fullName: `E2E Invitee ${stamp}` } })
     expect(req?.referralCode).toBe(code)
     await prisma.appointmentRequest.deleteMany({ where: { fullName: `E2E Invitee ${stamp}` } })
