@@ -6,6 +6,7 @@
  *   DATABASE_URL=…/toothfully_deeptest TS_NODE_PROJECT=qa/tsconfig.qa.json \
  *   npx ts-node -r tsconfig-paths/register qa/check-audit-fixes.ts
  */
+import { istTodayStr } from "@/lib/ist"
 import assert from "node:assert"
 import { prisma } from "@/lib/prisma"
 import { paymentService } from "@/server/services/payment.service"
@@ -42,10 +43,10 @@ async function main() {
 
   // 2. Deleting a payment takes it out of daily revenue.
   await check("deleted payment removed from revenue", async () => {
-    const before = (await getDailyRevenue(new Date(), branchId)).grandTotal
+    const before = (await getDailyRevenue(istTodayStr(), branchId)).grandTotal
     const { payment } = await paymentService.create({ paymentType: "CONSULTATION", patientId: a.id, branchId, amount: 777, mode: "CASH" } as any, reception.id)
     await paymentService.softDelete(payment.id, reception.id, "audit regression check")
-    const after = (await getDailyRevenue(new Date(), branchId)).grandTotal
+    const after = (await getDailyRevenue(istTodayStr(), branchId)).grandTotal
     // Keep the throwaway DB's totals clean even when this check fails.
     await prisma.accountingEntry.updateMany({ where: { paymentId: payment.id }, data: { isDeleted: true } })
     assert.equal(after, before)
