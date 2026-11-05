@@ -69,6 +69,8 @@ export interface FlowStep {
   node: string
   data: FlowData
   handoff: boolean
+  /** Typed text that matched no option on a menu step — a question the AI may answer. */
+  unmatched?: boolean
 }
 
 const BACK = "__back"
@@ -457,7 +459,26 @@ export function stepFlow(
     return forward(opt.next, opt.set ? { ...data, ...opt.set } : data)
   }
 
-  return reprompt(currentNode, data, "Sorry, I can only help with the options below — please tap one 👇")
+  const r = reprompt(currentNode, data, "Sorry, I can only help with the options below — please tap one 👇")
+  // A typed message (not a stray tap) that isn't an option: chatbot.service may
+  // answer it with AI and then re-show this step's options.
+  if (!replyId && input.length > 0) r.unmatched = true
+  return r
+}
+
+/** Re-shows a step's options after an AI answer, without the "Sorry" note. */
+export function renderStep(nodeId: string, data: FlowData): FlowStep {
+  const r = render(nodeId, data)
+  r.handoff = false
+  return r
+}
+
+/** All fixed clinic text in the menu script (services, FAQs, contact) — the AI's knowledge base. */
+export function clinicKnowledge(): string {
+  return Object.values(FLOW)
+    .map((n) => (typeof n.message === "string" ? n.message : ""))
+    .filter((m) => m.length > 40)
+    .join("\n\n---\n\n")
 }
 
 /** Entry message for a brand-new / reset conversation. */
@@ -552,5 +573,11 @@ if (typeof module !== "undefined" && require.main === module) {
   ok(stepFlow("doctor_menu", {}, "x").messages[0].ui?.kind === "cta", "doctor reprompt keeps link button")
   ok(stepFlow("doctor_menu", {}, "menu").node === "patient_menu", "menu from doctor")
   ok(toPlainText(render("patient_menu", {}).messages[0]).includes("1. 📅 Book appointment"), "plain-text fallback")
+  // AI hand-off flag: typed questions on a menu step are flagged; taps, numbers and free-text steps are not.
+  ok(stepFlow("patient_menu", {}, "do you do braces?").unmatched === true, "typed question flagged for AI")
+  ok(!stepFlow("patient_menu", {}, "1").unmatched, "menu number not flagged")
+  ok(!stepFlow("patient_menu", {}, "Book", "unknown-id").unmatched, "stray tap not flagged")
+  ok(!stepFlow("book_name", { day: "Mon, 12 Oct 2026", slot: "Morning" }, "123").unmatched, "free-text step not flagged")
+  ok(clinicKnowledge().includes("Toothfully"), "clinic knowledge built from the script")
   console.log("chat-flow OK")
 }

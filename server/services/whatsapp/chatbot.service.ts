@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma"
 import { metaService } from "@/server/services/whatsapp/meta.service"
 import { isClinicOpen } from "@/lib/whatsapp/chatbot"
-import { stepFlow, startFlow, toPlainText, type FlowData } from "@/lib/whatsapp/chat-flow"
+import { stepFlow, startFlow, renderStep, toPlainText, type FlowData } from "@/lib/whatsapp/chat-flow"
+import { aiReplyService } from "@/server/services/whatsapp/ai-reply.service"
+
+const GREETING = /^(hi+|hello|hey|hlo|namaste|namaskar|start|menu|0|ok|okay|thanks?|thank you)\b/i
 
 const CLOSED_NOTE =
   "🕙 We're currently closed (Mon–Sat 10 AM–7:30 PM, Sun 10 AM–2:30 PM, Thu off). " +
@@ -47,6 +50,22 @@ export const chatbotService = {
       step = stepFlow(existing.node, (existing.data as FlowData) ?? {}, text, replyId)
     }
 
+    // A typed question the menu can't handle → answer it with AI, then show the
+    // options again. Also when a brand-new chat opens with a question instead of
+    // "hi". If AI is off or fails, the normal menu reply goes out unchanged.
+    const isNewChat = !existing || stale
+    const typedQuestion = !replyId && text.trim().length > 3 && !GREETING.test(text.trim())
+    let usedAi = false
+    if (step.unmatched || (isNewChat && typedQuestion)) {
+      const ai = await aiReplyService.answer(fromPhone, text)
+      if (ai) {
+        if (step.unmatched) step = renderStep(step.node, step.data) // drop the "Sorry…" note
+        step.messages = [{ text: ai.reply }, ...step.messages]
+        step.handoff = step.handoff || ai.needs_staff
+        usedAi = true
+      }
+    }
+
     await prisma.whatsAppChatState.upsert({
       where: { phone: fromPhone },
       create: { phone: fromPhone, node: step.node, data: step.data },
@@ -61,7 +80,7 @@ export const chatbotService = {
         patientId: patient?.id,
         wamid,
         text: text.slice(0, 2000),
-        botAction: step.handoff ? "HANDOFF" : "BOT_FLOW",
+        botAction: step.handoff ? "HANDOFF" : usedAi ? "AI_REPLY" : "BOT_FLOW",
         needsStaff: step.handoff,
       },
     })

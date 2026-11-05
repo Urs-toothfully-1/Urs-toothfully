@@ -25,6 +25,7 @@
     "test:e2e:report": "playwright show-report tests/e2e/.report"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.5.0",
     "@base-ui/react": "^1.6.0",
     "@prisma/client": "^5.22.0",
     "@sparticuz/chromium": "^149.0.0",
