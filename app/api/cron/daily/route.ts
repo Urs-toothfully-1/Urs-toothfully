@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { appointmentService } from "@/server/services/appointment.service"
+import { automationService } from "@/server/services/whatsapp/automation.service"
 import { digestService } from "@/server/services/whatsapp/digest.service"
 import { whatsappQueueService } from "@/server/services/whatsapp/queue.service"
 import { whatsappWebhookRepository } from "@/server/repositories/whatsapp-webhook.repository"
@@ -30,6 +31,19 @@ export async function GET(request: NextRequest) {
     results.reminders = await appointmentService.sendReminders()
   } catch (err) {
     results.reminders = { error: err instanceof Error ? err.message : "failed" }
+  }
+  // Missed appointment / treatment follow-up / 6-month recall — each is a no-op
+  // until its template is approved by Meta. Runs before the queue drain below.
+  for (const [name, job] of [
+    ["missed", automationService.missedAppointments],
+    ["followUps", automationService.treatmentFollowUps],
+    ["recalls", automationService.dentalRecalls],
+  ] as const) {
+    try {
+      results[name] = await job()
+    } catch (err) {
+      results[name] = { error: err instanceof Error ? err.message : "failed" }
+    }
   }
   try {
     results.digest = await digestService.sendDailyDigest()
