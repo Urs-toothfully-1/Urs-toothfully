@@ -15,7 +15,8 @@ import { isClinicOpen } from "@/lib/whatsapp/chatbot"
  * break the chat.
  */
 
-const MODEL = process.env.CHATBOT_AI_MODEL || "claude-opus-5-5"
+// Haiku: the clinic chose it for cost (~$0.0003/answer) — FAQ answers from a fixed script.
+const MODEL = process.env.CHATBOT_AI_MODEL || "claude-haiku-5-5"
 
 const AnswerSchema = z.object({
   reply: z.string().describe("The WhatsApp reply to send the patient. Plain text, short."),
@@ -31,10 +32,18 @@ export const aiReplyEnabled = () => Boolean(process.env.ANTHROPIC_API_KEY)
 let systemCache: { text: string; at: number } | null = null
 async function systemPrompt(): Promise<string> {
   if (systemCache && Date.now() - systemCache.at < 60 * 60_000) return systemCache.text
-  const branches = await prisma.branch.findMany({ where: { isActive: true }, select: { id: true, name: true, address: true, phone: true } })
-  const fees = await Promise.all(branches.map((b) => settingsRepository.get("consultation_fee", b.id)))
+  const branches = await prisma.branch.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true, address: true, phone: true },
+  })
+  const fees = await Promise.all(
+    branches.map((b) => settingsRepository.get("consultation_fee", b.id))
+  )
   const branchLines = branches
-    .map((b, i) => `- ${b.name}: ${b.address}. Phone ${b.phone}.${fees[i] ? ` Consultation fee ₹${fees[i]}.` : ""}`)
+    .map(
+      (b, i) =>
+        `- ${b.name}: ${b.address}. Phone ${b.phone}.${fees[i] ? ` Consultation fee ₹${fees[i]}.` : ""}`
+    )
     .join("\n")
   const text = `You are the WhatsApp assistant for Ur's Toothfully, a dental clinic in Kolkata (Full Mouth Rehabilitation & Implant Centre).
 
@@ -71,27 +80,41 @@ export const aiReplyService = {
       })
       const history = recent
         .reverse()
-        .map((m) => `${m.direction === "IN" ? "Patient" : "Clinic"}: ${(m.text ?? "").slice(0, 500)}`)
+        .map(
+          (m) => `${m.direction === "IN" ? "Patient" : "Clinic"}: ${(m.text ?? "").slice(0, 500)}`
+        )
         .join("\n")
       const now = new Date()
-      const when = now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })
+      const when = now.toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+        hour: "numeric",
+        minute: "2-digit",
+      })
 
       const response = await client.messages.parse({
         model: MODEL,
         max_tokens: 4000,
         output_config: { effort: "low", format: zodOutputFormat(AnswerSchema) },
-        system: [{ type: "text", text: await systemPrompt(), cache_control: { type: "ephemeral" } }],
-        messages: [{
-          role: "user",
-          content: `Now: ${when} IST (clinic is ${isClinicOpen(now) ? "open" : "closed"}).\n\nRecent chat:\n${history || "(none)"}\n\nPatient's new message:\n${question.slice(0, 1000)}`,
-        }],
+        system: [
+          { type: "text", text: await systemPrompt(), cache_control: { type: "ephemeral" } },
+        ],
+        messages: [
+          {
+            role: "user",
+            content: `Now: ${when} IST (clinic is ${isClinicOpen(now) ? "open" : "closed"}).\n\nRecent chat:\n${history || "(none)"}\n\nPatient's new message:\n${question.slice(0, 1000)}`,
+          },
+        ],
       })
       if (response.stop_reason === "refusal" || !response.parsed_output) return null
       const reply = response.parsed_output.reply.trim().slice(0, 1500)
       return reply ? { reply, needs_staff: response.parsed_output.needs_staff } : null
     } catch (err) {
       // Typed SDK errors (rate limit, auth, outage) and parse failures all fall back to the menu bot.
-      if (err instanceof Anthropic.APIError) console.error(`[whatsapp-ai] API ${err.status}: ${err.message}`)
+      if (err instanceof Anthropic.APIError)
+        console.error(`[whatsapp-ai] API ${err.status}: ${err.message}`)
       else console.error("[whatsapp-ai] failed:", err)
       return null
     }
