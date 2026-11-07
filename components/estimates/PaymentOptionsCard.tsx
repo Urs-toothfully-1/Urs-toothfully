@@ -45,7 +45,10 @@ export const PaymentOptionsCard = forwardRef<PaymentAgreementCardHandle, {
     const final = options.map((o, i) => ({ ...o, title: o.title.trim(), splits: parseSplits(splitText[i] ?? "") }))
     if (final.some((o) => !o.title)) { setError("Every option needs a title."); return false }
     const bad = final.find((o) => o.splits.length > 0 && Math.round(o.splits.reduce((s, n) => s + n, 0)) !== 100)
-    if (bad) { setError(`Instalments in "${bad.title}" must add up to 100%.`); return false }
+    if (bad) {
+      setError(`"${bad.title}": the Instalments % box needs percentages adding up to 100, separated by / — e.g. 34/33/33 for 3 instalments, or leave it empty. Put amounts like "Rs 1,69,000" in the Note box.`)
+      return false
+    }
     setError(null)
     const fd = new FormData()
     fd.set("payload", JSON.stringify({
@@ -125,22 +128,28 @@ export const PaymentOptionsCard = forwardRef<PaymentAgreementCardHandle, {
                   <Trash2 className="h-4 w-4 text-red-400" />
                 </button>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="flex flex-col gap-0.5 text-[11px] font-medium" style={{ color: BRAND_COLORS.borderDivider }}>
+                  Instalments % (e.g. 34/33/33)
                 <input
                   value={splitText[i] ?? ""}
                   onChange={(e) => setSplitText((p) => p.map((t, j) => (j === i ? e.target.value : t)))}
-                  placeholder="Instalments % e.g. 50/50 (empty = pay per visit)"
-                  className={`${inputCls} w-64`}
-                  aria-label="Instalment percentages"
+                  placeholder="empty = pay per visit"
+                  className={`${inputCls} w-64 font-normal`}
+                  style={{ color: BRAND_COLORS.bodyText }}
                 />
+                </label>
+                <label className="flex flex-col gap-0.5 text-[11px] font-medium flex-1 min-w-[160px]" style={{ color: BRAND_COLORS.borderDivider }}>
+                  Note (optional)
                 <input
                   value={o.note}
                   onChange={(e) => update(i, { note: e.target.value })}
-                  placeholder="Note (optional)"
+                  placeholder="e.g. 3 instalments of Rs 1,69,000"
                   maxLength={200}
-                  className={`${inputCls} flex-1 min-w-[160px]`}
-                  aria-label="Option note"
+                  className={`${inputCls} w-full font-normal`}
+                  style={{ color: BRAND_COLORS.bodyText }}
                 />
+                </label>
               </div>
               <p className="text-xs" style={{ color: BRAND_COLORS.bodyText }}>
                 Patient pays <strong>{formatRange(amt.min, amt.max)}</strong>
