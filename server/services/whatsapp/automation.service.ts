@@ -32,7 +32,12 @@ async function templateLive(triggerKey: WhatsAppTriggerKey): Promise<boolean> {
 async function alreadySent(triggerKey: string, patientIds: string[], since: Date) {
   if (!patientIds.length) return new Set<string>()
   const rows = await prisma.whatsAppMessage.findMany({
-    where: { triggerKey, patientId: { in: patientIds }, createdAt: { gte: since }, status: { not: "CANCELLED" } },
+    where: {
+      triggerKey,
+      patientId: { in: patientIds },
+      createdAt: { gte: since },
+      status: { not: "CANCELLED" },
+    },
     select: { patientId: true },
   })
   return new Set(rows.map((r) => r.patientId!))
@@ -63,7 +68,10 @@ export function pickRecalls(
     .filter((v) => !exclude.has(v.patientId))
     .sort((a, b) => a.last.getTime() - b.last.getTime())
     .slice(0, RECALL_BATCH)
-    .map((v) => ({ ...v, months: Math.max(6, Math.round((now.getTime() - v.last.getTime()) / (30.44 * DAY))) }))
+    .map((v) => ({
+      ...v,
+      months: Math.max(6, Math.round((now.getTime() - v.last.getTime()) / (30.44 * DAY))),
+    }))
 }
 
 /** One entry per patient, first occurrence wins. */
@@ -81,7 +89,12 @@ export const automationService = {
 
     const appts = await prisma.appointment.findMany({
       where: { status: { in: ["SCHEDULED", "NO_SHOW"] }, scheduledAt: { gte: start, lt: now } },
-      select: { patientId: true, branchId: true, scheduledAt: true, patient: { select: { fullName: true } } },
+      select: {
+        patientId: true,
+        branchId: true,
+        scheduledAt: true,
+        patient: { select: { fullName: true } },
+      },
     })
     const ids = [...new Set(appts.map((a) => a.patientId))]
     const visits = await prisma.patientVisit.findMany({
@@ -107,7 +120,11 @@ export const automationService = {
     const { start, end } = istDayRange(istDayKey(new Date(now.getTime() - DAY)))
 
     const visits = await prisma.patientVisit.findMany({
-      where: { visitType: "TREATMENT_SESSION", status: { not: "CANCELLED" }, visitDate: { gte: start, lte: end } },
+      where: {
+        visitType: "TREATMENT_SESSION",
+        status: { not: "CANCELLED" },
+        visitDate: { gte: start, lte: end },
+      },
       select: { patientId: true, branchId: true, patient: { select: { fullName: true } } },
     })
     const ids = [...new Set(visits.map((v) => v.patientId))]
@@ -117,7 +134,9 @@ export const automationService = {
       branchId: v.branchId,
       variables: [firstName(v.patient.fullName)],
     }))
-    return send(key, items)
+    // A treatment visit proves they're a patient — don't skip people whose
+    // consultation was never entered (e.g. records from before the system).
+    return send(key, items, true)
   },
 
   /** Patients last seen 6–12 months ago, nothing booked, no recall in 150 days. */
@@ -141,7 +160,10 @@ export const automationService = {
         where: { patientId: { in: ids }, status: "SCHEDULED", scheduledAt: { gte: now } },
         select: { patientId: true },
       }),
-      prisma.patient.findMany({ where: { id: { in: ids }, isDeleted: true }, select: { id: true } }),
+      prisma.patient.findMany({
+        where: { id: { in: ids }, isDeleted: true },
+        select: { id: true },
+      }),
       alreadySent(key, ids, new Date(now.getTime() - 150 * DAY)),
     ])
     booked.forEach((b) => skip.add(b.patientId))
@@ -161,7 +183,8 @@ export const automationService = {
       picks.map((p) => ({
         patientId: p.patientId,
         variables: [firstName(names.get(p.patientId) ?? "there"), String(p.months)],
-      }))
+      })),
+      true // they have visits on record — same reasoning as follow-ups
     )
   },
 }

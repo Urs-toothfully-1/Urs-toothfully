@@ -69,13 +69,20 @@ export default defineConfig({
     },
     {
       name: "doctor",
-      testMatch: /(doctor|prescriptions|templates|prescription-editor|invoice-referral)\.spec\.ts/,
+      testMatch: /(doctor|prescriptions|templates|prescription-editor|invoice-referral|payment-options)\.spec\.ts/,
       dependencies: ["setup"],
       use: {
         ...devices["Desktop Chrome"],
         storageState: "tests/e2e/.auth/doctor.json",
         launchOptions: { executablePath },
       },
+    },
+    // Per-user access scenarios — logs in its own seeded users (admin part uses admin state).
+    {
+      name: "access",
+      testMatch: /(access-control|automation)\.spec\.ts/,
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"], launchOptions: { executablePath } },
     },
     {
       name: "reception",
