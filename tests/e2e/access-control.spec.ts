@@ -26,19 +26,39 @@ test.describe.configure({ mode: "serial" })
 
 test.beforeAll(async () => {
   const passwordHash = await bcrypt.hash(PASSWORD, 10)
-  const upsert = (email: string, name: string, role: "DOCTOR" | "RECEPTIONIST", permissions: object) =>
+  const upsert = (
+    email: string,
+    name: string,
+    role: "DOCTOR" | "RECEPTIONIST",
+    permissions: object
+  ) =>
     prisma.user.upsert({
       where: { email },
       create: { email, name, role, branchId: OUTRAM, passwordHash, permissions },
       update: { passwordHash, permissions, isActive: true, loginAttempts: 0, lockedUntil: null },
     })
   ids.rxDoc = (await upsert(RX_DOC.email, RX_DOC.name, "DOCTOR", overrides("DOCTOR", "rx-only"))).id
-  ids.desk = (await upsert(DESK.email, DESK.name, "RECEPTIONIST", overrides("RECEPTIONIST", "front-desk"))).id
+  ids.desk = (
+    await upsert(DESK.email, DESK.name, "RECEPTIONIST", overrides("RECEPTIONIST", "front-desk"))
+  ).id
 
-  const reception = await prisma.user.findFirstOrThrow({ where: { email: "reception.outram@toothfully.in" } })
+  const reception = await prisma.user.findFirstOrThrow({
+    where: { email: "reception.outram@toothfully.in" },
+  })
   const mk = (fullName: string, mobile: string) =>
     patientService.createWithHistory(
-      { registrationBranchId: OUTRAM, fullName, dateOfBirth: "1990-01-01", gender: "FEMALE", mobile, email: `e2e${mobile}@example.com`, address: "E2E", leadSource: "", referenceName: "", reasonForVisit: "" } as any,
+      {
+        registrationBranchId: OUTRAM,
+        fullName,
+        dateOfBirth: "1990-01-01",
+        gender: "FEMALE",
+        mobile,
+        email: `e2e${mobile}@example.com`,
+        address: "E2E",
+        leadSource: "",
+        referenceName: "",
+        reasonForVisit: "",
+      } as any,
       { consentGiven: true } as any,
       reception.id
     )
@@ -48,13 +68,23 @@ test.beforeAll(async () => {
   // Today's appointment with the restricted doctor — puts "today" in scope.
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date())
   await prisma.appointment.create({
-    data: { patientId: ids.today, doctorId: ids.rxDoc, branchId: OUTRAM, scheduledAt: new Date(`${today}T23:00:00+05:30`), reason: "E2E access", createdById: reception.id },
+    data: {
+      patientId: ids.today,
+      doctorId: ids.rxDoc,
+      branchId: OUTRAM,
+      scheduledAt: new Date(`${today}T23:00:00+05:30`),
+      reason: "E2E access",
+      createdById: reception.id,
+    },
   })
 })
 
 test.afterAll(async () => {
   // Leave the seeded accounts unusable rather than deleting rows other tables point at.
-  await prisma.user.updateMany({ where: { email: { in: [RX_DOC.email, DESK.email] } }, data: { isActive: false } })
+  await prisma.user.updateMany({
+    where: { email: { in: [RX_DOC.email, DESK.email] } },
+    data: { isActive: false },
+  })
   await prisma.$disconnect()
 })
 
@@ -95,7 +125,8 @@ test.describe("Prescription-only doctor", () => {
     for (const tab of ["Payments", "Estimates", "Clinical Notes", "Documents"])
       await expect(page.getByRole("link", { name: new RegExp(`^${tab}`) })).toHaveCount(0)
     await expect(page.getByText("Balance", { exact: true })).toHaveCount(0)
-    for (const path of ["payments", "estimates", "documents"]) await expectNotFound(page, `/patients/${ids.today}/${path}`)
+    for (const path of ["payments", "estimates", "documents"])
+      await expectNotFound(page, `/patients/${ids.today}/${path}`)
     await page.goto(`/patients/${ids.today}/notes`)
     await expect(page.getByText("Access Restricted")).toBeVisible()
   })
@@ -111,16 +142,24 @@ test.describe("Prescription-only doctor", () => {
 
   test("APIs refuse money and out-of-scope patients", async ({ page }) => {
     const api = page.request
-    expect((await api.get(`/api/payments?patientId=${ids.today}`)).status()).toBeGreaterThanOrEqual(401)
-    expect((await api.get(`/api/estimates?patientId=${ids.today}`)).status()).toBeGreaterThanOrEqual(401)
+    expect((await api.get(`/api/payments?patientId=${ids.today}`)).status()).toBeGreaterThanOrEqual(
+      401
+    )
+    expect(
+      (await api.get(`/api/estimates?patientId=${ids.today}`)).status()
+    ).toBeGreaterThanOrEqual(401)
     expect((await api.get(`/api/patients/${ids.other}`)).status()).toBe(404)
     expect((await api.get(`/api/visits?patientId=${ids.other}`)).status()).toBe(403)
-    const search = await (await api.get(`/api/patients?q=${encodeURIComponent(`E2E Access`)}`)).json()
+    const search = await (
+      await api.get(`/api/patients?q=${encodeURIComponent(`E2E Access`)}`)
+    ).json()
     const found = (search.patients ?? []).map((p: { id: string }) => p.id)
     expect(found).not.toContain(ids.other)
     const { treatments } = await (await api.get("/api/treatments")).json()
     expect(treatments.length).toBeGreaterThan(0)
-    expect(treatments.every((t: { defaultAmount: unknown }) => Number(t.defaultAmount) === 0)).toBe(true)
+    expect(treatments.every((t: { defaultAmount: unknown }) => Number(t.defaultAmount) === 0)).toBe(
+      true
+    )
   })
 })
 
@@ -140,7 +179,9 @@ test.describe("Front-desk receptionist (no prices or payments)", () => {
     await expect(page).toHaveURL(/\/reception$/)
     await page.goto("/appointments")
     await expect(page).toHaveURL(/\/appointments/)
-    expect((await page.request.get(`/api/payments?patientId=${ids.other}`)).status()).toBeGreaterThanOrEqual(401)
+    expect(
+      (await page.request.get(`/api/payments?patientId=${ids.other}`)).status()
+    ).toBeGreaterThanOrEqual(401)
   })
 })
 
@@ -149,13 +190,24 @@ test.describe("Admin access screen", () => {
 
   test("shows the scenario and saves a change", async ({ page }) => {
     await page.goto("/admin/users")
-    const row = page.locator("div", { hasText: RX_DOC.email }).filter({ has: page.getByRole("button", { name: /limited access/i }) }).last()
+    const row = page
+      .locator("div", { hasText: RX_DOC.email })
+      .filter({ has: page.getByRole("button", { name: /limited access/i }) })
+      .last()
     await row.getByRole("button", { name: /limited access/i }).click()
-    await expect(page.getByLabel("Scenario")).toHaveValue("rx-only")
-    await page.getByLabel("Scenario").selectOption("clinical")
+    await expect(page.getByRole("radio", { name: /Prescriptions only/ })).toBeChecked()
+    // The open scenario lists what they get; untick/tick works inside it.
+    await expect(page.getByRole("checkbox", { name: /Write prescriptions/ })).toBeChecked()
+    await page.getByRole("radio", { name: /Clinical only/ }).click()
+    await expect(page.getByRole("checkbox", { name: /Clinical notes/ })).toBeChecked()
+    await page.getByRole("checkbox", { name: /Patient documents/ }).uncheck()
+    await expect(page.getByText("customised")).toBeVisible()
     await page.getByRole("button", { name: "Save access" }).click()
     await expect(page.getByText(`Access updated for ${RX_DOC.name}`)).toBeVisible()
-    const saved = await prisma.user.findUniqueOrThrow({ where: { id: ids.rxDoc }, select: { permissions: true } })
-    expect(saved.permissions).toEqual({ prices: false, payments: false, estimates: false })
+    const saved = await prisma.user.findUniqueOrThrow({
+      where: { id: ids.rxDoc },
+      select: { permissions: true },
+    })
+    expect(saved.permissions).toEqual({ prices: false, payments: false, estimates: false, documents: false })
   })
 })
