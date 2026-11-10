@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { istTodayStr } from "@/lib/ist"
 import { PaymentMode, PaymentType, Prisma } from "@prisma/client"
 
 export const paymentRepository = {
@@ -78,7 +79,8 @@ export const paymentRepository = {
           paymentId: payment.id,
           branchId: data.branchId,
           patientId: data.patientId,
-          entryDate: paymentDate ?? new Date(),
+          // @db.Date takes the UTC day — use the IST day so 00:00–05:30 IST isn't filed under yesterday.
+          entryDate: paymentDate ?? new Date(`${istTodayStr()}T00:00:00Z`),
           amount: data.amount,
           paymentMode: data.mode,
           paymentType: data.paymentType,
