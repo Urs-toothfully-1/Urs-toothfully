@@ -59,7 +59,12 @@ interface FlowNode {
   cta?: { label: string; url: string } // single link button
   // Free-text step: `validate` returns the value to store or a specific error;
   // `error` is shown when a stray button is tapped instead of typing.
-  collect?: { field: string; next: string; validate: (v: string, now: Date) => Validated; error: string }
+  collect?: {
+    field: string
+    next: string
+    validate: (v: string, now: Date) => Validated
+    error: string
+  }
   handoff?: boolean // flag the chat for reception
   noFooter?: boolean
 }
@@ -76,12 +81,31 @@ export interface FlowStep {
 const BACK = "__back"
 const FOOTER = "↩️ Type back · 🏠 Type menu"
 
-const MENU: Option = { id: "menu", title: "🏠 Main menu", keys: ["0", "menu", "main menu"], next: "patient_menu" }
+const MENU: Option = {
+  id: "menu",
+  title: "🏠 Main menu",
+  keys: ["0", "menu", "main menu"],
+  next: "patient_menu",
+}
 const BACK_OPT: Option = { id: "back", title: "⬅️ Back", keys: ["back"], next: BACK }
 
 /** Letters in any script (so Bengali/Hindi names work), spaces, dot, apostrophe, hyphen. */
 const NAME_RE = /^\p{L}[\p{L}\p{M} .'-]{1,49}$/u
-const NOT_A_NAME = new Set(["back", "menu", "main menu", "yes", "no", "ok", "okay", "hi", "hello", "hey", "book", "today", "tomorrow"])
+const NOT_A_NAME = new Set([
+  "back",
+  "menu",
+  "main menu",
+  "yes",
+  "no",
+  "ok",
+  "okay",
+  "hi",
+  "hello",
+  "hey",
+  "book",
+  "today",
+  "tomorrow",
+])
 
 const NAME_ERR = "⚠️ Please type a valid full name (letters only), e.g. *Ramesh Kumar*."
 
@@ -93,7 +117,20 @@ function validateName(v: string): Validated {
 }
 
 // ── Custom date parsing (Indian DD/MM order) ──────────────────────
-const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
+const MONTHS = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+]
 const MON3 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 const WD3 = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 const MAX_DAYS_AHEAD = 90
@@ -107,14 +144,25 @@ function monthIndex(s: string): number | null {
 
 /** Parses "12/10", "12-10-2026", "12 Oct", "Oct 12th 2026"… → {d, m(0-based), y?} or null. */
 function parseDateParts(raw: string): { d: number; m: number; y?: number } | null {
-  const t = raw.trim().toLowerCase().replace(/(\d)(st|nd|rd|th)\b/g, "$1").replace(/,/g, " ").replace(/\s+/g, " ")
+  const t = raw
+    .trim()
+    .toLowerCase()
+    .replace(/(\d)(st|nd|rd|th)\b/g, "$1")
+    .replace(/,/g, " ")
+    .replace(/\s+/g, " ")
   const year = (s?: string) => (s ? (Number(s) < 100 ? 2000 + Number(s) : Number(s)) : undefined)
   let r = t.match(/^(\d{1,2})[/\-. ](\d{1,2})(?:[/\-. ](\d{2}|\d{4}))?$/)
   if (r) return { d: Number(r[1]), m: Number(r[2]) - 1, y: year(r[3]) }
   r = t.match(/^(\d{1,2}) ([a-z]{3,9})(?: (\d{2}|\d{4}))?$/)
-  if (r) { const m = monthIndex(r[2]); return m === null ? null : { d: Number(r[1]), m, y: year(r[3]) } }
+  if (r) {
+    const m = monthIndex(r[2])
+    return m === null ? null : { d: Number(r[1]), m, y: year(r[3]) }
+  }
   r = t.match(/^([a-z]{3,9}) (\d{1,2})(?: (\d{2}|\d{4}))?$/)
-  if (r) { const m = monthIndex(r[1]); return m === null ? null : { d: Number(r[2]), m, y: year(r[3]) } }
+  if (r) {
+    const m = monthIndex(r[1])
+    return m === null ? null : { d: Number(r[2]), m, y: year(r[3]) }
+  }
   return null
 }
 
@@ -135,8 +183,10 @@ function validateDate(v: string, now: Date): Validated {
   // No year typed and the date already passed → assume next year (e.g. "5/1" in December).
   if (p.y === undefined && dt < today) dt = make(today.getFullYear() + 1) ?? dt
   const daysAhead = Math.round((dt.getTime() - today.getTime()) / 86_400_000)
-  if (daysAhead < 0) return { err: "⚠️ That date has already passed — please type an upcoming date." }
-  if (daysAhead > MAX_DAYS_AHEAD) return { err: "⚠️ Please choose a date within the next 3 months." }
+  if (daysAhead < 0)
+    return { err: "⚠️ That date has already passed — please type an upcoming date." }
+  if (daysAhead > MAX_DAYS_AHEAD)
+    return { err: "⚠️ Please choose a date within the next 3 months." }
   if (dt.getDay() === 4) return { err: "🙏 We're closed on Thursdays — please type another date." }
   return { ok: formatDay(dt) }
 }
@@ -148,7 +198,13 @@ function service(title: string, blurb: string): FlowNode {
     message: `*${title}*\n\n${blurb}`,
     ui: "buttons",
     options: [
-      { id: "book", title: "📅 Book consultation", keys: ["yes", "consultation"], next: "book_day", set: { service: title } },
+      {
+        id: "book",
+        title: "📅 Book consultation",
+        keys: ["yes", "consultation"],
+        next: "book_day",
+        set: { service: title },
+      },
       { id: "services", title: "🦷 Other services", next: "services_menu" },
       MENU,
     ],
@@ -172,7 +228,13 @@ export const FLOW: Record<string, FlowNode> = {
     message: "What would you like to do? 👇",
     ui: "buttons",
     options: [
-      { id: "book", title: "📅 Book appointment", keys: ["appointment"], next: "book_day", set: { service: "General appointment" } },
+      {
+        id: "book",
+        title: "📅 Book appointment",
+        keys: ["appointment"],
+        next: "book_day",
+        set: { service: "General appointment" },
+      },
       { id: "services", title: "🦷 Our services", keys: ["service"], next: "services_menu" },
       { id: "more", title: "ℹ️ More info", keys: ["info", "help"], next: "more_menu" },
     ],
@@ -183,9 +245,26 @@ export const FLOW: Record<string, FlowNode> = {
     ui: "list",
     listButton: "Choose",
     options: [
-      { id: "tips", title: "💡 Dental tips", description: "Simple habits for a healthy smile", next: "tips" },
-      { id: "contact", title: "📍 Contact & locations", description: "Phone, branches & clinic hours", keys: ["location", "locations"], next: "contact" },
-      { id: "faqs", title: "❓ FAQs", description: "Hours, emergencies, payments", keys: ["faq"], next: "faqs" },
+      {
+        id: "tips",
+        title: "💡 Dental tips",
+        description: "Simple habits for a healthy smile",
+        next: "tips",
+      },
+      {
+        id: "contact",
+        title: "📍 Contact & locations",
+        description: "Phone, branches & clinic hours",
+        keys: ["location", "locations"],
+        next: "contact",
+      },
+      {
+        id: "faqs",
+        title: "❓ FAQs",
+        description: "Hours, emergencies, payments",
+        keys: ["faq"],
+        next: "faqs",
+      },
       BACK_OPT,
       MENU,
     ],
@@ -196,16 +275,66 @@ export const FLOW: Record<string, FlowNode> = {
     ui: "list",
     listButton: "View services",
     options: [
-      { id: "svc_crown", title: "One-Visit Crown", description: "CEREC crown designed & fitted in one visit", next: "svc_crown" },
-      { id: "svc_implants", title: "Dental Implants", description: "Permanent replacement for missing teeth", next: "svc_implants" },
-      { id: "svc_allon4", title: "Teeth in a Day", description: "All-on-4/6 fixed teeth in a single day", next: "svc_allon4" },
-      { id: "svc_rct", title: "Root Canal (Microscope)", description: "Precise, comfortable microscopic RCT", next: "svc_rct" },
-      { id: "svc_fmr", title: "Full Mouth Rehab", description: "Restore function & looks of your whole mouth", next: "svc_fmr" },
-      { id: "svc_braces", title: "Braces & Invisalign", description: "Straighten your smile, visible or clear", next: "svc_braces" },
-      { id: "svc_smile", title: "Smile Designing", description: "Cosmetic makeover for your perfect smile", next: "svc_smile" },
-      { id: "svc_fillings", title: "Dental Fillings", description: "Tooth-coloured repairs for cavities", next: "svc_fillings" },
-      { id: "svc_cleaning", title: "Cleaning & Whitening", description: "Fresh, healthy and brighter teeth", next: "svc_cleaning" },
-      { id: "svc_tmj", title: "TMJ Disorder", description: "Relief from jaw pain & clicking", next: "svc_tmj" },
+      {
+        id: "svc_crown",
+        title: "One-Visit Crown",
+        description: "CEREC crown designed & fitted in one visit",
+        next: "svc_crown",
+      },
+      {
+        id: "svc_implants",
+        title: "Dental Implants",
+        description: "Permanent replacement for missing teeth",
+        next: "svc_implants",
+      },
+      {
+        id: "svc_allon4",
+        title: "Teeth in a Day",
+        description: "All-on-4/6 fixed teeth in a single day",
+        next: "svc_allon4",
+      },
+      {
+        id: "svc_rct",
+        title: "Root Canal (Microscope)",
+        description: "Precise, comfortable microscopic RCT",
+        next: "svc_rct",
+      },
+      {
+        id: "svc_fmr",
+        title: "Full Mouth Rehab",
+        description: "Restore function & looks of your whole mouth",
+        next: "svc_fmr",
+      },
+      {
+        id: "svc_braces",
+        title: "Braces & Invisalign",
+        description: "Straighten your smile, visible or clear",
+        next: "svc_braces",
+      },
+      {
+        id: "svc_smile",
+        title: "Smile Designing",
+        description: "Cosmetic makeover for your perfect smile",
+        next: "svc_smile",
+      },
+      {
+        id: "svc_fillings",
+        title: "Dental Fillings",
+        description: "Tooth-coloured repairs for cavities",
+        next: "svc_fillings",
+      },
+      {
+        id: "svc_cleaning",
+        title: "Cleaning & Whitening",
+        description: "Fresh, healthy and brighter teeth",
+        next: "svc_cleaning",
+      },
+      {
+        id: "svc_tmj",
+        title: "TMJ Disorder",
+        description: "Relief from jaw pain & clicking",
+        next: "svc_tmj",
+      },
     ],
   },
 
@@ -258,10 +387,21 @@ export const FLOW: Record<string, FlowNode> = {
     options: [
       { id: "d_today", title: "Today", next: "book_slot", set: { day: "Today" } },
       { id: "d_tomorrow", title: "Tomorrow", next: "book_slot", set: { day: "Tomorrow" } },
-      { id: "d_dayafter", title: "Day after tomorrow", next: "book_slot", set: { day: "Day after tomorrow" } },
+      {
+        id: "d_dayafter",
+        title: "Day after tomorrow",
+        next: "book_slot",
+        set: { day: "Day after tomorrow" },
+      },
       { id: "d_weekend", title: "This weekend", next: "book_slot", set: { day: "This weekend" } },
       { id: "d_nextweek", title: "Next week", next: "book_slot", set: { day: "Next week" } },
-      { id: "d_custom", title: "📆 Pick a date", description: "Type any date that suits you", keys: ["date", "custom"], next: "book_date" },
+      {
+        id: "d_custom",
+        title: "📆 Pick a date",
+        description: "Type any date that suits you",
+        keys: ["date", "custom"],
+        next: "book_date",
+      },
       BACK_OPT,
       MENU,
     ],
@@ -286,9 +426,29 @@ export const FLOW: Record<string, FlowNode> = {
     ui: "list",
     listButton: "Choose time",
     options: [
-      { id: "s_morning", title: "Morning", description: "10 AM – 1 PM", next: "book_name", set: { slot: "Morning (10 AM–1 PM)" } },
-      { id: "s_afternoon", title: "Afternoon", description: "1 PM – 4 PM", next: "book_name", set: { slot: "Afternoon (1–4 PM)" }, when: (d) => !isSunday(d) },
-      { id: "s_evening", title: "Evening", description: "4 PM – 7:30 PM", next: "book_name", set: { slot: "Evening (4–7:30 PM)" }, when: (d) => !isSunday(d) },
+      {
+        id: "s_morning",
+        title: "Morning",
+        description: "10 AM – 1 PM",
+        next: "book_name",
+        set: { slot: "Morning (10 AM–1 PM)" },
+      },
+      {
+        id: "s_afternoon",
+        title: "Afternoon",
+        description: "1 PM – 4 PM",
+        next: "book_name",
+        set: { slot: "Afternoon (1–4 PM)" },
+        when: (d) => !isSunday(d),
+      },
+      {
+        id: "s_evening",
+        title: "Evening",
+        description: "4 PM – 7:30 PM",
+        next: "book_name",
+        set: { slot: "Evening (4–7:30 PM)" },
+        when: (d) => !isSunday(d),
+      },
       BACK_OPT,
       MENU,
     ],
@@ -323,7 +483,13 @@ export const FLOW: Record<string, FlowNode> = {
       "• Limit sugary snacks",
     ui: "buttons",
     options: [
-      { id: "book", title: "📅 Book check-up", keys: ["checkup"], next: "book_day", set: { service: "Check-up" } },
+      {
+        id: "book",
+        title: "📅 Book check-up",
+        keys: ["checkup"],
+        next: "book_day",
+        set: { service: "Check-up" },
+      },
       BACK_OPT,
       MENU,
     ],
@@ -335,7 +501,12 @@ export const FLOW: Record<string, FlowNode> = {
       "🕙 *Hours:* Mon–Sat 10 AM–7:30 PM (Thu closed) · Sun 10 AM–2:30 PM",
     ui: "buttons",
     options: [
-      { id: "book", title: "📅 Book appointment", next: "book_day", set: { service: "General appointment" } },
+      {
+        id: "book",
+        title: "📅 Book appointment",
+        next: "book_day",
+        set: { service: "General appointment" },
+      },
       BACK_OPT,
       MENU,
     ],
@@ -392,8 +563,15 @@ function render(nodeId: string, data: FlowData): FlowStep {
   if (node.cta) {
     ui = { kind: "cta", label: node.cta.label, url: node.cta.url }
   } else if (node.ui) {
-    const items = visibleOptions(node, data).map((o) => ({ id: o.id, title: o.title, description: o.description }))
-    ui = node.ui === "list" ? { kind: "list", button: node.listButton ?? "Options", items } : { kind: "buttons", items }
+    const items = visibleOptions(node, data).map((o) => ({
+      id: o.id,
+      title: o.title,
+      description: o.description,
+    }))
+    ui =
+      node.ui === "list"
+        ? { kind: "list", button: node.listButton ?? "Options", items }
+        : { kind: "buttons", items }
   }
   const footer = node.noFooter ? undefined : FOOTER
   return { messages: [{ text, ui, footer }], node: nodeId, data, handoff: Boolean(node.handoff) }
@@ -406,9 +584,16 @@ function reprompt(nodeId: string, data: FlowData, note: string): FlowStep {
   return r
 }
 
-function matchOption(node: FlowNode, data: FlowData, low: string, replyId?: string): Option | undefined {
+function matchOption(
+  node: FlowNode,
+  data: FlowData,
+  low: string,
+  replyId?: string
+): Option | undefined {
   const all = availableOptions(node, data)
-  const byId = all.find((o) => (replyId && o.id === replyId) || (!replyId && (o.id === low || o.keys?.includes(low))))
+  const byId = all.find(
+    (o) => (replyId && o.id === replyId) || (!replyId && (o.id === low || o.keys?.includes(low)))
+  )
   if (byId) return byId
   if (!replyId && /^\d+$/.test(low)) return visibleOptions(node, data)[Number(low) - 1] // typed number = position
   return undefined
@@ -442,7 +627,9 @@ export function stepFlow(
   if (!replyId && RESET_WORDS.includes(low)) return render("root", {})
   if (replyId === "back" || (!replyId && low === "back")) return goBack()
   if (replyId === "menu" || (!replyId && ["menu", "main menu", "0"].includes(low))) {
-    return currentNode === "patient_menu" ? render("patient_menu", data) : forward("patient_menu", data)
+    return currentNode === "patient_menu"
+      ? render("patient_menu", data)
+      : forward("patient_menu", data)
   }
 
   // Free-text steps (custom date, name): accept only a valid value, never a stray tap.
@@ -459,7 +646,11 @@ export function stepFlow(
     return forward(opt.next, opt.set ? { ...data, ...opt.set } : data)
   }
 
-  const r = reprompt(currentNode, data, "Sorry, I can only help with the options below — please tap one 👇")
+  const r = reprompt(
+    currentNode,
+    data,
+    "Sorry, I can only help with the options below — please tap one 👇"
+  )
   // A typed message (not a stray tap) that isn't an option: chatbot.service may
   // answer it with AI and then re-show this step's options.
   if (!replyId && input.length > 0) r.unmatched = true
@@ -497,9 +688,14 @@ export function toPlainText(m: OutMsg): string {
 
 // demo(): runnable self-check — taps, back navigation, strict scope.
 if (typeof module !== "undefined" && require.main === module) {
-  const ok = (c: boolean, m: string) => { if (!c) throw new Error(`FAIL: ${m}`) }
+  const ok = (c: boolean, m: string) => {
+    if (!c) throw new Error(`FAIL: ${m}`)
+  }
   let s = startFlow()
-  ok(s.node === "root" && s.messages[0].ui?.kind === "buttons" && !s.messages[0].footer, "start → root, no footer")
+  ok(
+    s.node === "root" && s.messages[0].ui?.kind === "buttons" && !s.messages[0].footer,
+    "start → root, no footer"
+  )
   s = stepFlow(s.node, s.data, "🧑 I'm a Patient", "patient")
   ok(s.node === "patient_menu" && s.messages[0].footer === FOOTER, "patient_menu has footer")
   s = stepFlow(s.node, s.data, "📅 Book appointment", "book")
@@ -507,7 +703,10 @@ if (typeof module !== "undefined" && require.main === module) {
 
   // Free text on a choice step is rejected (the reported bug)
   const bad = stepFlow(s.node, s.data, "Saturday 5 PM")
-  ok(bad.node === "book_day" && bad.messages[0].text.startsWith("Sorry") && !bad.data.day, "free text rejected on day step")
+  ok(
+    bad.node === "book_day" && bad.messages[0].text.startsWith("Sorry") && !bad.data.day,
+    "free text rejected on day step"
+  )
   // "Back" is navigation, never stored as an answer
   const back1 = stepFlow(s.node, s.data, "Back")
   ok(back1.node === "patient_menu" && !back1.data.day, "typed Back → previous screen")
@@ -522,11 +721,17 @@ if (typeof module !== "undefined" && require.main === module) {
   ok(stepFlow(s.node, s.data, "back").node === "book_slot", "typed back on name step → time step")
   ok(stepFlow(s.node, s.data, "12345").node === "book_name", "digits rejected as name")
   ok(stepFlow(s.node, s.data, "ok").node === "book_name", "filler word rejected as name")
-  ok(stepFlow(s.node, s.data, "Morning", "s_morning").node === "book_name", "stray tap rejected on name step")
+  ok(
+    stepFlow(s.node, s.data, "Morning", "s_morning").node === "book_name",
+    "stray tap rejected on name step"
+  )
   ok(stepFlow(s.node, s.data, "সুমন দাস").node === "book_confirm", "Bengali name accepted")
 
   s = stepFlow(s.node, s.data, "  ramesh   kumar ")
-  ok(s.node === "book_confirm" && s.handoff && s.data.name === "ramesh kumar", "name → confirm + handoff")
+  ok(
+    s.node === "book_confirm" && s.handoff && s.data.name === "ramesh kumar",
+    "name → confirm + handoff"
+  )
   ok(s.messages[0].text.includes("Tomorrow, Evening"), "confirm shows day + slot")
 
   // Back across several screens
@@ -546,7 +751,15 @@ if (typeof module !== "undefined" && require.main === module) {
   const cd = stepFlow("book_day", { service: "Check-up" }, "📆 Pick a date", "d_custom", NOW)
   ok(cd.node === "book_date", "Pick a date → book_date")
   const date = (txt: string) => stepFlow("book_date", cd.data, txt, undefined, NOW)
-  for (const f of ["12/10", "12-10-26", "12.10.2026", "12 Oct", "12 october", "Oct 12th", "october 12, 2026"]) {
+  for (const f of [
+    "12/10",
+    "12-10-26",
+    "12.10.2026",
+    "12 Oct",
+    "12 october",
+    "Oct 12th",
+    "october 12, 2026",
+  ]) {
     const r = date(f)
     ok(r.node === "book_slot" && r.data.day === "Mon, 12 Oct 2026", `parses "${f}"`)
   }
@@ -556,28 +769,55 @@ if (typeof module !== "undefined" && require.main === module) {
   ok(date("1/10/2026").messages[0].text.includes("already passed"), "past date rejected")
   ok(date("20/3/2027").messages[0].text.includes("3 months"), "too far ahead rejected")
   ok(date("next friday maybe").messages[0].text.includes("12/10"), "non-date rejected with example")
-  ok(stepFlow("book_date", cd.data, "Today", "d_today", NOW).node === "book_date", "stray tap rejected on date step")
+  ok(
+    stepFlow("book_date", cd.data, "Today", "d_today", NOW).node === "book_date",
+    "stray tap rejected on date step"
+  )
   ok(date("back").node === "book_day", "back from date step → day list")
 
   const sun = date("4 Oct")
   ok(sun.node === "book_slot" && sun.data.day === "Sun, 4 Oct 2026", "Sunday accepted")
   const sunUi = sun.messages[0].ui
-  ok(sunUi?.kind === "list" && sunUi.items.map((i) => i.id).join() === "s_morning,back,menu", "Sunday → mornings only")
-  ok(stepFlow(sun.node, sun.data, "Evening", "s_evening", NOW).node === "book_slot", "Sunday evening tap rejected")
+  ok(
+    sunUi?.kind === "list" && sunUi.items.map((i) => i.id).join() === "s_morning,back,menu",
+    "Sunday → mornings only"
+  )
+  ok(
+    stepFlow(sun.node, sun.data, "Evening", "s_evening", NOW).node === "book_slot",
+    "Sunday evening tap rejected"
+  )
   const wk = date("12/10")
-  ok(wk.messages[0].ui?.kind === "list" && wk.messages[0].ui.items.length === 5, "weekday → all 3 slots + back/menu")
+  ok(
+    wk.messages[0].ui?.kind === "list" && wk.messages[0].ui.items.length === 5,
+    "weekday → all 3 slots + back/menu"
+  )
 
-  ok(stepFlow("services_menu", {}, "99").messages[0].text.startsWith("Sorry"), "out-of-range number rejected")
+  ok(
+    stepFlow("services_menu", {}, "99").messages[0].text.startsWith("Sorry"),
+    "out-of-range number rejected"
+  )
   ok(stepFlow("faqs", {}, "what is the price?").node === "faqs", "off-topic question rejected")
   ok(stepFlow("svc_tmj", {}, "hi").node === "root", "hi → reset")
-  ok(stepFlow("doctor_menu", {}, "x").messages[0].ui?.kind === "cta", "doctor reprompt keeps link button")
+  ok(
+    stepFlow("doctor_menu", {}, "x").messages[0].ui?.kind === "cta",
+    "doctor reprompt keeps link button"
+  )
   ok(stepFlow("doctor_menu", {}, "menu").node === "patient_menu", "menu from doctor")
-  ok(toPlainText(render("patient_menu", {}).messages[0]).includes("1. 📅 Book appointment"), "plain-text fallback")
+  ok(
+    toPlainText(render("patient_menu", {}).messages[0]).includes("1. 📅 Book appointment"),
+    "plain-text fallback"
+  )
   // AI hand-off flag: typed questions on a menu step are flagged; taps, numbers and free-text steps are not.
-  ok(stepFlow("patient_menu", {}, "do you do braces?").unmatched === true, "typed question flagged for AI")
+  ok(
+    stepFlow("patient_menu", {}, "do you do braces?").unmatched === true,
+    "typed question flagged for AI"
+  )
   ok(!stepFlow("patient_menu", {}, "1").unmatched, "menu number not flagged")
   ok(!stepFlow("patient_menu", {}, "Book", "unknown-id").unmatched, "stray tap not flagged")
-  ok(!stepFlow("book_name", { day: "Mon, 12 Oct 2026", slot: "Morning" }, "123").unmatched, "free-text step not flagged")
+  ok(
+    !stepFlow("book_name", { day: "Mon, 12 Oct 2026", slot: "Morning" }, "123").unmatched,
+    "free-text step not flagged"
+  )
   ok(clinicKnowledge().includes("Toothfully"), "clinic knowledge built from the script")
   console.log("chat-flow OK")
 }

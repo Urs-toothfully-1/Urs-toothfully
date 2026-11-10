@@ -78,14 +78,30 @@ export type Perms = Record<PermissionKey, boolean>
 export const PERMISSION_KEYS = Object.keys(PERMISSIONS) as PermissionKey[]
 
 /** Ready-made scenarios. `off` lists what the scenario switches off. */
-export const PRESETS: Record<"DOCTOR" | "RECEPTIONIST", { id: string; label: string; help: string; off: PermissionKey[] }[]> = {
+export const PRESETS: Record<
+  "DOCTOR" | "RECEPTIONIST",
+  { id: string; label: string; help: string; off: PermissionKey[] }[]
+> = {
   DOCTOR: [
-    { id: "full", label: "Full access (default)", help: "Everything a doctor can do today.", off: [] },
+    {
+      id: "full",
+      label: "Full access (default)",
+      help: "Everything a doctor can do today.",
+      off: [],
+    },
     {
       id: "rx-only",
       label: "Prescriptions only — today's patients",
       help: "Sees only today's patients, writes prescriptions. No prices, payments, estimates, notes or documents.",
-      off: ["allPatients", "prices", "payments", "estimates", "clinicalNotes", "documents", "appointments"],
+      off: [
+        "allPatients",
+        "prices",
+        "payments",
+        "estimates",
+        "clinicalNotes",
+        "documents",
+        "appointments",
+      ],
     },
     {
       id: "clinical",
@@ -101,7 +117,12 @@ export const PRESETS: Record<"DOCTOR" | "RECEPTIONIST", { id: string; label: str
     },
   ],
   RECEPTIONIST: [
-    { id: "full", label: "Full front desk (default)", help: "Everything reception can do today.", off: [] },
+    {
+      id: "full",
+      label: "Full front desk (default)",
+      help: "Everything reception can do today.",
+      off: [],
+    },
     {
       id: "front-desk",
       label: "Appointments and queue only",
@@ -140,7 +161,10 @@ export function effectivePerms(role: Role, stored: unknown): Perms {
 }
 
 /** What to store from a set of switches: only the OFF keys that apply to the role. */
-export function toOverrides(role: Role, perms: Partial<Record<PermissionKey, boolean>>): Record<string, false> | null {
+export function toOverrides(
+  role: Role,
+  perms: Partial<Record<PermissionKey, boolean>>
+): Record<string, false> | null {
   if (role === "ADMIN") return null
   const off: Record<string, false> = {}
   for (const key of keysForRole(role)) if (perms[key] === false) off[key] = false

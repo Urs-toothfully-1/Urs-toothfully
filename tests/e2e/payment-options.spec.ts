@@ -17,22 +17,62 @@ let visitId = ""
 test.describe.configure({ mode: "serial" })
 
 test.beforeAll(async () => {
-  const doctor = await prisma.user.findFirstOrThrow({ where: { email: "dr.jashwant@toothfully.in" } })
-  const reception = await prisma.user.findFirstOrThrow({ where: { email: "reception.outram@toothfully.in" } })
+  const doctor = await prisma.user.findFirstOrThrow({
+    where: { email: "dr.jashwant@toothfully.in" },
+  })
+  const reception = await prisma.user.findFirstOrThrow({
+    where: { email: "reception.outram@toothfully.in" },
+  })
   const pt = await patientService.createWithHistory(
-    { registrationBranchId: OUTRAM, fullName: `E2E PayOpt ${stamp}`, dateOfBirth: "1985-01-01", gender: "FEMALE", mobile: `93${stamp}01`, email: `payopt${stamp}@example.com`, address: "E2E", leadSource: "", referenceName: "", reasonForVisit: "" } as any,
+    {
+      registrationBranchId: OUTRAM,
+      fullName: `E2E PayOpt ${stamp}`,
+      dateOfBirth: "1985-01-01",
+      gender: "FEMALE",
+      mobile: `93${stamp}01`,
+      email: `payopt${stamp}@example.com`,
+      address: "E2E",
+      leadSource: "",
+      referenceName: "",
+      reasonForVisit: "",
+    } as any,
     { consentGiven: true } as any,
     reception.id
   )
-  const { visit } = await queueService.addToQueue({ patientId: pt.id, branchId: OUTRAM, visitType: "CONSULTATION", chiefComplaint: "E2E", doctorId: doctor.id }, reception.id)
+  const { visit } = await queueService.addToQueue(
+    {
+      patientId: pt.id,
+      branchId: OUTRAM,
+      visitType: "CONSULTATION",
+      chiefComplaint: "E2E",
+      doctorId: doctor.id,
+    },
+    reception.id
+  )
   visitId = visit.id
   await estimateService.create(
-    { patientId: pt.id, branchId: OUTRAM, visitId, items: [{ treatmentName: "Implant", category: "IMPLANTS", quantity: 1, unitRate: 507000, unitRateMax: 529000, sortOrder: 0 }] } as any,
+    {
+      patientId: pt.id,
+      branchId: OUTRAM,
+      visitId,
+      items: [
+        {
+          treatmentName: "Implant",
+          category: "IMPLANTS",
+          quantity: 1,
+          unitRate: 507000,
+          unitRateMax: 529000,
+          sortOrder: 0,
+        },
+      ],
+    } as any,
     doctor.id
   )
 })
 
-test.afterAll(async () => { await prisma.$disconnect() })
+test.afterAll(async () => {
+  await prisma.$disconnect()
+})
 
 test("instalment box is labelled, rejects '3 Installments', accepts 34/33/33", async ({ page }) => {
   await page.goto(`/doctor/consultation/${visitId}`)

@@ -613,9 +613,9 @@ min     • Chief complaint (1 min)
 ┌─────────────────────────────────────────────────────┐
 │  Accounting Entries · All Branches                  │
 ├─────────────────────────────────────────────────────┤
-│                                                      │
-│  Filter:  [All Statuses ▼]  [All Branches ▼]       │
-│                                                      │
+│                                                     │
+│  Filter:  [All Statuses ▼]  [All Branches ▼]        │
+│                                                     │
 │  PENDING_REVIEW (8 entries)                         │
 │  ┌────────────────────────────────────────────────┐ │
 │  │ 2026-08-17 · Raj Patel (PAT-00044)             │ │
@@ -629,13 +629,13 @@ min     • Chief complaint (1 min)
 │  │ Est: EST-2026-00012 · New Alipore Branch       │ │
 │  │                    [✓ Approve] [⊗ Reject]     │ │
 │  └────────────────────────────────────────────────┘ │
-│                                                      │
+│                                                     │
 │  APPROVED (23 entries)                              │
 │  [Show approved entries]                            │
-│                                                      │
-│  EXPORTED (145 entries) [To Tally]                 │
+│                                                     │
+│  EXPORTED (145 entries) [To Tally]                  │
 │  [Show exported entries]                            │
-│                                                      │
+│                                                     │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -665,26 +665,27 @@ min     • Chief complaint (1 min)
 ┌─────────────────────────────────────────────────────┐
 │  Tally Export · Batch Management                    │
 ├─────────────────────────────────────────────────────┤
-│                                                      │
+│                                                     │
 │  APPROVED ENTRIES (23 ready to export)              │
-│                                                      │
-│  Summary:                                            │
-│  • Total Amount: ₹47,200                           │
-│  • Entries: 23 (17 receipts, 4 advances, 2 adj.)   │
-│  • Date Range: 2026-08-10 to 2026-08-17           │
-│  • Branches: Outram (12), Alipore (8), Salt Lake (3) │
-│                                                      │
-│  Export Format:  [CSV ▼]  [EXCEL]                 │
-│                                                      │
-│  [📥 Download Batch]                               │
-│                                                      │
+
+│                                                     │
+│  Summary:                                           │
+│  • Total Amount: ₹47,200                            │
+│  • Entries: 23 (17 receipts, 4 advances, 2 adj.)    │
+│  • Date Range: 2026-08-10 to 2026-08-17             │
+│  • Branches: Outram (12), Alipore (8), Salt Lake (3)│
+│                                                     │
+│  Export Format:  [CSV ▼]  [EXCEL]                   │
+│                                                     │
+│  [📥 Download Batch]                                │
+│                                                     │
 │  ───────────────────────────────────────────────    │
-│                                                      │
-│  RECENT EXPORTS:                                    │
-│  • EXP-2026-00015 · 2026-08-17 · 23 entries       │
-│  • EXP-2026-00014 · 2026-08-10 · 31 entries       │
-│  • EXP-2026-00013 · 2026-08-03 · 18 entries       │
-│                                                      │
+│                                                     │
+1│  RECENT EXPORTS:                                   │
+│  • EXP-2026-00015 · 2026-08-17 · 23 entries         │
+│  • EXP-2026-00014 · 2026-08-10 · 31 entries         │
+│  • EXP-2026-00013 · 2026-08-03 · 18 entries         │
+│                                                     │
 └─────────────────────────────────────────────────────┘
 ```
 

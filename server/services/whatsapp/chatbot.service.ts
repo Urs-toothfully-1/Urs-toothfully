@@ -1,7 +1,13 @@
 import { prisma } from "@/lib/prisma"
 import { metaService } from "@/server/services/whatsapp/meta.service"
 import { isClinicOpen } from "@/lib/whatsapp/chatbot"
-import { stepFlow, startFlow, renderStep, toPlainText, type FlowData } from "@/lib/whatsapp/chat-flow"
+import {
+  stepFlow,
+  startFlow,
+  renderStep,
+  toPlainText,
+  type FlowData,
+} from "@/lib/whatsapp/chat-flow"
 import { aiReplyService } from "@/server/services/whatsapp/ai-reply.service"
 
 const GREETING = /^(hi+|hello|hey|hlo|namaste|namaskar|start|menu|0|ok|okay|thanks?|thank you)\b/i
@@ -19,19 +25,30 @@ const STATE_TTL_MS = 24 * 60 * 60 * 1000 // reset a conversation after 24h idle
  * Non-blocking: never throws into webhook processing.
  */
 export const chatbotService = {
-  async handleInbound(input: { fromPhone: string; wamid?: string; text: string; replyId?: string }) {
+  async handleInbound(input: {
+    fromPhone: string
+    wamid?: string
+    text: string
+    replyId?: string
+  }) {
     const { fromPhone, wamid, text, replyId } = input
 
     // Idempotency — Meta retries webhooks.
     if (wamid) {
-      const seen = await prisma.whatsAppInbound.findUnique({ where: { wamid }, select: { id: true } })
+      const seen = await prisma.whatsAppInbound.findUnique({
+        where: { wamid },
+        select: { id: true },
+      })
       if (seen) return
     }
 
     // Best-effort patient match (for a friendly name + inbox context).
     const last10 = fromPhone.replace(/\D/g, "").slice(-10)
     const patient = last10
-      ? await prisma.patient.findFirst({ where: { mobile: { contains: last10 } }, select: { id: true } })
+      ? await prisma.patient.findFirst({
+          where: { mobile: { contains: last10 } },
+          select: { id: true },
+        })
       : null
 
     // Load / reset conversation state.
@@ -44,7 +61,10 @@ export const chatbotService = {
       // message as a selection.
       step = startFlow()
       if (!isClinicOpen(new Date())) {
-        step.messages[0] = { ...step.messages[0], text: `${step.messages[0].text}\n\n${CLOSED_NOTE}` }
+        step.messages[0] = {
+          ...step.messages[0],
+          text: `${step.messages[0].text}\n\n${CLOSED_NOTE}`,
+        }
       }
     } else {
       step = stepFlow(existing.node, (existing.data as FlowData) ?? {}, text, replyId)
@@ -90,11 +110,18 @@ export const chatbotService = {
     for (const msg of step.messages) {
       const plain = toPlainText(msg)
       // Interactive (buttons/list/link) first; plain numbered text if that fails.
-      let res = msg.ui ? await metaService.sendInteractiveMessage(fromPhone, msg).catch(() => null) : null
+      let res = msg.ui
+        ? await metaService.sendInteractiveMessage(fromPhone, msg).catch(() => null)
+        : null
       if (!res?.success) res = await metaService.sendTextMessage(fromPhone, plain).catch(() => null)
       if (res?.success) {
         await whatsappInboxService
-          .logOutbound({ phone: fromPhone, text: plain, botAction: "BOT_REPLY", patientId: patient?.id })
+          .logOutbound({
+            phone: fromPhone,
+            text: plain,
+            botAction: "BOT_REPLY",
+            patientId: patient?.id,
+          })
           .catch(() => null)
       }
     }
