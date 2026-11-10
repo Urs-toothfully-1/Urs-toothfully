@@ -79,11 +79,11 @@ export default async function PatientOverviewPage({ params }: Props) {
   const { estimated: totalEstimated, paid: totalPaid, outstanding } = await getPatientBalance(patientId)
   const [docEstimates, docReceipts, docPrescriptions] = recentDocs
   const documents = [
-    ...docEstimates.map((e) => ({
+    ...(session.perms.prices ? docEstimates : []).map((e) => ({
       key: `est-${e.id}`, label: "Estimate", docNo: e.estimateNo, date: e.createdAt,
       href: `/doctor/estimate/${e.id}`, printHref: `/print/estimate/${e.id}`, kind: "estimate" as const,
     })),
-    ...docReceipts.map((r) => ({
+    ...(session.perms.payments ? docReceipts : []).map((r) => ({
       key: `rcp-${r.id}`, label: "Receipt", docNo: r.receiptNo, date: r.issuedAt,
       href: `/print/receipt/${r.id}`, printHref: `/print/receipt/${r.id}`, kind: "receipt" as const,
     })),
@@ -94,7 +94,7 @@ export default async function PatientOverviewPage({ params }: Props) {
   ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 6)
 
   // Fetch Add to Queue data only for reception/admin
-  const canAddToQueue = session.role === "RECEPTIONIST" || session.role === "ADMIN"
+  const canAddToQueue = session.role === "ADMIN" || (session.role === "RECEPTIONIST" && session.perms.queue)
   const [doctors, assignmentMode, activeQueueEntry] = canAddToQueue
     ? await Promise.all([
         userRepository.findAllActiveDoctors(),
@@ -258,7 +258,7 @@ export default async function PatientOverviewPage({ params }: Props) {
         )}
 
         {/* Billing summary — shown once the patient has an active estimate */}
-        {billingEstimates.length > 0 && (
+        {session.perms.prices && billingEstimates.length > 0 && (
           <div className="grid grid-cols-3 gap-3">
             {[
               { label: "Total Estimated", value: formatCurrency(totalEstimated), color: BRAND_COLORS.primaryTeal },

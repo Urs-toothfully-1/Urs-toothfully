@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { redirect } from "next/navigation"
 import { requireRole } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { PatientRegistrationForm } from "@/components/patients/PatientRegistrationForm"
@@ -10,6 +11,7 @@ export const metadata: Metadata = { title: "Register New Patient" }
 
 export default async function NewPatientPage() {
   const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+  if (!session.perms.editPatients) redirect("/patients")
 
   const branches = await prisma.branch.findMany({
     where: { isActive: true },

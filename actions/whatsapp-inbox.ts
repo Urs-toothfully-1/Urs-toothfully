@@ -1,6 +1,6 @@
 "use server"
 
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { metaService } from "@/server/services/whatsapp/meta.service"
 import { whatsappInboxService, type ThreadMessage, type ConversationSummary } from "@/server/services/whatsapp/inbox.service"
 
@@ -15,7 +15,7 @@ export async function sendInboxReplyAction(
   phone: string,
   text: string
 ): Promise<{ success?: boolean; error?: string }> {
-  const session = await requireRole([...ROLES]).catch(() => null)
+  const session = await requireRole([...ROLES]).then(gate("whatsapp")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
   const body = text.trim()
   if (!body) return { error: "Message is empty." }
@@ -36,7 +36,7 @@ export async function sendInboxReplyAction(
 }
 
 export async function markConversationHandledAction(phone: string): Promise<{ success?: boolean; error?: string }> {
-  const session = await requireRole([...ROLES]).catch(() => null)
+  const session = await requireRole([...ROLES]).then(gate("whatsapp")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
   await whatsappInboxService.markHandled(phone)
   return { success: true }
@@ -44,13 +44,13 @@ export async function markConversationHandledAction(phone: string): Promise<{ su
 
 /** For the client to refresh the open thread / conversation list without a full reload. */
 export async function fetchThreadAction(phone: string): Promise<{ messages?: ThreadMessage[]; error?: string }> {
-  const session = await requireRole([...ROLES]).catch(() => null)
+  const session = await requireRole([...ROLES]).then(gate("whatsapp")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
   return { messages: await whatsappInboxService.getThread(phone) }
 }
 
 export async function fetchConversationsAction(): Promise<{ conversations?: ConversationSummary[]; error?: string }> {
-  const session = await requireRole([...ROLES]).catch(() => null)
+  const session = await requireRole([...ROLES]).then(gate("whatsapp")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
   return { conversations: await whatsappInboxService.listConversations() }
 }

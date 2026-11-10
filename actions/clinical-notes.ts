@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { clinicalNotesRepository } from "@/server/repositories/clinical-notes.repository"
 import { parseReceiptDate } from "@/lib/payment-date"
 
@@ -15,7 +15,7 @@ export async function createClinicalNoteAction(
   _prev: NoteFormState,
   formData: FormData
 ): Promise<NoteFormState> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("clinicalNotes")).catch(() => null)
   if (!session) return { error: "Only doctors and admins can create clinical notes." }
 
   const visitId = formData.get("visitId")?.toString()

@@ -29,9 +29,9 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen overflow-hidden bg-white">
-      <CommandPalette role={session.role} />
+      <CommandPalette role={session.role} perms={session.perms} />
       {/* Sidebar */}
-      <Sidebar role={session.role} branchName={branchName} />
+      <Sidebar role={session.role} branchName={branchName} perms={session.perms} />
 
       {/* Main content */}
       <div className="flex flex-col flex-1 overflow-hidden">
@@ -39,6 +39,7 @@ export default async function DashboardLayout({
           userName={session.name}
           role={session.role}
           branchName={branchName}
+          perms={session.perms}
         />
         <main className="flex-1 overflow-y-auto p-4 md:p-6" style={{ backgroundColor: "#F2F4F6" }}>
           {children}

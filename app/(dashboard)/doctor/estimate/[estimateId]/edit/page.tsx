@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { assertPatientInScope } from "@/server/services/patient-scope.service"
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { requireRole } from "@/lib/auth"
@@ -20,6 +21,7 @@ type Props = {
 
 export default async function EditEstimatePage({ params, searchParams }: Props) {
   const session = await requireRole(["ADMIN", "DOCTOR"])
+  if (!session.perms.estimates) notFound()
   const { estimateId } = await params
   const { return: rawReturn } = await searchParams
   // Only accept internal absolute paths — never an off-site or protocol-relative URL.
@@ -27,6 +29,7 @@ export default async function EditEstimatePage({ params, searchParams }: Props) 
 
   const estimate = await estimateRepository.findById(estimateId)
   if (!estimate) notFound()
+  await assertPatientInScope(session, estimate.patientId)
 
   const [treatments, visit] = await Promise.all([
     treatmentRepository.findAll(),

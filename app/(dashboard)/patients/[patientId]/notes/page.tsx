@@ -18,7 +18,7 @@ export default async function ClinicalNotesPage({ params }: Props) {
   if (!session) redirect("/login")
 
   // Only Doctors and Admins can see clinical notes
-  if (session.role === "RECEPTIONIST") {
+  if (session.role === "RECEPTIONIST" || !session.perms.clinicalNotes) {
     return (
       <Card className="border-[#E0E3E5] bg-white">
         <CardContent className="flex flex-col items-center justify-center py-20 text-center gap-3">

@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { redirect } from "next/navigation"
 import { requireRole } from "@/lib/auth"
 import { whatsappInboxService } from "@/server/services/whatsapp/inbox.service"
 import { BRAND_COLORS } from "@/lib/constants"
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic"
 
 export default async function WhatsAppInboxPage() {
   const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+  if (!session.perms.whatsapp) redirect("/reception")
   const conversations = await whatsappInboxService.listConversations()
 
   return (

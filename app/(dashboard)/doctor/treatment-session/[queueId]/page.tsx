@@ -34,7 +34,8 @@ import {
 export const metadata: Metadata = { title: "Treatment Session" }
 
 /** "₹6,000" or "₹6,000" with "to ₹12,000" underneath — fits the narrow amount column. */
-function Amount({ min, max }: { min: number; max: number }) {
+function Amount({ min, max, show = true }: { min: number; max: number; show?: boolean }) {
+  if (!show) return <>—</>
   return (
     <>
       {formatCurrency(min)}
@@ -414,9 +415,13 @@ export default async function TreatmentSessionPage({ params }: Props) {
                     <tbody key={g.estimate.id}>
                       <tr style={{ backgroundColor: "#F7F9FB" }}>
                         <td colSpan={6} className="py-1.5 px-2 text-xs">
-                          <Link href={`/doctor/estimate/${g.estimate.id}`} className="font-semibold hover:underline" style={{ color: BRAND_COLORS.primaryTeal }}>
-                            {g.estimate.estimateNo}
-                          </Link>
+                          {session.perms.prices ? (
+                            <Link href={`/doctor/estimate/${g.estimate.id}`} className="font-semibold hover:underline" style={{ color: BRAND_COLORS.primaryTeal }}>
+                              {g.estimate.estimateNo}
+                            </Link>
+                          ) : (
+                            <span className="font-semibold">{g.estimate.estimateNo}</span>
+                          )}
                           <span className="ml-2" style={{ color: BRAND_COLORS.borderDivider }}>
                             {g.estimate.invoiceBilling ? "Quote — billed per invoice" : "Older estimate — full amount counts as due"}
                           </span>
@@ -432,10 +437,10 @@ export default async function TreatmentSessionPage({ params }: Props) {
                           <td className="py-2.5 px-2 text-xs" style={{ color: BRAND_COLORS.bodyText }}>{toothLabel(item.toothNumber) || "—"}</td>
                           <td className="py-2.5 px-2 text-xs text-center" style={{ color: BRAND_COLORS.bodyText }}>{item.quantity}</td>
                           <td className="py-2.5 px-2 text-xs whitespace-nowrap" style={{ color: BRAND_COLORS.bodyText }}>
-                            <Amount min={Number(item.unitRate)} max={Number(item.unitRateMax ?? item.unitRate)} />
+                            <Amount show={session.perms.prices} min={Number(item.unitRate)} max={Number(item.unitRateMax ?? item.unitRate)} />
                           </td>
                           <td className="py-2.5 px-2 text-sm font-semibold whitespace-nowrap" style={{ color: BRAND_COLORS.bodyText }}>
-                            <Amount min={item.quantity * Number(item.unitRate)} max={item.quantity * Number(item.unitRateMax ?? item.unitRate)} />
+                            <Amount show={session.perms.prices} min={item.quantity * Number(item.unitRate)} max={item.quantity * Number(item.unitRateMax ?? item.unitRate)} />
                           </td>
                         </tr>
                       ))}
@@ -445,7 +450,7 @@ export default async function TreatmentSessionPage({ params }: Props) {
                             {g.estimate.estimateNo} pending
                           </td>
                           <td className="py-1.5 px-2 text-xs font-semibold whitespace-nowrap" style={{ color: BRAND_COLORS.bodyText }}>
-                            <Amount min={g.min} max={g.max} />
+                            <Amount show={session.perms.prices} min={g.min} max={g.max} />
                           </td>
                         </tr>
                       )}
@@ -457,7 +462,7 @@ export default async function TreatmentSessionPage({ params }: Props) {
                         Total pending work <span className="font-normal">(before discounts; optional items excluded)</span>
                       </td>
                       <td className="py-2 px-2 text-sm font-bold whitespace-nowrap" style={{ color: BRAND_COLORS.primaryTeal }}>
-                        <Amount min={pendingMin} max={pendingMax} />
+                        <Amount show={session.perms.prices} min={pendingMin} max={pendingMax} />
                       </td>
                     </tr>
                   </tfoot>
@@ -498,10 +503,10 @@ export default async function TreatmentSessionPage({ params }: Props) {
             <VisitPrescriptionButton visitId={entry.visit.id} />
 
             {/* Book a follow-up appointment during treatment */}
-            <BookFollowUpDialog patientId={entry.patient.id} branchId={entry.branchId} patientName={entry.patient.fullName} />
+            {session.perms.appointments && <BookFollowUpDialog patientId={entry.patient.id} branchId={entry.branchId} patientName={entry.patient.fullName} />}
 
             {/* Editable estimate + treatment agreement */}
-            {activeEstimateId ? (
+            {!session.perms.estimates ? null : activeEstimateId ? (
               <Link
                 href={`/doctor/estimate/${activeEstimateId}/wizard`}
                 className="flex items-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-colors hover:bg-gray-50"
@@ -523,7 +528,9 @@ export default async function TreatmentSessionPage({ params }: Props) {
       </Card>
 
       {/* Clinical notes — logged onto the prescription, printable with continuation pages */}
-      <SessionClinicalNotes visitId={notesVisitId} initialNotes={existingNotes} hasPrescription={!!notesPrescription} />
+      {session.perms.clinicalNotes && (
+        <SessionClinicalNotes visitId={notesVisitId} initialNotes={existingNotes} hasPrescription={!!notesPrescription} />
+      )}
 
       {/* Sittings tracker — pick which treatments were worked on today */}
       {entry.status === "WITH_DOCTOR" && fullItems.length > 0 && (
@@ -568,7 +575,7 @@ export default async function TreatmentSessionPage({ params }: Props) {
                 treatmentName: i.treatmentName,
                 toothNumber: i.toothNumber,
                 quantity: i.quantity,
-                unitRate: Number(i.unitRate),
+                unitRate: session.perms.prices ? Number(i.unitRate) : 0,
                 amount: Number(i.amount),
                 status: i.status,
               }))}

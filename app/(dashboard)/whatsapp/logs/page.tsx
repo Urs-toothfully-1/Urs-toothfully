@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { redirect } from "next/navigation"
 import { requireRole } from "@/lib/auth"
 import { whatsappMessageRepository } from "@/server/repositories/whatsapp-message.repository"
 import { BRAND_COLORS } from "@/lib/constants"
@@ -15,6 +16,7 @@ export default async function WhatsAppLogsPage({
   searchParams: Promise<{ q?: string; status?: string; from?: string; to?: string; page?: string }>
 }) {
   const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+  if (!session.perms.whatsapp) redirect("/reception")
   const sp = await searchParams
 
   const result = await whatsappMessageRepository.findMany({

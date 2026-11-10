@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { requireRole, getSession } from "@/lib/auth"
+import { requireRole, getSession, gate } from "@/lib/auth"
 import { istInstant } from "@/lib/ist"
 import { appointmentService } from "@/server/services/appointment.service"
 import { appointmentRequestService, findOrCreateStubPatient } from "@/server/services/appointment-request.service"
@@ -18,7 +18,7 @@ export async function createAppointmentAction(
   formData: FormData
 ): Promise<CreateAppointmentState> {
   // Doctors may book too (e.g. a follow-up during a visit), booking with themselves.
-  const session = await requireRole(["ADMIN", "RECEPTIONIST", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST", "DOCTOR"]).then(gate("appointments")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   const patientId = formData.get("patientId")?.toString()
@@ -68,8 +68,8 @@ export async function createUnregisteredAppointmentAction(input: {
   reason?: string
   branchId?: string
 }): Promise<{ success: boolean; error?: string }> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
-  if (!session) return { success: false, error: "Unauthorized" }
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("appointments")).catch(() => null)
+  if (!session || !session.perms.appointments) return { success: false, error: "Unauthorized" }
 
   const fullName = input.fullName?.trim()
   const mobile = input.mobile?.trim()
@@ -112,7 +112,7 @@ export async function rescheduleAppointmentAction(
   time: string
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession()
-  if (!session) return { success: false, error: "Unauthorized" }
+  if (!session || !session.perms.appointments) return { success: false, error: "Unauthorized" }
 
   const scheduledAt = istInstant(date, time)
   if (isNaN(scheduledAt.getTime())) return { success: false, error: "Invalid date or time." }
@@ -133,8 +133,8 @@ export async function confirmAppointmentRequestAction(
   time: string,
   durationMins = 30
 ): Promise<{ success: boolean; error?: string }> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
-  if (!session) return { success: false, error: "Unauthorized" }
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("appointments")).catch(() => null)
+  if (!session || !session.perms.appointments) return { success: false, error: "Unauthorized" }
   if (!doctorId || !date || !time) return { success: false, error: "Doctor, date and time are required." }
 
   const scheduledAt = istInstant(date, time)
@@ -153,8 +153,8 @@ export async function declineAppointmentRequestAction(
   requestId: string,
   notes?: string
 ): Promise<{ success: boolean; error?: string }> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
-  if (!session) return { success: false, error: "Unauthorized" }
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("appointments")).catch(() => null)
+  if (!session || !session.perms.appointments) return { success: false, error: "Unauthorized" }
   try {
     await appointmentRequestService.decline(requestId, session.userId, notes)
     revalidatePath("/appointments", "page")
@@ -170,7 +170,7 @@ export async function updateAppointmentStatusAction(
   cancellationReason?: string
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession()
-  if (!session) return { success: false, error: "Unauthorized" }
+  if (!session || !session.perms.appointments) return { success: false, error: "Unauthorized" }
 
   try {
     await appointmentService.updateStatus(appointmentId, status, session.userId, cancellationReason)

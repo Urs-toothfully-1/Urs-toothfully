@@ -4,15 +4,17 @@ import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { Menu, X } from "lucide-react"
 import { Sidebar } from "@/components/dashboard/Sidebar"
+import type { PermissionKey, Perms } from "@/lib/permissions"
 import type { Role } from "@/lib/session"
 
 interface Props {
+  perms?: Perms
   role: Role
   branchName: string
 }
 
 /** Hamburger + slide-over drawer shown below the md breakpoint. */
-export function MobileSidebar({ role, branchName }: Props) {
+export function MobileSidebar({ role, branchName, perms }: Props) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
 
@@ -70,6 +72,7 @@ export function MobileSidebar({ role, branchName }: Props) {
               <X className="h-4 w-4" />
             </button>
             <Sidebar
+              perms={perms}
               role={role}
               branchName={branchName}
               variant="drawer"

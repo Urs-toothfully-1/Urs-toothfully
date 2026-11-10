@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { prescriptionService, updatePrescriptionSchema, quickRxSchema } from "@/server/services/prescription.service"
 import { diagnosisService } from "@/server/services/diagnosis.service"
 
@@ -18,7 +18,7 @@ export async function saveVisitClinicalNotesAction(
   visitId: string,
   notes: { date: string; note: string }[]
 ): Promise<{ success: boolean; prescriptionId?: string; error?: string }> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("clinicalNotes")).catch(() => null)
   if (!session) return { success: false, error: "Only doctors can write clinical notes." }
   try {
     const prescription = await prescriptionService.ensureForVisit(visitId, session.userId)
@@ -34,7 +34,7 @@ export async function saveVisitClinicalNotesAction(
 export async function ensureVisitPrescriptionAction(
   visitId: string
 ): Promise<{ success: boolean; prescriptionId?: string; error?: string }> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("prescriptions")).catch(() => null)
   if (!session) return { success: false, error: "Only doctors can create prescriptions." }
   try {
     const prescription = await prescriptionService.ensureForVisit(visitId, session.userId)
@@ -53,7 +53,7 @@ export async function saveNewVisitPrescriptionAction(
   _prevState: PrescriptionFormState,
   formData: FormData
 ): Promise<PrescriptionFormState & { prescriptionId?: string }> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("prescriptions")).catch(() => null)
   if (!session) return { error: "Only doctors can create prescriptions." }
 
   let payload: any
@@ -91,7 +91,7 @@ export async function updatePrescriptionAction(
   _prevState: PrescriptionFormState,
   formData: FormData
 ): Promise<PrescriptionFormState> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("prescriptions")).catch(() => null)
   if (!session) return { error: "Only doctors can edit prescriptions." }
 
   let payload: unknown
@@ -124,7 +124,7 @@ export async function saveQuickRxAction(
   visitId: string,
   input: unknown
 ): Promise<{ success: boolean; prescriptionId?: string; error?: string }> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("prescriptions")).catch(() => null)
   if (!session) return { success: false, error: "Only doctors can write prescriptions." }
 
   const parsed = quickRxSchema.safeParse(input)

@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { assertPatientInScope } from "@/server/services/patient-scope.service"
 import { notFound, redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
@@ -49,6 +50,8 @@ export default async function PrintReceiptPage({ params }: Props) {
   })
 
   if (!receipt) notFound()
+  if (!session.perms.payments) notFound()
+  await assertPatientInScope(session, receipt.patientId)
 
   const payment = receipt.payment
   const amount = Number(payment.amount)

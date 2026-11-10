@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
 import { whatsappQueueService } from "@/server/services/whatsapp/queue.service"
 import { templateService, templateSchema } from "@/server/services/whatsapp/template.service"
@@ -189,7 +189,7 @@ const sendSchema = z.object({
 })
 
 export async function sendWhatsAppMessageAction(input: z.infer<typeof sendSchema>): Promise<WhatsAppActionState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   const parsed = sendSchema.safeParse(input)
@@ -209,7 +209,7 @@ export async function sendWhatsAppMessageAction(input: z.infer<typeof sendSchema
 }
 
 export async function retryWhatsAppMessageAction(id: string): Promise<WhatsAppActionState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
   try {
     await whatsappQueueService.retryMessage(id, session.userId)
@@ -233,7 +233,7 @@ export async function retryAllFailedWhatsAppMessagesAction(): Promise<WhatsAppAc
 }
 
 export async function cancelWhatsAppMessageAction(id: string): Promise<WhatsAppActionState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
   try {
     await whatsappQueueService.cancelMessage(id, session.userId)
@@ -245,7 +245,7 @@ export async function cancelWhatsAppMessageAction(id: string): Promise<WhatsAppA
 }
 
 export async function cancelAllQueuedWhatsAppMessagesAction(): Promise<WhatsAppActionState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
   try {
     const count = await whatsappQueueService.cancelAll(session.userId)
@@ -257,7 +257,7 @@ export async function cancelAllQueuedWhatsAppMessagesAction(): Promise<WhatsAppA
 }
 
 export async function processWhatsAppQueueAction(): Promise<WhatsAppActionState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
   try {
     const result = await whatsappQueueService.processQueue()
@@ -271,7 +271,7 @@ export async function processWhatsAppQueueAction(): Promise<WhatsAppActionState>
 // ─── Consent (ADMIN + RECEPTIONIST) ──────────────────────────
 
 export async function setWhatsAppConsentAction(patientId: string, consented: boolean): Promise<WhatsAppActionState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
   try {
     await whatsappService.setConsent(patientId, consented)

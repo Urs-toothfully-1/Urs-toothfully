@@ -5,7 +5,9 @@ import { requireRole } from "@/lib/auth"
 import { userRepository } from "@/server/repositories/user.repository"
 import { BCRYPT_COST_FACTOR } from "@/lib/constants"
 import bcrypt from "bcryptjs"
-import { Role } from "@prisma/client"
+import { Prisma, Role } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
+import { toOverrides, type PermissionKey } from "@/lib/permissions"
 import { z } from "zod"
 import { createAuditLog } from "@/lib/audit"
 
@@ -116,5 +118,42 @@ export async function resetPasswordAction(
     return { success: true }
   } catch {
     return { error: "Failed to reset password." }
+  }
+}
+
+/**
+ * Save which features a doctor/receptionist may use. Only switches a role
+ * already has can be turned off (see lib/permissions); admins can't be limited.
+ * Takes effect on the user's next page load — no logout needed.
+ */
+export async function setUserPermissionsAction(
+  userId: string,
+  perms: Partial<Record<PermissionKey, boolean>>
+): Promise<UserFormState> {
+  const session = await requireRole(["ADMIN"]).catch(() => null)
+  if (!session) return { error: "Unauthorized" }
+
+  const target = await userRepository.findById(userId)
+  if (!target) return { error: "User not found." }
+  if (target.role === "ADMIN") return { error: "Administrators always have full access." }
+
+  const overrides = toOverrides(target.role, perms)
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { permissions: overrides ?? Prisma.DbNull },
+    })
+    await createAuditLog({
+      entityType: "User",
+      entityId: userId,
+      action: "UPDATE",
+      changedById: session.userId,
+      previousValues: { permissions: target.permissions ?? null },
+      newValues: { action: "access_changed", permissions: overrides },
+    })
+    revalidatePath("/admin/users")
+    return { success: true }
+  } catch {
+    return { error: "Failed to save access settings." }
   }
 }

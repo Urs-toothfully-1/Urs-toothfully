@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { templateService } from "@/server/services/whatsapp/template.service"
 import type { WhatsAppTemplateCategory, WhatsAppTemplateStatus } from "@prisma/client"
 
 export async function GET(request: NextRequest) {
   try {
     // Receptionists can list templates (needed for manual sending)
-    await requireRole(["ADMIN", "RECEPTIONIST"])
+    await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp"))
     const sp = request.nextUrl.searchParams
     const templates = await templateService.list({
       search: sp.get("search") ?? undefined,

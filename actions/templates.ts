@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { createAuditLog } from "@/lib/audit"
 
@@ -19,7 +19,7 @@ const phraseSchema = z.object({
 })
 
 export async function savePhraseAction(input: unknown, id?: string): Promise<TemplateResult> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("prescriptions")).catch(() => null)
   if (!session) return { success: false, error: "Not allowed." }
 
   const parsed = phraseSchema.safeParse(input)
@@ -83,7 +83,7 @@ export async function savePhraseAction(input: unknown, id?: string): Promise<Tem
  * reversible if it turns out to be in use.
  */
 export async function setPhraseActiveAction(id: string, isActive: boolean): Promise<TemplateResult> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("prescriptions")).catch(() => null)
   if (!session) return { success: false, error: "Not allowed." }
 
   try {
@@ -117,7 +117,7 @@ const medicineSchema = z.object({
 })
 
 export async function saveMedicineAction(input: unknown, id?: string): Promise<TemplateResult> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("prescriptions")).catch(() => null)
   if (!session) return { success: false, error: "Not allowed." }
 
   const parsed = medicineSchema.safeParse(input)
@@ -162,7 +162,7 @@ export async function saveMedicineAction(input: unknown, id?: string): Promise<T
 }
 
 export async function setMedicineActiveAction(id: string, isActive: boolean): Promise<TemplateResult> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("prescriptions")).catch(() => null)
   if (!session) return { success: false, error: "Not allowed." }
 
   try {
@@ -196,7 +196,7 @@ const protocolSchema = z.object({
 })
 
 export async function saveProtocolAction(input: unknown, id?: string): Promise<TemplateResult> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("prescriptions")).catch(() => null)
   if (!session) return { success: false, error: "Not allowed." }
 
   const parsed = protocolSchema.safeParse(input)
@@ -287,7 +287,7 @@ export async function saveProtocolAction(input: unknown, id?: string): Promise<T
 }
 
 export async function deleteProtocolAction(id: string): Promise<TemplateResult> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("prescriptions")).catch(() => null)
   if (!session) return { success: false, error: "Not allowed." }
 
   try {

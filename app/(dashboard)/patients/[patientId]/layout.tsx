@@ -13,6 +13,7 @@ import { formatDate, formatCurrency } from "@/lib/utils"
 import { getPatientBalance, getPatientTabCounts } from "@/server/services/patient-summary.service"
 import { formatAge, isUnknownDob } from "@/lib/patient-dob"
 import { ChevronRight } from "lucide-react"
+import { assertPatientInScope } from "@/server/services/patient-scope.service"
 
 type Props = {
   children: React.ReactNode
@@ -28,6 +29,7 @@ const GENDER_LABELS: Record<string, string> = {
 export default async function PatientProfileLayout({ children, params }: Props) {
   const session = await requireSession()
   const { patientId } = await params
+  await assertPatientInScope(session, patientId)
 
   const [patient, dentalHistory, branches, balance, tabCounts] = await Promise.all([
     patientRepository.findById(patientId),
@@ -127,6 +129,7 @@ export default async function PatientProfileLayout({ children, params }: Props) 
             <div className="md:text-right space-y-2">
               {/* Outstanding sits in the header so it stays visible on every tab,
                   not just Overview — it is the thing reception asks for first. */}
+              {session.perms.prices && (
               <div className="flex md:justify-end items-center gap-4">
                 <div className="text-right">
                   <p className="text-[11px] uppercase tracking-wide" style={{ color: BRAND_COLORS.borderDivider }}>Billed</p>
@@ -150,8 +153,9 @@ export default async function PatientProfileLayout({ children, params }: Props) 
                   </div>
                 )}
               </div>
+              )}
               <HealthAlertBadges history={dentalHistory as any} />
-              {(session.role === "ADMIN" || session.role === "RECEPTIONIST") && (
+              {(session.role === "ADMIN" || (session.role === "RECEPTIONIST" && session.perms.editPatients)) && (
                 <div className="flex md:justify-end items-center gap-2">
                   <ReferAndEarnButton patientId={patient.id} patientName={patient.fullName} />
                   <EditPatientDialog
@@ -178,7 +182,16 @@ export default async function PatientProfileLayout({ children, params }: Props) 
         </div>
 
         {/* Tab navigation */}
-        <ProfileTabs patientId={patientId} counts={tabCounts} />
+        <ProfileTabs
+          patientId={patientId}
+          counts={tabCounts}
+          hidden={[
+            ...(session.role === "RECEPTIONIST" || !session.perms.clinicalNotes ? ["/notes"] : []),
+            ...(session.perms.prices ? [] : ["/estimates"]),
+            ...(session.perms.payments ? [] : ["/payments"]),
+            ...(session.perms.documents ? [] : ["/documents"]),
+          ]}
+        />
       </div>
 
       {/* Tab content */}

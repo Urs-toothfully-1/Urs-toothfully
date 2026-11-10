@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { paymentService } from "@/server/services/payment.service"
 import { parseReceiptDate } from "@/lib/payment-date"
 import { PRODUCT_CATEGORIES } from "@/lib/template-options"
@@ -41,7 +41,7 @@ export type ProductInvoiceInput = z.infer<typeof productInvoiceSchema>
 export async function createProductInvoiceAction(
   input: unknown
 ): Promise<{ success: boolean; receiptId?: string; receiptNo?: string; error?: string }> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("collectPayments")).catch(() => null)
   if (!session) return { success: false, error: "Only reception or admin can bill products." }
 
   const parsed = productInvoiceSchema.safeParse(input)

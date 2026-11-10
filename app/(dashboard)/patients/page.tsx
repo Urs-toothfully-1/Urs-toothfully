@@ -2,6 +2,8 @@ import { Metadata } from "next"
 import { Suspense } from "react"
 import Link from "next/link"
 import { requireSession } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { allowedPatientIds } from "@/server/services/patient-scope.service"
 import {
   patientRepository,
   patientListRepository,
@@ -426,8 +428,51 @@ function validDate(value?: string): string | undefined {
   return Number.isNaN(new Date(`${value}T00:00:00`).getTime()) ? undefined : value
 }
 
+/** For users limited to today's patients: no registry, no search — just today's list. */
+async function TodaysPatients({ ids }: { ids: Set<string> }) {
+  const patients = ids.size
+    ? await prisma.patient.findMany({
+        where: { id: { in: [...ids] }, isDeleted: false },
+        select: { id: true, patientId: true, fullName: true, dateOfBirth: true, gender: true },
+        orderBy: { fullName: "asc" },
+      })
+    : []
+  return (
+    <div className="max-w-3xl mx-auto space-y-5">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>Today&apos;s patients</h1>
+        <p className="text-sm mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
+          Your access is limited to patients with an appointment or queue visit today.
+        </p>
+      </div>
+      <Card className="border-[#E0E3E5] bg-white">
+        <CardContent className="p-0">
+          {patients.length === 0 ? (
+            <p className="p-6 text-sm text-center" style={{ color: BRAND_COLORS.borderDivider }}>No patients for you today yet.</p>
+          ) : (
+            <ul className="divide-y" style={{ borderColor: BRAND_COLORS.lightBackground }}>
+              {patients.map((p) => (
+                <li key={p.id}>
+                  <Link href={`/patients/${p.id}`} className="flex items-center justify-between px-4 py-3 hover:bg-[#F2F4F6]">
+                    <span className="text-sm font-medium" style={{ color: BRAND_COLORS.bodyText }}>{p.fullName}</span>
+                    <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+                      {p.patientId} · {formatAge(p.dateOfBirth)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export default async function PatientsPage({ searchParams }: Props) {
   const session = await requireSession()
+  const scopedIds = await allowedPatientIds(session)
+  if (scopedIds) return <TodaysPatients ids={scopedIds} />
   const { q = "", stage: rawStage, page: rawPage, scope, from, to } = await searchParams
 
   const isSearching = q.trim().length >= 2

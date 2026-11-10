@@ -621,7 +621,7 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
                           <optgroup key={cat} label={cat}>
                             {treats.map((tr) => (
                               <option key={tr.id} value={tr.id}>
-                                {tr.name} (₹{tr.defaultAmount.toLocaleString("en-IN")})
+                                {tr.name}{tr.defaultAmount > 0 && ` (₹${tr.defaultAmount.toLocaleString("en-IN")})`}
                               </option>
                             ))}
                           </optgroup>

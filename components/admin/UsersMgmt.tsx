@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { UserAccessDialog } from "@/components/admin/UserAccessDialog"
 import { useRouter } from "next/navigation"
 import { createUserAction, toggleUserActiveAction, resetPasswordAction, UserFormState } from "@/actions/users"
 import { BRAND_COLORS } from "@/lib/constants"
@@ -12,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Loader2, Plus, UserCog, KeyRound, Power } from "lucide-react"
 import { toast } from "sonner"
 
-interface User { id: string; name: string; email: string; role: string; isActive: boolean; branch: { name: string } }
+interface User { id: string; name: string; email: string; role: string; isActive: boolean; branch: { name: string }; permissions?: unknown }
 interface Branch { id: string; name: string }
 
 const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
@@ -175,6 +176,9 @@ export function UsersMgmt({ users, branches, currentUserId }: { users: User[]; b
                   <div className="flex items-center gap-2">
                     {!u.isActive && (
                       <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-400">Inactive</span>
+                    )}
+                    {(u.role === "DOCTOR" || u.role === "RECEPTIONIST") && (
+                      <UserAccessDialog user={{ id: u.id, name: u.name, role: u.role, permissions: u.permissions }} />
                     )}
                     <button onClick={() => handleResetPassword(u.id)} disabled={isPending}
                       className="p-1.5 rounded hover:bg-gray-100" title="Reset Password">

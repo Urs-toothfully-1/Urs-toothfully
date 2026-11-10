@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { templateService } from "@/server/services/whatsapp/template.service"
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ templateId: string }> }) {
   try {
-    await requireRole(["ADMIN", "RECEPTIONIST"])
+    await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp"))
     const { templateId } = await params
     const template = await templateService.getById(templateId)
     if (!template) return NextResponse.json({ error: "Not found" }, { status: 404 })

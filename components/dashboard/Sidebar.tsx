@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import type { PermissionKey, Perms } from "@/lib/permissions"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Logo } from "@/components/shared/Logo"
@@ -21,6 +22,8 @@ interface NavItem {
   matchPrefix?: boolean
   /** Grouping header; "" = ungrouped main items shown first with no label */
   section?: string
+  /** Hidden when the user's access settings switch this off. */
+  perm?: PermissionKey
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -29,10 +32,10 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Reception", href: "/reception", icon: LayoutDashboard, roles: ["RECEPTIONIST"] },
   { label: "My Queue", href: "/doctor", icon: Stethoscope, roles: ["DOCTOR"] },
   { label: "My Signature", href: "/doctor/signature", icon: PenLine, roles: ["DOCTOR"] },
-  { label: "Templates", href: "/templates", icon: LibraryBig, roles: ["DOCTOR"] },
+  { label: "Templates", href: "/templates", icon: LibraryBig, roles: ["DOCTOR"], perm: "prescriptions" },
   { label: "Patients", href: "/patients", icon: Users, roles: ["ADMIN", "DOCTOR", "RECEPTIONIST"] },
-  { label: "Appointments", href: "/appointments", icon: CalendarDays, roles: ["ADMIN", "DOCTOR", "RECEPTIONIST"] },
-  { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle, roles: ["RECEPTIONIST"], matchPrefix: true },
+  { label: "Appointments", href: "/appointments", icon: CalendarDays, roles: ["ADMIN", "DOCTOR", "RECEPTIONIST"], perm: "appointments" },
+  { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle, roles: ["RECEPTIONIST"], matchPrefix: true, perm: "whatsapp" },
   // Operations (admin)
   { label: "Queue", href: "/reception", icon: ClipboardList, roles: ["ADMIN"], section: "Operations" },
   { label: "Accounting", href: "/admin/accounting", icon: BookOpen, roles: ["ADMIN"], section: "Operations" },
@@ -71,12 +74,13 @@ interface SidebarProps {
   variant?: "desktop" | "drawer"
   /** Called after a nav link is clicked — used by the mobile drawer to close itself */
   onNavigate?: () => void
+  perms?: Perms
 }
 
-export function Sidebar({ role, branchName, variant = "desktop", onNavigate }: SidebarProps) {
+export function Sidebar({ role, branchName, variant = "desktop", onNavigate, perms }: SidebarProps) {
   const pathname = usePathname()
-  const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role))
-  const canRegister = role === "ADMIN" || role === "RECEPTIONIST"
+  const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role) && (!item.perm || perms?.[item.perm] !== false))
+  const canRegister = role === "ADMIN" || (role === "RECEPTIONIST" && perms?.editPatients !== false)
 
   // Group visible items by section, preserving declaration order
   const sections: { title: string; items: NavItem[] }[] = []

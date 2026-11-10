@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { whatsappMessageRepository } from "@/server/repositories/whatsapp-message.repository"
 import { whatsappQueueService } from "@/server/services/whatsapp/queue.service"
 import type { WhatsAppMessageStatus } from "@prisma/client"
 
 export async function GET(request: NextRequest) {
   try {
-    await requireRole(["ADMIN", "RECEPTIONIST"])
+    await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp"))
     const sp = request.nextUrl.searchParams
     const result = await whatsappMessageRepository.findMany({
       status: (sp.get("status") as WhatsAppMessageStatus) ?? undefined,
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   if (!viaCron) {
     try {
-      await requireRole(["ADMIN", "RECEPTIONIST"])
+      await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp"))
     } catch {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

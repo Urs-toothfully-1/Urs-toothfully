@@ -5,6 +5,7 @@ import { logoutAction } from "@/actions/auth"
 import type { Role } from "@/lib/session"
 import { LogOut, Loader2, ChevronDown, Building2 } from "lucide-react"
 import { MobileSidebar } from "@/components/dashboard/MobileSidebar"
+import type { PermissionKey, Perms } from "@/lib/permissions"
 import { branchColor } from "@/lib/branch-colors"
 
 interface HeaderProps {
@@ -34,7 +35,7 @@ function getInitials(name: string): string {
     .join("")
 }
 
-export function Header({ userName, role, branchName }: HeaderProps) {
+export function Header({ userName, role, branchName, perms }: HeaderProps & { perms?: Perms }) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const menuRef = useRef<HTMLDivElement>(null)
@@ -65,7 +66,7 @@ export function Header({ userName, role, branchName }: HeaderProps) {
     <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-white border-b border-[#E0E3E5] flex-shrink-0 print:hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
       {/* Left — hamburger (mobile) + branch chip (Stitch style) */}
       <div className="flex items-center gap-3">
-        <MobileSidebar role={role} branchName={branchName} />
+        <MobileSidebar role={role} branchName={branchName} perms={perms} />
         <div
           className="flex items-center gap-2 rounded-lg px-3 py-1.5"
           style={{ backgroundColor: branchColor(branchName).bg }}

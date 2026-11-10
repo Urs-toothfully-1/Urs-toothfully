@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation"
+import { assertPatientInScope } from "@/server/services/patient-scope.service"
 import { getSession } from "@/lib/auth"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 
@@ -11,10 +12,12 @@ export default async function EstimateWizardRedirect({ params }: Props) {
   const session = await getSession()
   if (!session) redirect("/login")
   if (session.role === "RECEPTIONIST") redirect("/reception")
+  if (!session.perms.estimates) notFound()
 
   const { estimateId } = await params
   const estimate = await estimateRepository.findById(estimateId)
   if (!estimate) notFound()
+  await assertPatientInScope(session, estimate.patientId)
 
   redirect(`/doctor/consultation/${estimate.visitId}`)
 }

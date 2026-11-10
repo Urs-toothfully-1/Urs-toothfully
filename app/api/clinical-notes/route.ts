@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { clinicalNotesRepository } from "@/server/repositories/clinical-notes.repository"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
@@ -24,7 +24,7 @@ async function patientBelongsToBranch(patientId: string, branchId: string): Prom
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole(["ADMIN", "DOCTOR"])
+    const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("clinicalNotes"))
     const patientId = request.nextUrl.searchParams.get("patientId")
     const visitId = request.nextUrl.searchParams.get("visitId")
 
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole(["ADMIN", "DOCTOR"])
+    const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("clinicalNotes"))
     const raw = await request.json()
 
     const parsed = createNoteSchema.safeParse(raw)

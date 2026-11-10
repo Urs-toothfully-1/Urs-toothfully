@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { paymentService } from "@/server/services/payment.service"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { paymentAgreementRepository } from "@/server/repositories/payment-agreement.repository"
@@ -21,7 +21,7 @@ export async function collectConsultationFeeAction(
   _prev: PaymentFormState,
   formData: FormData
 ): Promise<PaymentFormState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("collectPayments")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   const visitId = formData.get("visitId")?.toString()
@@ -73,7 +73,7 @@ export async function collectTreatmentPaymentAction(
   _prev: PaymentFormState,
   formData: FormData
 ): Promise<PaymentFormState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("collectPayments")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   const estimateId = formData.get("estimateId")?.toString()
@@ -137,7 +137,7 @@ export async function collectStagePaymentAction(
   _prev: PaymentFormState,
   formData: FormData
 ): Promise<PaymentFormState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("collectPayments")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   const estimateId = formData.get("estimateId")?.toString()

@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { assertPatientInScope } from "@/server/services/patient-scope.service"
 import { notFound, redirect } from "next/navigation"
 import { requireRole } from "@/lib/auth"
 import { prescriptionService } from "@/server/services/prescription.service"
@@ -17,8 +18,12 @@ type Props = { searchParams: Promise<{ visitId?: string }> }
 
 export default async function NewPrescriptionPage({ searchParams }: Props) {
   const session = await requireRole(["ADMIN", "DOCTOR"])
+  if (!session.perms.prescriptions) redirect("/doctor")
   const { visitId } = await searchParams
   if (!visitId) redirect("/doctor")
+  const scopeVisit = await prisma.patientVisit.findUnique({ where: { id: visitId }, select: { patientId: true } })
+  if (!scopeVisit) notFound()
+  await assertPatientInScope(session, scopeVisit.patientId)
 
   // If this visit already has a prescription, open it instead of making another.
   const existing = await prescriptionService.getByVisit(visitId)

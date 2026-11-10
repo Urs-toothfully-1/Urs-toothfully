@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { redirect } from "next/navigation"
 import { requireRole } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { TemplatesManager } from "@/components/templates/TemplatesManager"
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic"
 
 export default async function TemplatesPage() {
   const session = await requireRole(["ADMIN", "DOCTOR"])
+  if (!session.perms.prescriptions) redirect("/doctor")
 
   // Archived entries are included so they can be restored from here — the
   // prescription pickers filter them out, this page is where they live.

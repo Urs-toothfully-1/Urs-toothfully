@@ -1,5 +1,6 @@
 import { Metadata } from "next"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { requireSession } from "@/lib/auth"
 import { appointmentService } from "@/server/services/appointment.service"
 import { appointmentRequestService } from "@/server/services/appointment-request.service"
@@ -27,6 +28,7 @@ interface Props {
 
 export default async function AppointmentsPage({ searchParams }: Props) {
   const session = await requireSession()
+  if (!session.perms.appointments) redirect(session.role === "DOCTOR" ? "/doctor" : "/reception")
   const { date: rawDate, month: rawMonth, scope, view: rawView } = await searchParams
 
   const todayStr = istTodayStr()

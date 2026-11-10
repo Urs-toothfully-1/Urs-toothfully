@@ -1,7 +1,7 @@
 "use server"
 
 import { z } from "zod"
-import { getSession } from "@/lib/auth"
+import { getSession, gate } from "@/lib/auth"
 import { paymentAgreementService } from "@/server/services/payment-agreement.service"
 import { PaymentStage } from "@/lib/payment-agreement"
 
@@ -42,6 +42,7 @@ export async function savePaymentAgreementAction(
   if (!session || !["ADMIN", "RECEPTIONIST", "DOCTOR"].includes(session.role)) {
     return { error: "Unauthorised" }
   }
+  try { gate("prices", "estimates")(session) } catch { return { error: "Unauthorised" } }
 
   let parsed: z.infer<typeof saveSchema>
   try {

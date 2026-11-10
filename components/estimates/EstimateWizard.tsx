@@ -68,6 +68,8 @@ interface Props {
   /** Top of the quoted range; null = fixed price. */
   estimateTotalMax?: number | null
   paymentOptions?: PaymentOption[]
+  /** Doctor without estimate access: only the prescription step, then Finish. */
+  prescriptionOnly?: boolean
 }
 
 const STEPS = [
@@ -88,6 +90,7 @@ export function EstimateWizard({
   invoiceBilling = true,
   estimateTotalMax = null,
   paymentOptions = [],
+  prescriptionOnly = false,
 }: Props) {
   const [step, setStep] = useState(1)
   const [isFinishing, startFinishing] = useTransition()
@@ -182,7 +185,7 @@ export function EstimateWizard({
   }
 
   function goToStep(n: number) {
-    if (n === step) return
+    if (n === step || (prescriptionOnly && n > 1)) return
     if (step === 1) { savePrescriptionThen(() => setStep(n)); return }
     if (step === 2 && n < 2) {
       if (estimateRef.current?.isDirty() && !window.confirm("Discard the unsaved estimate changes?")) return
@@ -198,6 +201,12 @@ export function EstimateWizard({
     if (step === 2 && estimateRef.current?.hasItems() &&
       !window.confirm("Finish WITHOUT an estimate? The treatments entered on this step will not be saved.")) return
     startFinishing(async () => {
+      // Save what's typed on the prescription step first — finishing used to
+      // complete the visit and drop an unsaved prescription.
+      if (step === 1 && prescriptionId && !(await prescRef.current?.save())) {
+        toast.error("Could not save prescription — please review the entries.")
+        return
+      }
       if (!queueId) { router.push("/doctor"); return }
       const result = await updateQueueStatusAction(queueId, "COMPLETED")
       if (result.success) {
@@ -254,7 +263,7 @@ export function EstimateWizard({
           </div>
         </div>
         <div className="flex items-center gap-1 border-t pt-2" style={{ borderColor: BRAND_COLORS.lightBackground }}>
-        {STEPS.map(({ n, label, icon: Icon }, idx) => {
+        {(prescriptionOnly ? STEPS.slice(0, 1) : STEPS).map(({ n, label, icon: Icon }, idx, shown) => {
           const done = n < step
           const active = n === step
           return (
@@ -286,7 +295,7 @@ export function EstimateWizard({
                 </div>
                 <Icon className="h-4 w-4 ml-auto hidden sm:block" style={{ color: active ? BRAND_COLORS.primaryTeal : BRAND_COLORS.borderDivider }} />
               </button>
-              {idx < STEPS.length - 1 && (
+              {idx < shown.length - 1 && (
                 <ChevronRight className="h-4 w-4 flex-shrink-0 mx-1" style={{ color: BRAND_COLORS.borderDivider }} />
               )}
             </div>
@@ -433,20 +442,21 @@ export function EstimateWizard({
         <div className="flex items-center gap-3">
           {step === 1 && (
             <>
-              {!hasEstimate && (
-                <Button type="button" variant="outline" onClick={finishRxOnly} disabled={isFinishing} className="gap-2">
+              {(!hasEstimate || prescriptionOnly) && (
+                <Button type="button" variant={prescriptionOnly ? "default" : "outline"} onClick={finishRxOnly} disabled={isFinishing} className="gap-2"
+                  style={prescriptionOnly ? { backgroundColor: BRAND_COLORS.primaryTeal, color: "white" } : undefined}>
                   {isFinishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  Finish (Prescription only)
+                  {prescriptionOnly ? "Save & Finish" : "Finish (Prescription only)"}
                 </Button>
               )}
-              <Button
+              {!prescriptionOnly && <Button
                 type="button"
                 onClick={() => savePrescriptionThen(() => setStep(2))}
                 className="gap-2 text-white"
                 style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
               >
                 Save &amp; Next: Estimate <ArrowRight className="h-4 w-4" />
-              </Button>
+              </Button>}
             </>
           )}
           {step === 2 && (

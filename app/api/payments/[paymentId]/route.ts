@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { paymentRepository } from "@/server/repositories/payment.repository"
 import { paymentService } from "@/server/services/payment.service"
 import { prisma } from "@/lib/prisma"
@@ -8,7 +8,7 @@ type Params = { params: Promise<{ paymentId: string }> }
 
 export async function GET(_req: NextRequest, { params }: Params) {
   try {
-    await requireRole(["ADMIN", "RECEPTIONIST", "DOCTOR"])
+    await requireRole(["ADMIN", "RECEPTIONIST", "DOCTOR"]).then(gate("payments"))
     const { paymentId } = await params
     const payment = await paymentRepository.findById(paymentId)
     if (!payment) return NextResponse.json({ error: "Not found" }, { status: 404 })

@@ -1,5 +1,6 @@
 import { Metadata } from "next"
 import Link from "next/link"
+import { notFound } from "next/navigation"
 import { requireSession } from "@/lib/auth"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { EstimateSummaryCard } from "@/components/estimates/EstimateSummaryCard"
@@ -13,6 +14,7 @@ type Props = { params: Promise<{ patientId: string }> }
 
 export default async function EstimatesPage({ params }: Props) {
   const session = await requireSession()
+  if (!session.perms.prices) notFound()
   const { patientId } = await params
   const estimates = await estimateRepository.findByPatient(patientId)
 

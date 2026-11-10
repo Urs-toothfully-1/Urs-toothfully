@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { dentalHistoryRepository } from "@/server/repositories/dental-history.repository"
 import { extractDentalHistoryData } from "@/lib/dental-history-form"
 
@@ -15,7 +15,7 @@ export async function saveDentalHistoryAction(
   _prevState: DentalHistoryFormState,
   formData: FormData
 ): Promise<DentalHistoryFormState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("editPatients")).catch(() => null)
   if (!session) return { error: "You do not have permission to update dental history." }
 
   const data = extractDentalHistoryData(formData)

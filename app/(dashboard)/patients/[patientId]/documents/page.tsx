@@ -16,6 +16,7 @@ type Props = { params: Promise<{ patientId: string }> }
 
 export default async function DocumentsPage({ params }: Props) {
   const session = await requireSession()
+  if (!session.perms.documents) notFound()
   const { patientId } = await params
 
   // Editing is open to any doctor/admin from here, with no queue involved — the

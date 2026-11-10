@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { redirect } from "next/navigation"
 import { requireRole } from "@/lib/auth"
 import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
 import { BRAND_COLORS } from "@/lib/constants"
@@ -22,6 +23,7 @@ function formatDeliveryTime(seconds: number | null): string {
 
 export default async function WhatsAppOverviewPage() {
   const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+  if (!session.perms.whatsapp) redirect("/reception")
   const overview = await whatsappService.getOverview()
 
   const isAdmin = session.role === "ADMIN"

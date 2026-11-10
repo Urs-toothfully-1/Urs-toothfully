@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { assertPatientInScope } from "@/server/services/patient-scope.service"
 import { owedAmount } from "@/lib/estimate-owed"
 import { paymentService } from "@/server/services/payment.service"
 import { redirect, notFound } from "next/navigation"
@@ -24,6 +25,7 @@ type Props = { searchParams: Promise<{ patientId?: string; visitId?: string; est
 
 export default async function CollectPaymentPage({ searchParams }: Props) {
   const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+  if (!session.perms.collectPayments) redirect("/reception")
   const { patientId, visitId, estimateId } = await searchParams
 
   if (!patientId) {
@@ -32,6 +34,7 @@ export default async function CollectPaymentPage({ searchParams }: Props) {
 
   const patient = await patientRepository.findById(patientId)
   if (!patient) notFound()
+  await assertPatientInScope(session, patientId)
 
   const [consultationFee, estimates, visits, existingConsultationPayment] = await Promise.all([
     settingsRepository.get("consultation_fee", session.branchId),

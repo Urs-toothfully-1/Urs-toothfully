@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { redirect } from "next/navigation"
 import { requireRole } from "@/lib/auth"
 import { templateService } from "@/server/services/whatsapp/template.service"
 import { BRAND_COLORS } from "@/lib/constants"
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic"
 
 export default async function WhatsAppTemplatesPage() {
   const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+  if (!session.perms.whatsapp) redirect("/reception")
 
   // Seed the 20 default utility templates on first visit (idempotent)
   if (session.role === "ADMIN") {

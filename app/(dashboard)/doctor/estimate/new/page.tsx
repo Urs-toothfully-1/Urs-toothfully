@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { assertPatientInScope } from "@/server/services/patient-scope.service"
 import { requireRole } from "@/lib/auth"
 import { visitRepository } from "@/server/repositories/visit.repository"
 import { prescriptionService } from "@/server/services/prescription.service"
@@ -10,9 +11,11 @@ type Props = { searchParams: Promise<{ visitId?: string; patientId?: string }> }
 // doctor actually builds one), then open the consultation wizard.
 export default async function NewEstimatePage({ searchParams }: Props) {
   const session = await requireRole(["ADMIN", "DOCTOR"])
+  if (!session.perms.estimates) redirect("/doctor")
   const { visitId, patientId } = await searchParams
 
   if (!visitId || !patientId) redirect("/doctor")
+  await assertPatientInScope(session, patientId)
 
   const visit = await visitRepository.findById(visitId)
   if (!visit) redirect("/doctor")

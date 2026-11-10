@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
+import { canSeePatient } from "@/server/services/patient-scope.service"
 import { patientService } from "@/server/services/patient.service"
 import { patientRepository } from "@/server/repositories/patient.repository"
 import { z } from "zod"
@@ -20,8 +21,9 @@ type Params = { params: Promise<{ patientId: string }> }
 
 export async function GET(_request: NextRequest, { params }: Params) {
   try {
-    await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"])
+    const session = await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"])
     const { patientId } = await params
+    if (!(await canSeePatient(session, patientId))) return NextResponse.json({ error: "Patient not found" }, { status: 404 })
     const patient = await patientRepository.findById(patientId)
     if (!patient) return NextResponse.json({ error: "Patient not found" }, { status: 404 })
     return NextResponse.json({ patient })
@@ -34,6 +36,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   try {
     const session = await requireRole(["ADMIN", "RECEPTIONIST"])
     const { patientId } = await params
+    if (!session.perms.editPatients || !(await canSeePatient(session, patientId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const raw = await request.json()
 
     const parsed = updatePatientSchema.safeParse(raw)

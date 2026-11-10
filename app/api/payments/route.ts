@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { paymentService } from "@/server/services/payment.service"
 import { paymentRepository } from "@/server/repositories/payment.repository"
 import { validatePaymentInput } from "@/lib/payment-guard"
@@ -7,7 +7,7 @@ import { Decimal } from "@prisma/client/runtime/library"
 
 export async function GET(request: NextRequest) {
   try {
-    await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"])
+    await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"]).then(gate("payments"))
     const patientId = request.nextUrl.searchParams.get("patientId")
     if (!patientId) return NextResponse.json({ error: "patientId required" }, { status: 400 })
     const payments = await paymentRepository.findByPatient(patientId)
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+    const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("collectPayments"))
     const body = await request.json()
 
     validatePaymentInput(body, session.role)

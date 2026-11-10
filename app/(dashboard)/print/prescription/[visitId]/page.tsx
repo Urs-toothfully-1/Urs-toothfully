@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { assertPatientInScope } from "@/server/services/patient-scope.service"
 import { notFound, redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
@@ -52,6 +53,7 @@ export default async function PrintPrescriptionPage({ params, searchParams }: Pr
   })
 
   if (!visit) notFound()
+  await assertPatientInScope(session, visit.patientId)
 
   const record = await prisma.prescriptionRecord.findFirst({
     where: { visitId },

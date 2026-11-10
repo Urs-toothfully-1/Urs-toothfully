@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { assertPatientInScope } from "@/server/services/patient-scope.service"
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { getSession } from "@/lib/auth"
@@ -26,9 +27,10 @@ export default async function PrescriptionPage({ params }: Props) {
   const { prescriptionId } = await params
   const prescription = await prescriptionService.getById(prescriptionId)
   if (!prescription) notFound()
+  await assertPatientInScope(session, prescription.patientId)
 
   const data = (prescription.prescriptionData ?? {}) as unknown as PrescriptionData
-  const canEdit = session.role === "ADMIN" || session.role === "DOCTOR"
+  const canEdit = session.role === "ADMIN" || (session.role === "DOCTOR" && session.perms.prescriptions)
 
   // Version = chronological ordinal among this patient's prescriptions (v1, v2, …)
   const prescriptionVersion = await prisma.prescriptionRecord.count({

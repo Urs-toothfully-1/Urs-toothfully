@@ -2,14 +2,14 @@
 
 import { revalidatePath } from "next/cache"
 import { ZodError } from "zod"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { invoiceService } from "@/server/services/invoice.service"
 
 /** Bill treatment done at a visit. Doctor at the chair; reception/admin may bill on her instruction. */
 export async function createInvoiceAction(
   input: unknown
 ): Promise<{ success?: boolean; invoiceId?: string; invoiceNo?: string; error?: string }> {
-  const session = await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"]).then(gate("prices", "collectPayments")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
   try {
     const inv = await invoiceService.create(input, session.userId)

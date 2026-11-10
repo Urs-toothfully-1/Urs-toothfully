@@ -2,6 +2,7 @@ import { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { assertPatientInScope } from "@/server/services/patient-scope.service"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { treatmentRepository } from "@/server/repositories/treatment.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
@@ -22,6 +23,8 @@ export default async function ConsultationPage({ params }: Props) {
   const session = await getSession()
   if (!session) redirect("/login")
   if (session.role === "RECEPTIONIST") redirect("/reception")
+  if (!session.perms.prescriptions) redirect("/doctor")
+  const rxOnly = !session.perms.estimates
 
   const { visitId } = await params
 
@@ -34,6 +37,7 @@ export default async function ConsultationPage({ params }: Props) {
     },
   })
   if (!visit) notFound()
+  await assertPatientInScope(session, visit.patientId)
 
   // Ensure a prescription exists for this visit
   let prescription = await prescriptionService.getByVisit(visitId)
@@ -42,7 +46,8 @@ export default async function ConsultationPage({ params }: Props) {
   }
 
   // Estimate is optional — it may not exist yet (prescription-only consultation)
-  const existing = await estimateRepository.findByVisit(visitId)
+  // Without estimate access nothing about the estimate (or its prices) is loaded.
+  const existing = rxOnly ? null : await estimateRepository.findByVisit(visitId)
   const estimate = existing ? await estimateRepository.findById(existing.id) : null
 
   const [paymentAgreement, queueEntry, examTemplates, treatments, allowDisc] = await Promise.all([
@@ -80,7 +85,7 @@ export default async function ConsultationPage({ params }: Props) {
 
   return (
     <>
-    <div className="mb-3"><ReferralPanel patientId={visit.patientId} canReward /></div>
+    {session.perms.prices && <div className="mb-3"><ReferralPanel patientId={visit.patientId} canReward /></div>}
     <EstimateWizard
       estimateId={estimate?.id ?? null}
       estimateNo={estimate?.estimateNo ?? null}
@@ -112,7 +117,7 @@ export default async function ConsultationPage({ params }: Props) {
       previousPrescription={previousPrescription}
       initialTemplates={examTemplates}
       treatments={(treatments as any[]).map((t) => ({
-        id: t.id, category: t.category, name: t.name, defaultAmount: Number(t.defaultAmount),
+        id: t.id, category: t.category, name: t.name, defaultAmount: session.perms.prices ? Number(t.defaultAmount) : 0,
       }))}
       allowDiscount={(allowDisc ?? "true") === "true"}
       paymentAgreementStages={(paymentAgreement?.stages ?? []) as PaymentStage[]}
@@ -125,6 +130,7 @@ export default async function ConsultationPage({ params }: Props) {
       invoiceBilling={estimate ? estimate.invoiceBilling : true}
       estimateTotalMax={estimate?.totalMax != null ? Number(estimate.totalMax) : null}
       paymentOptions={paymentAgreement?.options ?? []}
+      prescriptionOnly={rxOnly}
     />
     </>
   )

@@ -21,7 +21,16 @@ type Props = Omit<React.ComponentProps<"input">, "value" | "onChange" | "type"> 
  * valid numbers are passed up as you type, and an empty box falls back to
  * `min` (or 0) only when you leave it.
  */
-export function NumberInput({ value, onValueChange, min, max, integer, commitOnBlur, onBlur, ...rest }: Props) {
+export function NumberInput({
+  value,
+  onValueChange,
+  min,
+  max,
+  integer,
+  commitOnBlur,
+  onBlur,
+  ...rest
+}: Props) {
   const [draft, setDraft] = React.useState<string | null>(null)
   const parse = (t: string) => (integer ? parseInt(t, 10) : parseFloat(t))
   const clamp = (n: number) => Math.min(max ?? Infinity, Math.max(min ?? -Infinity, n))

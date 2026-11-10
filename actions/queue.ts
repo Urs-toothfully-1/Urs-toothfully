@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { requireRole, getSession } from "@/lib/auth"
+import { requireRole, getSession, gate } from "@/lib/auth"
 import { queueService } from "@/server/services/queue.service"
 import { queueRepository } from "@/server/repositories/queue.repository"
 import { settingsRepository } from "@/server/repositories/settings.repository"
@@ -17,7 +17,7 @@ export async function addToQueueAction(
   _prev: AddToQueueState,
   formData: FormData
 ): Promise<AddToQueueState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("queue")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   const patientId = formData.get("patientId")?.toString()
@@ -88,7 +88,7 @@ export async function startTreatmentSessionAction(data: {
   doctorId: string
   pendingTreatments: string[]
 }): Promise<{ success: boolean; error?: string }> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("queue")).catch(() => null)
   if (!session) return { success: false, error: "Unauthorized" }
 
   const chiefComplaint = data.pendingTreatments.length

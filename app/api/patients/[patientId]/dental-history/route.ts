@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireRole } from "@/lib/auth"
+import { canSeePatient } from "@/server/services/patient-scope.service"
 import { dentalHistoryRepository } from "@/server/repositories/dental-history.repository"
 
 type Params = { params: Promise<{ patientId: string }> }
 
 export async function GET(_request: NextRequest, { params }: Params) {
   try {
-    await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"])
+    const session = await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"])
     const { patientId } = await params
+    if (!(await canSeePatient(session, patientId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     const [latest, all] = await Promise.all([
       dentalHistoryRepository.findLatestByPatient(patientId),
@@ -24,6 +26,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   try {
     const session = await requireRole(["ADMIN", "RECEPTIONIST"])
     const { patientId } = await params
+    if (!session.perms.editPatients || !(await canSeePatient(session, patientId))) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const body = await request.json()
 
     if (!body.consentGiven) {

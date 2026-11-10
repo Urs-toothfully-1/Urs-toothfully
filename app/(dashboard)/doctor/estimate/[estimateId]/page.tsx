@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { assertPatientInScope } from "@/server/services/patient-scope.service"
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { getSession } from "@/lib/auth"
@@ -22,10 +23,12 @@ type Props = { params: Promise<{ estimateId: string }> }
 export default async function EstimateDetailPage({ params }: Props) {
   const session = await getSession()
   if (!session) redirect("/login")
+  if (!session.perms.prices) notFound()
 
   const { estimateId } = await params
   const estimate = await estimateRepository.findById(estimateId)
   if (!estimate) notFound()
+  await assertPatientInScope(session, estimate.patientId)
 
   const [paymentAgreement, estimateVersion] = await Promise.all([
     paymentAgreementService.getOrSuggest(estimateId),

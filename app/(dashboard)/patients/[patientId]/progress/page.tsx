@@ -90,7 +90,7 @@ export default async function TreatmentProgressPage({ params }: Props) {
                 <span>{estimate.estimateNo}</span>
                 <div className="flex items-center gap-3 text-xs font-normal flex-wrap" style={{ color: BRAND_COLORS.borderDivider }}>
                   <span>{formatDate(estimate.createdAt)}</span>
-                  <span>Total: {formatCurrency(Number(estimate.total))}</span>
+                  {session.perms.prices && <span>Total: {formatCurrency(Number(estimate.total))}</span>}
                   {canStartSession && (estimate.items ?? []).some((i: any) => !["COMPLETED", "CANCELLED"].includes(i.status)) && (
                     <TreatmentSessionDialog
                       pendingItems={(estimate.items ?? [])
@@ -122,7 +122,8 @@ export default async function TreatmentProgressPage({ params }: Props) {
                         )}
                       </p>
                       <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-                        {item.category} · {item.quantity} × {formatCurrency(Number(item.unitRate))} = {formatCurrency(Number(item.amount))}
+                        {item.category} · {item.quantity}
+                        {session.perms.prices && <> × {formatCurrency(Number(item.unitRate))} = {formatCurrency(Number(item.amount))}</>}
                       </p>
                       {/* Sittings info hidden from patient view - only for doctor reference */}
                       {item.statusUpdatedBy && item.status !== "PENDING" && (

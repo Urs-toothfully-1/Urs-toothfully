@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { patientService, createPatientSchema } from "@/server/services/patient.service"
 import { extractDentalHistoryData } from "@/lib/dental-history-form"
 import { validateMobile } from "@/lib/whatsapp/phone"
@@ -26,7 +26,7 @@ export async function registerPatientAction(
   _prevState: PatientFormState,
   formData: FormData
 ): Promise<PatientFormState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("editPatients")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   const raw = {
@@ -84,7 +84,7 @@ export async function registerPatientWithHistoryAction(
   _prevState: PatientFormState,
   formData: FormData
 ): Promise<PatientFormState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("editPatients")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   const raw = {
@@ -170,7 +170,7 @@ export async function updatePatientAction(
   _prevState: PatientFormState,
   formData: FormData
 ): Promise<PatientFormState & { success?: boolean }> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("editPatients")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   const raw = {

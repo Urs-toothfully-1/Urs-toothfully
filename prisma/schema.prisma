@@ -199,6 +199,9 @@ model User {
   doctorQualification String?   @db.VarChar(200)
   signatureData       String?   @db.Text // doctor's digital signature, base64 data URL
   isActive            Boolean   @default(true)
+  // Access restrictions set by an admin: { key: false } turns a role's feature off
+  // for this user. Null = full access for the role. See lib/permissions.ts.
+  permissions         Json?
   loginAttempts       Int       @default(0)
   lockedUntil         DateTime?
   createdAt           DateTime  @default(now())

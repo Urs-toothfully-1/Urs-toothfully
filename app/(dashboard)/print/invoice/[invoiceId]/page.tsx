@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { assertPatientInScope } from "@/server/services/patient-scope.service"
 import { notFound, redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { BRAND_COLORS } from "@/lib/constants"
@@ -22,6 +23,8 @@ export default async function PrintInvoicePage({ params }: Props) {
 
   const invoice = await invoiceService.getById(invoiceId)
   if (!invoice || invoice.isDeleted) notFound()
+  if (!session.perms.prices) notFound()
+  await assertPatientInScope(session, invoice.patientId)
 
   const subtotal = Number(invoice.subtotal)
   const discount = Number(invoice.discountAmount)

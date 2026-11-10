@@ -21,9 +21,11 @@ const TABS = [
 interface Props {
   patientId: string
   counts?: Record<string, number>
+  /** Tab hrefs the user's access settings hide (e.g. "/payments"). */
+  hidden?: string[]
 }
 
-export function ProfileTabs({ patientId, counts }: Props) {
+export function ProfileTabs({ patientId, counts, hidden = [] }: Props) {
   const pathname = usePathname()
   const base = `/patients/${patientId}`
 
@@ -32,7 +34,7 @@ export function ProfileTabs({ patientId, counts }: Props) {
       className="flex overflow-x-auto border-b"
       style={{ borderColor: BRAND_COLORS.lightBackground }}
     >
-      {TABS.map((tab) => {
+      {TABS.filter((tab) => !hidden.includes(tab.href)).map((tab) => {
         const href = `${base}${tab.href}`
         const isActive = tab.href === "" ? pathname === base : pathname === href || pathname.startsWith(href + "/")
 

@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth"
 import { patientService, createPatientSchema } from "@/server/services/patient.service"
 import { patientRepository } from "@/server/repositories/patient.repository"
 import { prisma } from "@/lib/prisma"
+import { canSeePatient, allowedPatientIds } from "@/server/services/patient-scope.service"
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +17,8 @@ export async function GET(request: NextRequest) {
     // Branch isolation: non-admin roles only see patients registered at their
     // own branch; ADMIN searches across all branches.
     const branchId = session.role === "ADMIN" ? undefined : session.branchId
-    const patients = await patientRepository.search(q, 1, branchId)
+    const [found, allowed] = await Promise.all([patientRepository.search(q, 1, branchId), allowedPatientIds(session)])
+    const patients = allowed ? found.filter((p) => allowed.has(p.id)) : found
     return NextResponse.json({ patients })
   } catch (err) {
     if (err instanceof Error && err.message === "UNAUTHORIZED") {
@@ -34,6 +36,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+    if (!session.perms.editPatients) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const body = await request.json()
 
     const parsed = createPatientSchema.safeParse(body)

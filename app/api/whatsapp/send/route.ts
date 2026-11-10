@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+    const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp"))
     const body = await request.json()
     const message = await whatsappService.sendManual({
       patientId: body.patientId,

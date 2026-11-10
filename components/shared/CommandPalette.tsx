@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/command"
 import { useDebouncedCallback } from "@/lib/hooks/use-debounced-callback"
 import type { Role } from "@/lib/session"
+import type { PermissionKey, Perms } from "@/lib/permissions"
 import {
   BarChart2, CalendarDays, ClipboardList, CreditCard, LayoutDashboard,
   Loader2, MessageCircle, User, UserPlus, Users,
@@ -24,22 +25,23 @@ interface NavCommand {
   href: string
   icon: React.ComponentType<{ className?: string }>
   roles: Role[]
+  perm?: PermissionKey
 }
 
 const NAV_COMMANDS: NavCommand[] = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard, roles: ["ADMIN"] },
-  { label: "Live Queue", href: "/reception", icon: ClipboardList, roles: ["ADMIN", "RECEPTIONIST"] },
+  { label: "Live Queue", href: "/reception", icon: ClipboardList, roles: ["ADMIN", "RECEPTIONIST"], perm: "queue" },
   { label: "My Queue", href: "/doctor", icon: ClipboardList, roles: ["DOCTOR"] },
   { label: "Patients", href: "/patients", icon: Users, roles: ["ADMIN", "DOCTOR", "RECEPTIONIST"] },
-  { label: "New Patient", href: "/patients/new", icon: UserPlus, roles: ["ADMIN", "RECEPTIONIST"] },
-  { label: "Appointments", href: "/appointments", icon: CalendarDays, roles: ["ADMIN", "DOCTOR", "RECEPTIONIST"] },
-  { label: "Collect Payment", href: "/reception/collect-payment", icon: CreditCard, roles: ["ADMIN", "RECEPTIONIST"] },
+  { label: "New Patient", href: "/patients/new", icon: UserPlus, roles: ["ADMIN", "RECEPTIONIST"], perm: "editPatients" },
+  { label: "Appointments", href: "/appointments", icon: CalendarDays, roles: ["ADMIN", "DOCTOR", "RECEPTIONIST"], perm: "appointments" },
+  { label: "Collect Payment", href: "/reception/collect-payment", icon: CreditCard, roles: ["ADMIN", "RECEPTIONIST"], perm: "collectPayments" },
   { label: "Reports", href: "/admin/reports", icon: BarChart2, roles: ["ADMIN"] },
-  { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle, roles: ["ADMIN", "RECEPTIONIST"] },
+  { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle, roles: ["ADMIN", "RECEPTIONIST"], perm: "whatsapp" },
 ]
 
 /** Global Ctrl/⌘+K palette: jump to pages or find a patient from anywhere. */
-export function CommandPalette({ role }: { role: Role }) {
+export function CommandPalette({ role, perms }: { role: Role; perms?: Perms }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -81,7 +83,7 @@ export function CommandPalette({ role }: { role: Role }) {
     router.push(href)
   }
 
-  const navItems = NAV_COMMANDS.filter((c) => c.roles.includes(role))
+  const navItems = NAV_COMMANDS.filter((c) => c.roles.includes(role) && (!c.perm || perms?.[c.perm] !== false))
 
   return (
     <CommandDialog

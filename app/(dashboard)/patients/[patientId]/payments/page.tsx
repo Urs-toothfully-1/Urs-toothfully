@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 import Link from "next/link"
 import { getSession } from "@/lib/auth"
-import { redirect } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import { paymentRepository } from "@/server/repositories/payment.repository"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { paymentAgreementService } from "@/server/services/payment-agreement.service"
@@ -22,6 +22,7 @@ type Props = { params: Promise<{ patientId: string }> }
 export default async function PaymentsPage({ params }: Props) {
   const session = await getSession()
   if (!session) redirect("/login")
+  if (!session.perms.payments) notFound()
 
   const { patientId } = await params
 
@@ -81,7 +82,7 @@ export default async function PaymentsPage({ params }: Props) {
     .reduce((s: number, p: P) => s + Number(p.amount), 0)
 
   const total = consultation + treatment + products
-  const canCollect = session.role === "RECEPTIONIST" || session.role === "ADMIN"
+  const canCollect = session.role === "ADMIN" || (session.role === "RECEPTIONIST" && session.perms.collectPayments)
 
   // Estimates with agreements that have at least one pending stage
   const estimatesWithSchedule = activeEstimates

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { estimateService, createEstimateSchema } from "@/server/services/estimate.service"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 
 export async function GET(request: NextRequest) {
   try {
-    await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"])
+    await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"]).then(gate("prices"))
     const patientId = request.nextUrl.searchParams.get("patientId")
     if (!patientId) return NextResponse.json({ error: "patientId required" }, { status: 400 })
     const estimates = await estimateRepository.findByPatient(patientId)
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole(["ADMIN", "DOCTOR"])
+    const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("estimates"))
     const body = await request.json()
     const parsed = createEstimateSchema.safeParse(body)
     if (!parsed.success) {

@@ -7,7 +7,7 @@ type Params = { params: Promise<{ estimateId: string }> }
 
 export async function GET(_req: NextRequest, { params }: Params) {
   try {
-    await getSession().then((s) => { if (!s) throw new Error("UNAUTHORIZED") })
+    await getSession().then((s) => { if (!s || !s.perms.prices) throw new Error("UNAUTHORIZED") })
     const { estimateId } = await params
     const estimate = await estimateRepository.findById(estimateId)
     if (!estimate) return NextResponse.json({ error: "Not found" }, { status: 404 })

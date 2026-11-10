@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { redirect } from "next/navigation"
 import { requireRole } from "@/lib/auth"
 import { whatsappMessageRepository } from "@/server/repositories/whatsapp-message.repository"
 import { templateService } from "@/server/services/whatsapp/template.service"
@@ -16,6 +17,7 @@ export default async function WhatsAppQueuePage({
   searchParams: Promise<{ status?: string; page?: string }>
 }) {
   const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+  if (!session.perms.whatsapp) redirect("/reception")
   const sp = await searchParams
 
   const statusFilter = sp.status && sp.status !== "ALL" ? sp.status : undefined
