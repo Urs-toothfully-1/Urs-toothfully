@@ -40,7 +40,7 @@ export default async function ClinicalNotesPage({ params }: Props) {
     visitRepository.findByPatient(patientId),
   ])
 
-  const visitOptions = visits.map((v: any) => ({ id: v.id, visitNo: v.visitNo }))
+  const visitOptions = visits.map((v: any) => ({ id: v.id, visitNo: v.visitNo, visitDate: new Date(v.visitDate).toISOString() }))
 
   return (
     <div className="space-y-4">

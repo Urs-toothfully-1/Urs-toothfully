@@ -67,7 +67,10 @@ export function ClinicalNoteCard({ note }: { note: Note }) {
         {note.content}
       </p>
       <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-        Immutable — recorded {new Date(note.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+        {/* ponytail: back-dated notes are stored at exactly noon UTC (see parseReceiptDate) — no time to show */}
+        {new Date(note.createdAt).toISOString().endsWith("T12:00:00.000Z")
+          ? "Immutable — back-dated entry"
+          : `Immutable — recorded ${new Date(note.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`}
       </p>
     </div>
   )

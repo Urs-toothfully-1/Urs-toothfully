@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { requireRole } from "@/lib/auth"
 import { clinicalNotesRepository } from "@/server/repositories/clinical-notes.repository"
+import { parseReceiptDate } from "@/lib/payment-date"
 
 export type NoteFormState = {
   success?: boolean
@@ -21,6 +22,8 @@ export async function createClinicalNoteAction(
   const noteType = formData.get("noteType")?.toString() || "GENERAL"
   const content = formData.get("content")?.toString()?.trim()
   const toothNumbers = formData.get("toothNumbers")?.toString()?.trim().slice(0, 120) || null
+  // Past date → back-dated note; today/future/blank → recorded now.
+  const createdAt = parseReceiptDate(formData.get("noteDate")?.toString())
 
   if (!visitId || !content) {
     return { error: "Visit and note content are required." }
@@ -38,6 +41,7 @@ export async function createClinicalNoteAction(
       noteType,
       content,
       toothNumbers,
+      createdAt,
     })
 
     revalidatePath(`/patients/${patientId}/notes`)

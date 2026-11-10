@@ -29,6 +29,8 @@ export const clinicalNotesRepository = {
     noteType: string
     content: string
     toothNumbers?: string | null
+    /** Back-dated note (past day, stored at noon UTC); omitted = now. */
+    createdAt?: Date
   }) {
     return prisma.clinicalNote.create({
       data,
