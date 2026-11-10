@@ -72,7 +72,6 @@ function linesFor(est: BillableEstimate | undefined): PlannedLine[] {
 }
 
 export function CreateInvoiceButton({
-  patientId,
   visitId,
   estimates,
   rewards = [],

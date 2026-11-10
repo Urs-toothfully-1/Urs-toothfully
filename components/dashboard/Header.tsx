@@ -5,7 +5,7 @@ import { logoutAction } from "@/actions/auth"
 import type { Role } from "@/lib/session"
 import { LogOut, Loader2, ChevronDown, Building2 } from "lucide-react"
 import { MobileSidebar } from "@/components/dashboard/MobileSidebar"
-import type { PermissionKey, Perms } from "@/lib/permissions"
+import type { Perms } from "@/lib/permissions"
 import { branchColor } from "@/lib/branch-colors"
 
 interface HeaderProps {

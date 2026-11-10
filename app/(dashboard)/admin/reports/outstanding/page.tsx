@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { getOutstandingBalances } from "@/lib/reports/outstanding-balances"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { ChevronRight, AlertCircle } from "lucide-react"
 
 export const metadata: Metadata = { title: "Outstanding Balances" }

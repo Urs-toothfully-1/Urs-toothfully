@@ -6,7 +6,6 @@ import { getSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { prescriptionService } from "@/server/services/prescription.service"
-import { paymentAgreementService } from "@/server/services/payment-agreement.service"
 import { ShareActions } from "@/components/share/ShareActions"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
@@ -30,13 +29,10 @@ export default async function EstimateDetailPage({ params }: Props) {
   if (!estimate) notFound()
   await assertPatientInScope(session, estimate.patientId)
 
-  const [paymentAgreement, estimateVersion] = await Promise.all([
-    paymentAgreementService.getOrSuggest(estimateId),
-    // Version = chronological ordinal among this patient's estimates (v1, v2, …)
-    prisma.estimate.count({
-      where: { patientId: estimate.patientId, isDeleted: false, createdAt: { lte: estimate.createdAt } },
-    }),
-  ])
+  // Version = chronological ordinal among this patient's estimates (v1, v2, …)
+  const estimateVersion = await prisma.estimate.count({
+    where: { patientId: estimate.patientId, isDeleted: false, createdAt: { lte: estimate.createdAt } },
+  })
 
   // The prescription is auto-created with the estimate; lazily create it here
   // as a safety net for estimates saved before this feature existed.

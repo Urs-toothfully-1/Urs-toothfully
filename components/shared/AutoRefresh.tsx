@@ -31,9 +31,10 @@ export function AutoRefresh({
   const router = useRouter()
   const lastToken = useRef<string | null>(null)
   const inFlight = useRef(false)
-  const lastActivity = useRef(Date.now())
+  const lastActivity = useRef(0)
 
   useEffect(() => {
+    lastActivity.current = Date.now() // stamped on mount, not during render
     const check = async () => {
       if (document.visibilityState !== "visible") return
       if (Date.now() - lastActivity.current > idleMs) return // idle — stop polling

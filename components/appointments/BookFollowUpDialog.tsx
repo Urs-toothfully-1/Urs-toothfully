@@ -24,7 +24,7 @@ export function BookFollowUpDialog({ patientId, branchId, patientName }: Props) 
   // Side effects live in the action, not an effect: they belong to the submit
   // event, and reacting to `state` re-fired the toast whenever the effect's
   // dependencies changed identity.
-  const [state, formAction, pending] = useActionState(
+  const [, formAction, pending] = useActionState(
     async (prev: { success?: boolean; error?: string }, formData: FormData) => {
       const result = await createAppointmentAction(prev, formData)
       if (result.success) {

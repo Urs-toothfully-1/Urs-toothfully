@@ -192,7 +192,6 @@ async function run() {
         log("Tab CLICK navigates (client-side link)", tabNavOk, `URL after click: ${page.url()}`)
       } else {
         // Try by text
-        const estTabByText = page.locator("a", { hasText: "Estimates" }).first()
         const cnt = await page.locator("a", { hasText: "Estimates" }).count()
         log("Estimates tab link visible", cnt > 0, `${cnt} links found with text "Estimates"`)
       }

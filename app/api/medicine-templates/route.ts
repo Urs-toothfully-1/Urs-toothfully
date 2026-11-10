@@ -1,7 +1,7 @@
 import { getSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
   try {
     const session = await getSession()
     if (!session) {

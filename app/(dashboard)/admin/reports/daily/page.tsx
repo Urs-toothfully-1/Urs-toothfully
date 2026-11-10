@@ -7,7 +7,7 @@ import { isValidDateStr, istTodayStr } from "@/lib/ist"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChevronRight, CreditCard } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 
 export const metadata: Metadata = { title: "Daily Revenue Report" }
 export const dynamic = "force-dynamic"
@@ -31,8 +31,6 @@ export default async function DailyRevenueReportPage({ searchParams }: Props) {
     getDailyRevenue(date, branchId, basis),
   ])
 
-  const paymentTypes = ["CONSULTATION", "TREATMENT", "ADVANCE", "ADJUSTMENT", "PRODUCT"]
-  const modes = ["CASH", "UPI", "CARD", "BANK_TRANSFER"]
 
   return (
     <div className="space-y-5 max-w-4xl">

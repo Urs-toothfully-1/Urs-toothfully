@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireRole, gate } from "@/lib/auth"
 import { paymentRepository } from "@/server/repositories/payment.repository"
 import { paymentService } from "@/server/services/payment.service"
-import { prisma } from "@/lib/prisma"
 
 type Params = { params: Promise<{ paymentId: string }> }
 

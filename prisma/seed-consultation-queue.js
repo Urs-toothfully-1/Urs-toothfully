@@ -7,9 +7,6 @@ const prisma = new PrismaClient()
 const BRANCH_OUTRAM   = "branch-outram-0000-0000-000000000001"
 const BRANCH_ALIPORE  = "branch-alipo-0000-0000-000000000002"
 const BRANCH_SALTLAKE = "branch-saltl-0000-0000-000000000003"
-const DR_JASHWANT     = "user-drjas-00000-0000-000000000002"
-const DR_CHETNA       = "user-drche-00000-0000-000000000003"
-const DR_DISHA        = "user-drdis-00000-0000-000000000004"
 const REC_OUTRAM      = "user-recou-00000-0000-000000000005"
 
 // No doctor assigned — patients pay consultation fee first, then receptionist sends to doctor

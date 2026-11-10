@@ -1,12 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { ID_PREFIXES } from "@/lib/constants"
 
-async function getNextSequence(year: number, prefix: string): Promise<number> {
-  // Each entity type uses its own table to get current max ID
-  // This is a helper — callers pass the current max from their specific table
-  return 1
-}
-
 export function formatId(prefix: string, year: number, sequence: number): string {
   return `${prefix}-${year}-${String(sequence).padStart(5, "0")}`
 }

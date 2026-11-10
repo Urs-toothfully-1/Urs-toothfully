@@ -83,7 +83,7 @@ async function main() {
         })
 
         if (!existing) {
-          const created = await prisma.medicineTemplate.create({
+          await prisma.medicineTemplate.create({
             data: {
               branchId: branch.id,
               name: template.name,

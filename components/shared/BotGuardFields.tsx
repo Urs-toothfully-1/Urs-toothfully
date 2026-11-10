@@ -17,8 +17,8 @@ export function BotGuardFields() {
 
   // Stamped after mount so it reflects when a real browser loaded the form; a
   // value computed during SSR would reflect render/cache time instead.
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot mount stamp, no cascade
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot mount stamp, no cascade
     setLoadedAt(String(Date.now()))
   }, [])
 

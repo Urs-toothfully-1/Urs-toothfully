@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { PatientVisit, VisitStatus, VisitType } from "@prisma/client"
+import { VisitStatus, VisitType } from "@prisma/client"
 
 export const visitRepository = {
   async findById(id: string) {

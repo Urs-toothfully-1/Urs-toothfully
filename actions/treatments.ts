@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache"
 import { requireRole } from "@/lib/auth"
 import { treatmentRepository } from "@/server/repositories/treatment.repository"
-import { TREATMENT_CATEGORIES } from "@/lib/constants"
 import { z } from "zod"
 
 export type TreatmentFormState = { success?: boolean; error?: string }

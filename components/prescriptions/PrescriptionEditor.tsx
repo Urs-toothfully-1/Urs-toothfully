@@ -1,6 +1,6 @@
 "use client"
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useTransition } from "react"
+import { forwardRef, useEffect, useImperativeHandle, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { updatePrescriptionAction, saveNewVisitPrescriptionAction } from "@/actions/prescriptions"
 import { Alert, AlertDescription } from "@/components/ui/alert"

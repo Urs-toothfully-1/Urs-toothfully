@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth"
 import { patientService, createPatientSchema } from "@/server/services/patient.service"
 import { patientRepository } from "@/server/repositories/patient.repository"
 import { prisma } from "@/lib/prisma"
-import { canSeePatient, allowedPatientIds } from "@/server/services/patient-scope.service"
+import { allowedPatientIds } from "@/server/services/patient-scope.service"
 
 export async function GET(request: NextRequest) {
   try {

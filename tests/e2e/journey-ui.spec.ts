@@ -1,5 +1,4 @@
 import { test, expect, Page } from "@playwright/test"
-import { login } from "./helpers"
 
 /**
  * UI-level regression cover for the workflow fixes. Runs serially: each block

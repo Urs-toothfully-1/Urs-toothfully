@@ -41,7 +41,6 @@ function SubmitBtn() {
 }
 
 export function ConsultationFeeForm({ visitId, visitNo, patientId, branchId, defaultFee }: Props) {
-  const isPreQueue = !visitId
   const [state, formAction] = useActionState(collectConsultationFeeAction, {} as PaymentFormState)
 
   if (state.success && state.receiptId) {

@@ -10,6 +10,11 @@ const eslintConfig = defineConfig([
       // Boundary casts between Prisma rows and component props are intentional
       // in this codebase — keep them visible as warnings, not build-blockers.
       "@typescript-eslint/no-explicit-any": "warn",
+      // `_name` marks a value that's deliberately unused; `{ a, ...rest }` drops a field on purpose.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", ignoreRestSiblings: true },
+      ],
     },
   },
   {

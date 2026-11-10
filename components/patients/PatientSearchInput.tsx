@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useTransition } from "react"
+import { useTransition } from "react"
 import { Input } from "@/components/ui/input"
 import { Search, Loader2 } from "lucide-react"
 import { BRAND_COLORS } from "@/lib/constants"

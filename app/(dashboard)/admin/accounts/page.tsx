@@ -50,7 +50,10 @@ export default async function AccountsPage({ searchParams }: Props) {
     if (branchId) p.set("branch", branchId)
     if (sp.category && category) p.set("category", sp.category)
     p.set("from", fromStr); p.set("to", toStr)
-    for (const [k, v] of Object.entries(over)) v ? p.set(k, v) : p.delete(k)
+    for (const [k, v] of Object.entries(over)) {
+      if (v) p.set(k, v)
+      else p.delete(k)
+    }
     return `/admin/accounts?${p.toString()}`
   }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useTransition, useState, useEffect } from "react"
+import { useTransition, useState, useSyncExternalStore } from "react"
 import { updateSettingAction } from "@/actions/settings"
 import { BRAND_COLORS } from "@/lib/constants"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,8 +10,12 @@ import { toast } from "sonner"
 
 /** Shows the branch's public review-page URL (for QR codes / receipts) + copy. */
 function ReviewLinkRow({ slug }: { slug: string }) {
-  const [origin, setOrigin] = useState("")
-  useEffect(() => setOrigin(window.location.origin), [])
+  // Browser origin on the client, "" during server render — no effect needed.
+  const origin = useSyncExternalStore(
+    () => () => {},
+    () => window.location.origin,
+    () => ""
+  )
   const path = `/review/${slug}`
   const url = origin ? `${origin}${path}` : path
   return (

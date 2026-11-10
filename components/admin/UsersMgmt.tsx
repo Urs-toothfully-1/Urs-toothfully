@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import { Loader2, Plus, UserCog, KeyRound, Power } from "lucide-react"
 import { toast } from "sonner"
 

@@ -65,7 +65,10 @@ export function PotentialClientsMgmt({ rows, total, page, pageSize, counts, opte
 
   function go(patch: Record<string, string>) {
     const p = new URLSearchParams(sp.toString())
-    for (const [k, v] of Object.entries(patch)) (v ? p.set(k, v) : p.delete(k))
+    for (const [k, v] of Object.entries(patch)) {
+      if (v) p.set(k, v)
+      else p.delete(k)
+    }
     if (!("page" in patch)) p.delete("page")
     router.push(`${pathname}?${p.toString()}`)
   }
@@ -74,12 +77,20 @@ export function PotentialClientsMgmt({ rows, total, page, pageSize, counts, opte
   function toggleAll() {
     setSelected((s) => {
       const n = new Set(s)
-      for (const r of rows) (allOnPage ? n.delete(r.id) : n.add(r.id))
+      for (const r of rows) {
+        if (allOnPage) n.delete(r.id)
+        else n.add(r.id)
+      }
       return n
     })
   }
   function toggle(id: string) {
-    setSelected((s) => { const n = new Set(s); (n.has(id) ? n.delete(id) : n.add(id)); return n })
+    setSelected((s) => {
+      const n = new Set(s)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
   }
 
   function update(id: string, data: { status?: LeadStatus; whatsappOptIn?: boolean }) {
@@ -235,7 +246,7 @@ function ImportDialog() {
   const [result, setResult] = useState<{ created: number; updated: number; skipped: { row: number; reason: string }[] } | null>(null)
   const [pending, start] = useTransition()
 
-  const header = table[0] ?? []
+  const header = useMemo(() => table[0] ?? [], [table])
   const cols = useMemo(() => mapColumns(header), [header])
   const body = table.slice(1)
   const ready = cols.fullName !== undefined && cols.mobile !== undefined && body.length > 0

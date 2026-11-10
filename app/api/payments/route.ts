@@ -3,7 +3,6 @@ import { requireRole, gate } from "@/lib/auth"
 import { paymentService } from "@/server/services/payment.service"
 import { paymentRepository } from "@/server/repositories/payment.repository"
 import { validatePaymentInput } from "@/lib/payment-guard"
-import { Decimal } from "@prisma/client/runtime/library"
 
 export async function GET(request: NextRequest) {
   try {

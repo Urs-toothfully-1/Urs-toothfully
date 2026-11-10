@@ -1,6 +1,6 @@
 import { Metadata } from "next"
 import { assertPatientInScope } from "@/server/services/patient-scope.service"
-import { notFound, redirect } from "next/navigation"
+import { notFound } from "next/navigation"
 import Link from "next/link"
 import { requireRole } from "@/lib/auth"
 import { estimateRepository } from "@/server/repositories/estimate.repository"

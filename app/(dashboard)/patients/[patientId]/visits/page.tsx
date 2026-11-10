@@ -1,10 +1,8 @@
 import { Metadata } from "next"
-import Link from "next/link"
 import { requireSession } from "@/lib/auth"
 import { visitRepository } from "@/server/repositories/visit.repository"
 import { BRAND_COLORS } from "@/lib/constants"
 import { VISIT_TYPE_LABELS } from "@/lib/queue-helpers"
-import { formatDate } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
 import { Calendar } from "lucide-react"
 

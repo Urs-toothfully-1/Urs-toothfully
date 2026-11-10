@@ -1,4 +1,4 @@
-import { PrismaClient, Role, Gender } from "@prisma/client"
+import { PrismaClient, Role } from "@prisma/client"
 import { Decimal } from "@prisma/client/runtime/library"
 import bcrypt from "bcryptjs"
 
@@ -384,7 +384,6 @@ async function seedDemoPatients() {
   console.log("🌱 Seeding demo patients...")
 
   // Fixed seed IDs
-  const ADMIN  = "user-admin-00000-0000-000000000001"
   const OUTRAM = "branch-outram-0000-0000-000000000001"
   const ALIPORE = "branch-alipo-0000-0000-000000000002"
   const SALTLAKE = "branch-saltl-0000-0000-000000000003"

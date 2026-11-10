@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { Menu, X } from "lucide-react"
 import { Sidebar } from "@/components/dashboard/Sidebar"
-import type { PermissionKey, Perms } from "@/lib/permissions"
+import type { Perms } from "@/lib/permissions"
 import type { Role } from "@/lib/session"
 
 interface Props {
