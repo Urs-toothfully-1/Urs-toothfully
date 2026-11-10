@@ -6,6 +6,7 @@ import { updatePrescriptionAction, saveNewVisitPrescriptionAction } from "@/acti
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { NumberInput } from "@/components/ui/number-input"
 import { Textarea } from "@/components/ui/textarea"
 import { ToothSelector } from "@/components/dental/ToothSelector"
 import { MedicineTemplateSelector, type MedicineTemplate } from "./MedicineTemplateSelector"
@@ -649,11 +650,11 @@ export const PrescriptionEditor = forwardRef<PrescriptionEditorHandle, Props>(fu
                   {/* Qty */}
                   <div className="md:col-span-2 flex items-center gap-2">
                     <span className="text-xs font-medium shrink-0" style={{ color: BRAND_COLORS.borderDivider }}>Qty</span>
-                    <Input
-                      type="number"
+                    <NumberInput
+                      integer
                       min={1}
                       value={t.quantity}
-                      onChange={(e) => setTreatment(idx, "quantity", Math.max(1, parseInt(e.target.value) || 1))}
+                      onValueChange={(n) => setTreatment(idx, "quantity", n)}
                       className={`${cellCls} text-center`}
                     />
                   </div>

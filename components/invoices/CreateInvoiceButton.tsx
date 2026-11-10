@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { NumberInput } from "@/components/ui/number-input"
 import { Label } from "@/components/ui/label"
 import { FileText, Gift, Loader2, Plus, Trash2 } from "lucide-react"
 import { createInvoiceAction } from "@/actions/invoices"
@@ -244,13 +245,13 @@ export function CreateInvoiceButton({
                       </td>
                       <td className="px-2 py-2 text-xs" style={{ color: BRAND_COLORS.borderDivider }}>{formatRange(l.quoteMin, l.quoteMax)}</td>
                       <td className="px-2 py-1">
-                        <Input type="number" min={1} value={l.quantity} disabled={!l.checked}
-                          onChange={(e) => updatePlanned(l.estimateItemId, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                        <NumberInput integer min={1} value={l.quantity} disabled={!l.checked}
+                          onValueChange={(n) => updatePlanned(l.estimateItemId, { quantity: n })}
                           className={`${inputCls} text-right`} />
                       </td>
                       <td className="px-2 py-1">
-                        <Input type="number" min={0} value={l.unitRate} disabled={!l.checked}
-                          onChange={(e) => updatePlanned(l.estimateItemId, { unitRate: Math.max(0, parseFloat(e.target.value) || 0) })}
+                        <NumberInput min={0} value={l.unitRate} disabled={!l.checked}
+                          onValueChange={(n) => updatePlanned(l.estimateItemId, { unitRate: n })}
                           className={`${inputCls} text-right`} />
                       </td>
                     </tr>
@@ -267,8 +268,8 @@ export function CreateInvoiceButton({
                     onChange={(e) => updateExtra(l.key, { treatmentName: e.target.value })} className="col-span-5 h-8 text-sm" />
                   <Input placeholder="Tooth" value={l.toothNumber}
                     onChange={(e) => updateExtra(l.key, { toothNumber: e.target.value })} className="col-span-2 h-8 text-sm" />
-                  <Input type="number" min={1} value={l.quantity}
-                    onChange={(e) => updateExtra(l.key, { quantity: Math.max(1, parseInt(e.target.value) || 1) })} className={`col-span-1 ${inputCls} text-right`} />
+                  <NumberInput integer min={1} value={l.quantity}
+                    onValueChange={(n) => updateExtra(l.key, { quantity: n })} className={`col-span-1 ${inputCls} text-right`} />
                   <Input type="number" min={0} value={l.unitRate || ""} placeholder="Price"
                     onChange={(e) => updateExtra(l.key, { unitRate: Math.max(0, parseFloat(e.target.value) || 0) })} className={`col-span-3 ${inputCls} text-right`} />
                   <button type="button" onClick={() => setExtra((p) => p.filter((x) => x.key !== l.key))}

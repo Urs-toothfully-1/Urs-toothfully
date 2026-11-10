@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { updateItemSittingsAction } from "@/actions/estimates"
 import { BRAND_COLORS } from "@/lib/constants"
+import { NumberInput } from "@/components/ui/number-input"
 import { toothLabel } from "@/lib/teeth"
 import { Minus, Plus, Loader2, CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
@@ -129,11 +130,12 @@ export function SittingsTracker({ patientId, items: initialItems }: Props) {
             {/* Planned editor */}
             <label className="flex flex-col items-center gap-0.5 text-[10px] font-medium uppercase tracking-wide" style={{ color: BRAND_COLORS.borderDivider }}>
               Total planned
-              <input
-                type="number"
+              <NumberInput
+                integer
+                commitOnBlur
                 min={1}
                 value={item.plannedSittings}
-                onChange={(e) => changePlanned(item, parseInt(e.target.value))}
+                onValueChange={(n) => changePlanned(item, n)}
                 className="h-7 w-14 rounded border px-1.5 text-sm text-center normal-case"
                 style={{ borderColor: BRAND_COLORS.lightBackground, color: BRAND_COLORS.bodyText }}
               />

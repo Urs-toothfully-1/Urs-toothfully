@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom"
 import { createEstimateAction, updateEstimateAction, EstimateFormState } from "@/actions/estimates"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { NumberInput } from "@/components/ui/number-input"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, Loader2, Plus, Trash2, Save } from "lucide-react"
@@ -464,11 +465,11 @@ export const EstimateBuilder = forwardRef<EstimateBuilderHandle, Props>(function
 
                 {/* Sittings (planned) */}
                 <td className="px-2 py-2 w-20">
-                  <Input
-                    type="number"
+                  <NumberInput
+                    integer
                     min={1}
                     value={item.plannedSittings}
-                    onChange={(e) => handleChange(item._key, "plannedSittings", Math.max(1, parseInt(e.target.value) || 1))}
+                    onValueChange={(n) => handleChange(item._key, "plannedSittings", n)}
                     className={`${inputCls} text-center min-w-[52px]`}
                     title="Number of sittings planned for this treatment"
                   />
@@ -476,23 +477,21 @@ export const EstimateBuilder = forwardRef<EstimateBuilderHandle, Props>(function
 
                 {/* Rate */}
                 <td className="px-2 py-2 w-32">
-                  <Input
-                    type="number"
+                  <NumberInput
                     min={0}
                     step={0.01}
                     value={item.unitRate}
-                    onChange={(e) => handleChange(item._key, "unitRate", parseFloat(e.target.value) || 0)}
+                    onValueChange={(n) => handleChange(item._key, "unitRate", n)}
                     className={`${inputCls} text-right min-w-[84px]`}
                     aria-label="Rate from"
                   />
                   {/* Optional top of range — e.g. root canal 6,000 – 12,000 */}
-                  <Input
-                    type="number"
+                  <NumberInput
                     min={0}
                     step={0.01}
-                    value={item.unitRateMax ?? ""}
+                    value={item.unitRateMax || ""}
                     placeholder="up to (optional)"
-                    onChange={(e) => handleChange(item._key, "unitRateMax", parseFloat(e.target.value) || 0)}
+                    onValueChange={(n) => handleChange(item._key, "unitRateMax", n)}
                     className={`${inputCls} text-right min-w-[84px] mt-1 text-xs ${item.unitRateMax && item.unitRateMax <= item.unitRate ? "border-red-400" : ""}`}
                     title="Leave empty for a fixed price. The final price is set on the treatment invoice."
                     aria-label="Rate up to"

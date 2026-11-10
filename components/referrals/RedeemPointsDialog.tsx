@@ -8,6 +8,7 @@ import { BRAND_COLORS } from "@/lib/constants"
 import { REWARD_KINDS, isDiscountKind, rewardText, type RewardKind } from "@/lib/rewards"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { NumberInput } from "@/components/ui/number-input"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Gift, Loader2, Minus, Plus } from "lucide-react"
 
@@ -108,9 +109,9 @@ export function RedeemPointsDialog({
                 <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => setPoints((p) => Math.max(1, p - 1))} aria-label="Fewer points">
                   <Minus className="h-4 w-4" />
                 </Button>
-                <Input
-                  type="number" min={1} max={available} value={points}
-                  onChange={(e) => setPoints(Math.min(available, Math.max(1, parseInt(e.target.value) || 1)))}
+                <NumberInput
+                  integer min={1} max={available} value={points}
+                  onValueChange={setPoints}
                   className="h-9 w-20 text-center font-semibold" aria-label="Points to use"
                 />
                 <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => setPoints((p) => Math.min(available, p + 1))} aria-label="More points">

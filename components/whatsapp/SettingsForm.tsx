@@ -10,6 +10,7 @@ import { BRAND_COLORS } from "@/lib/constants"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { NumberInput } from "@/components/ui/number-input"
 import { toast } from "sonner"
 import { KeyRound, Loader2, PlugZap, RefreshCw, Save, ShieldAlert, Webhook, Copy } from "lucide-react"
 
@@ -255,34 +256,34 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Message Rate Limit (per min)</label>
-              <Input
-                type="number"
+              <NumberInput
+                integer
                 min={1}
                 max={600}
                 value={form.messageRateLimit}
-                onChange={(e) => set("messageRateLimit", Number(e.target.value))}
+                onValueChange={(n) => set("messageRateLimit", n)}
                 className="border-[#E0E3E5] bg-[#F2F4F6]"
               />
             </div>
             <div>
               <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Daily Sending Limit</label>
-              <Input
-                type="number"
+              <NumberInput
+                integer
                 min={1}
                 max={100000}
                 value={form.dailySendingLimit}
-                onChange={(e) => set("dailySendingLimit", Number(e.target.value))}
+                onValueChange={(n) => set("dailySendingLimit", n)}
                 className="border-[#E0E3E5] bg-[#F2F4F6]"
               />
             </div>
             <div>
               <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Maximum Retry Count</label>
-              <Input
-                type="number"
+              <NumberInput
+                integer
                 min={0}
                 max={10}
                 value={form.maxRetryCount}
-                onChange={(e) => set("maxRetryCount", Number(e.target.value))}
+                onValueChange={(n) => set("maxRetryCount", n)}
                 className="border-[#E0E3E5] bg-[#F2F4F6]"
               />
             </div>
