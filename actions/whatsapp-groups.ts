@@ -6,9 +6,16 @@ import { gate, requireRole } from "@/lib/auth"
 import { whatsappGroupService } from "@/server/services/whatsapp/group.service"
 
 /** Admin + reception (with WhatsApp access) manage groups; only admin deletes one. */
-const staff = () => requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp")).catch(() => null)
+const staff = () =>
+  requireRole(["ADMIN", "RECEPTIONIST"])
+    .then(gate("whatsapp"))
+    .catch(() => null)
 const msg = (e: unknown, fallback: string) =>
-  e instanceof ZodError ? e.issues[0]?.message ?? fallback : e instanceof Error ? e.message : fallback
+  e instanceof ZodError
+    ? (e.issues[0]?.message ?? fallback)
+    : e instanceof Error
+      ? e.message
+      : fallback
 const refresh = (id?: string) => {
   revalidatePath("/whatsapp/groups")
   if (id) revalidatePath(`/whatsapp/groups/${id}`)
@@ -86,7 +93,13 @@ export async function sendGroupMessageAction(id: string, templateId: string, var
   const session = await staff()
   if (!session) return { error: "Unauthorized" }
   try {
-    const res = await whatsappGroupService.send({ groupId: id, templateId, variables, branchId: session.branchId, userId: session.userId })
+    const res = await whatsappGroupService.send({
+      groupId: id,
+      templateId,
+      variables,
+      branchId: session.branchId,
+      userId: session.userId,
+    })
     refresh(id)
     return { success: true as const, ...res }
   } catch (e) {

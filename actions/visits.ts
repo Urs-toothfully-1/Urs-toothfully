@@ -7,15 +7,31 @@ import { requirePatientInScope } from "@/server/services/patient-scope.service"
 import { prisma } from "@/lib/prisma"
 
 /** Admin, or reception with "Create prescriptions & estimates from the patient profile". */
-const profileStaff = () => requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("directClinical")).catch(() => null)
-const fail = (e: unknown, fallback: string) => ({ error: e instanceof Error ? e.message : fallback })
+const profileStaff = () =>
+  requireRole(["ADMIN", "RECEPTIONIST"])
+    .then(gate("directClinical"))
+    .catch(() => null)
+const fail = (e: unknown, fallback: string) => ({
+  error: e instanceof Error ? e.message : fallback,
+})
 
-export async function startDirectVisitAction(patientId: string, doctorId: string, chiefComplaint?: string) {
+export async function startDirectVisitAction(
+  patientId: string,
+  doctorId: string,
+  chiefComplaint?: string
+) {
   const session = await profileStaff()
-  if (!session) return { error: "You don't have access to create prescriptions from the patient profile." }
+  if (!session)
+    return { error: "You don't have access to create prescriptions from the patient profile." }
   try {
     await requirePatientInScope(session, patientId)
-    const visit = await directVisitService.start({ patientId, doctorId, chiefComplaint, branchId: session.branchId, userId: session.userId })
+    const visit = await directVisitService.start({
+      patientId,
+      doctorId,
+      chiefComplaint,
+      branchId: session.branchId,
+      userId: session.userId,
+    })
     revalidatePath(`/patients/${patientId}`)
     return { success: true as const, visitId: visit.id }
   } catch (e) {
@@ -25,10 +41,15 @@ export async function startDirectVisitAction(patientId: string, doctorId: string
 
 /** Marks a profile-started visit complete when the wizard finishes (queue visits are completed by the queue). */
 export async function completeDirectVisitAction(visitId: string) {
-  const session = await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"]).then(gate("prescriptions", "directClinical")).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"])
+    .then(gate("prescriptions", "directClinical"))
+    .catch(() => null)
   if (!session) return { error: "Unauthorized" }
   await directVisitService.complete(visitId, session.userId)
-  const v = await prisma.patientVisit.findUnique({ where: { id: visitId }, select: { patientId: true } })
+  const v = await prisma.patientVisit.findUnique({
+    where: { id: visitId },
+    select: { patientId: true },
+  })
   if (v) revalidatePath(`/patients/${v.patientId}`)
   return { success: true as const }
 }
@@ -37,7 +58,10 @@ export async function cancelVisitAction(visitId: string, reason: string) {
   const session = await profileStaff()
   if (!session) return { error: "You don't have access to cancel visits." }
   try {
-    const v = await prisma.patientVisit.findUnique({ where: { id: visitId }, select: { patientId: true } })
+    const v = await prisma.patientVisit.findUnique({
+      where: { id: visitId },
+      select: { patientId: true },
+    })
     if (!v) return { error: "Visit not found." }
     await requirePatientInScope(session, v.patientId)
     await directVisitService.cancel(visitId, reason, session.userId)

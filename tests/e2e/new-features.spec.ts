@@ -16,8 +16,20 @@ import { paymentService } from "@/server/services/payment.service"
 
 const OUTRAM = "branch-outram-0000-0000-000000000001"
 const stamp = Date.now().toString().slice(-6)
-const ids = { withConsent: "", noConsent: "", direct: "", paid: "", lead: "", inboxPhone: `9192${stamp}01` }
-const names = { withConsent: `E2E Grp Yes ${stamp}`, noConsent: `E2E Grp No ${stamp}`, direct: `E2E Direct ${stamp}`, lead: `E2E Lead ${stamp}` }
+const ids = {
+  withConsent: "",
+  noConsent: "",
+  direct: "",
+  paid: "",
+  lead: "",
+  inboxPhone: `9192${stamp}01`,
+}
+const names = {
+  withConsent: `E2E Grp Yes ${stamp}`,
+  noConsent: `E2E Grp No ${stamp}`,
+  direct: `E2E Direct ${stamp}`,
+  lead: `E2E Lead ${stamp}`,
+}
 const codes = { noConsent: "" }
 let template: { id: string; status: string; isEnabled: boolean } | null = null
 let savedSending: boolean | null = null
@@ -25,10 +37,23 @@ let savedSending: boolean | null = null
 test.describe.configure({ mode: "serial" })
 
 test.beforeAll(async () => {
-  const reception = await prisma.user.findFirstOrThrow({ where: { email: "reception.outram@toothfully.in" } })
+  const reception = await prisma.user.findFirstOrThrow({
+    where: { email: "reception.outram@toothfully.in" },
+  })
   const mk = async (fullName: string, mobile: string, consent: boolean) => {
     const p = await patientService.createWithHistory(
-      { registrationBranchId: OUTRAM, fullName, dateOfBirth: "1990-01-01", gender: "FEMALE", mobile, email: `nf${mobile}@example.com`, address: "E2E", leadSource: "", referenceName: "", reasonForVisit: "" } as any,
+      {
+        registrationBranchId: OUTRAM,
+        fullName,
+        dateOfBirth: "1990-01-01",
+        gender: "FEMALE",
+        mobile,
+        email: `nf${mobile}@example.com`,
+        address: "E2E",
+        leadSource: "",
+        referenceName: "",
+        reasonForVisit: "",
+      } as any,
       { consentGiven: true } as any,
       reception.id
     )
@@ -47,24 +72,51 @@ test.beforeAll(async () => {
   ids.paid = (await mk(`E2E Paid ${stamp}`, `92${stamp}04`, false)).id
 
   // One approved template to send (restored afterwards).
-  const t = await prisma.whatsAppTemplate.findFirstOrThrow({ where: { name: "visit_feedback" }, select: { id: true, status: true, isEnabled: true } })
+  const t = await prisma.whatsAppTemplate.findFirstOrThrow({
+    where: { name: "visit_feedback" },
+    select: { id: true, status: true, isEnabled: true },
+  })
   template = t
-  await prisma.whatsAppTemplate.update({ where: { id: t.id }, data: { status: "APPROVED", isEnabled: true } })
+  await prisma.whatsAppTemplate.update({
+    where: { id: t.id },
+    data: { status: "APPROVED", isEnabled: true },
+  })
   const settings = await prisma.whatsAppSettings.findFirst()
   if (settings) {
     savedSending = settings.sendingEnabled
-    await prisma.whatsAppSettings.update({ where: { id: settings.id }, data: { sendingEnabled: true } })
+    await prisma.whatsAppSettings.update({
+      where: { id: settings.id },
+      data: { sendingEnabled: true },
+    })
   }
 
-  ids.lead = (await prisma.potentialClient.create({
-    data: { fullName: names.lead, mobile: `93${stamp}55`, source: "E2E", createdById: reception.id },
-  })).id
+  ids.lead = (
+    await prisma.potentialClient.create({
+      data: {
+        fullName: names.lead,
+        mobile: `93${stamp}55`,
+        source: "E2E",
+        createdById: reception.id,
+      },
+    })
+  ).id
 
   // A small inbound conversation for the inbox test.
   await prisma.whatsAppInbound.createMany({
     data: [
-      { direction: "IN", fromPhone: ids.inboxPhone, text: `Hello from E2E ${stamp}`, needsStaff: true, botAction: "HANDOFF" },
-      { direction: "OUT", fromPhone: ids.inboxPhone, text: "Thanks, our team will reply", botAction: "BOT_REPLY" },
+      {
+        direction: "IN",
+        fromPhone: ids.inboxPhone,
+        text: `Hello from E2E ${stamp}`,
+        needsStaff: true,
+        botAction: "HANDOFF",
+      },
+      {
+        direction: "OUT",
+        fromPhone: ids.inboxPhone,
+        text: "Thanks, our team will reply",
+        botAction: "BOT_REPLY",
+      },
     ],
   })
 })
@@ -74,8 +126,13 @@ test.afterAll(async () => {
     where: { patientId: { in: [ids.withConsent, ids.noConsent] }, status: { not: "CANCELLED" } },
     data: { status: "CANCELLED", cancelledAt: new Date() },
   })
-  if (template) await prisma.whatsAppTemplate.update({ where: { id: template.id }, data: { status: template.status as any, isEnabled: template.isEnabled } })
-  if (savedSending !== null) await prisma.whatsAppSettings.updateMany({ data: { sendingEnabled: savedSending } })
+  if (template)
+    await prisma.whatsAppTemplate.update({
+      where: { id: template.id },
+      data: { status: template.status as any, isEnabled: template.isEnabled },
+    })
+  if (savedSending !== null)
+    await prisma.whatsAppSettings.updateMany({ data: { sendingEnabled: savedSending } })
   await prisma.$disconnect()
 })
 
@@ -104,7 +161,9 @@ test.describe("1. WhatsApp groups (reception)", () => {
     await expect(page.getByText("No consent").first()).toBeVisible()
   })
 
-  test("send a template: consented patient queued, the other skipped, log shows it", async ({ page }) => {
+  test("send a template: consented patient queued, the other skipped, log shows it", async ({
+    page,
+  }) => {
     acceptDialogs(page)
     const group = await prisma.whatsAppGroup.findUniqueOrThrow({ where: { name: groupName } })
     await page.goto(`/whatsapp/groups/${group.id}`)
@@ -127,7 +186,9 @@ test.describe("1. WhatsApp groups (reception)", () => {
     await page.getByRole("button", { name: `Remove ${names.noConsent}` }).click()
     await expect(page.getByText(names.noConsent)).toHaveCount(0)
     // The row hides instantly; wait for the save itself.
-    await expect.poll(() => prisma.whatsAppGroupMember.count({ where: { groupId: group.id } })).toBe(1)
+    await expect
+      .poll(() => prisma.whatsAppGroupMember.count({ where: { groupId: group.id } }))
+      .toBe(1)
   })
 })
 
@@ -139,10 +200,14 @@ test.describe("2. Potential clients (admin)", () => {
     await page.getByRole("button", { name: `Enquiry for ${names.lead}` }).dblclick()
     await page.getByRole("combobox", { name: `Enquiry for ${names.lead}` }).fill("Implants") // has a suggestion list
     await page.keyboard.press("Enter")
-    await expect(page.getByRole("button", { name: `Enquiry for ${names.lead}` })).toHaveText("Implants")
+    await expect(page.getByRole("button", { name: `Enquiry for ${names.lead}` })).toHaveText(
+      "Implants"
+    )
 
     await page.getByRole("button", { name: `Last message for ${names.lead}` }).dblclick()
-    await page.getByRole("textbox", { name: `Last message for ${names.lead}` }).fill("Asked for implant cost, will visit Saturday")
+    await page
+      .getByRole("textbox", { name: `Last message for ${names.lead}` })
+      .fill("Asked for implant cost, will visit Saturday")
     await page.keyboard.press("Control+Enter")
     await expect(page.getByText("Asked for implant cost, will visit Saturday")).toBeVisible()
 
@@ -181,7 +246,9 @@ test.describe("3. Prescription from the patient profile (reception)", () => {
   test.use({ storageState: "tests/e2e/.auth/reception.json" })
 
   test("start without the queue, finish, and the visit shows who created it", async ({ page }) => {
-    const doctor = await prisma.user.findFirstOrThrow({ where: { email: "dr.jashwant@toothfully.in" } })
+    const doctor = await prisma.user.findFirstOrThrow({
+      where: { email: "dr.jashwant@toothfully.in" },
+    })
     await page.goto(`/patients/${ids.direct}`)
     await page.getByRole("button", { name: /New prescription \/ estimate/ }).click()
     await page.getByLabel("Doctor").selectOption({ label: doctor.name })
@@ -193,12 +260,17 @@ test.describe("3. Prescription from the patient profile (reception)", () => {
     await page.getByRole("button", { name: /Finish \(Prescription only\)/ }).click()
     await expect(page).toHaveURL(new RegExp(`/patients/${ids.direct}$`))
 
-    const visit = await prisma.patientVisit.findFirstOrThrow({ where: { patientId: ids.direct }, include: { createdBy: true, queueEntry: true } })
+    const visit = await prisma.patientVisit.findFirstOrThrow({
+      where: { patientId: ids.direct },
+      include: { createdBy: true, queueEntry: true },
+    })
     expect(visit.queueEntry).toBeNull()
     expect(visit.createdBy.email).toBe("reception.outram@toothfully.in")
     expect(visit.status).toBe("COMPLETED")
     expect(await prisma.prescriptionRecord.count({ where: { visitId: visit.id } })).toBe(1)
-    expect(await prisma.auditLog.count({ where: { entityType: "PatientVisit", entityId: visit.id } })).toBeGreaterThanOrEqual(2)
+    expect(
+      await prisma.auditLog.count({ where: { entityType: "PatientVisit", entityId: visit.id } })
+    ).toBeGreaterThanOrEqual(2)
 
     await page.goto(`/patients/${ids.direct}/visits`)
     await expect(page.getByText(new RegExp(`Created by ${visit.createdBy.name}`))).toBeVisible()
@@ -218,16 +290,41 @@ test.describe("3. Prescription from the patient profile (reception)", () => {
   })
 
   test("a visit with a payment can't be cancelled", async () => {
-    const reception = await prisma.user.findFirstOrThrow({ where: { email: "reception.outram@toothfully.in" } })
-    const doctor = await prisma.user.findFirstOrThrow({ where: { email: "dr.jashwant@toothfully.in" } })
-    const v = await directVisitService.start({ patientId: ids.paid, doctorId: doctor.id, branchId: OUTRAM, userId: reception.id })
-    await paymentService.create({ paymentType: "CONSULTATION", patientId: ids.paid, branchId: OUTRAM, visitId: v.id, amount: 500, mode: "CASH" } as any, reception.id)
-    await expect(directVisitService.cancel(v.id, "testing", reception.id)).rejects.toThrow(/payments or invoices/)
+    const reception = await prisma.user.findFirstOrThrow({
+      where: { email: "reception.outram@toothfully.in" },
+    })
+    const doctor = await prisma.user.findFirstOrThrow({
+      where: { email: "dr.jashwant@toothfully.in" },
+    })
+    const v = await directVisitService.start({
+      patientId: ids.paid,
+      doctorId: doctor.id,
+      branchId: OUTRAM,
+      userId: reception.id,
+    })
+    await paymentService.create(
+      {
+        paymentType: "CONSULTATION",
+        patientId: ids.paid,
+        branchId: OUTRAM,
+        visitId: v.id,
+        amount: 500,
+        mode: "CASH",
+      } as any,
+      reception.id
+    )
+    await expect(directVisitService.cancel(v.id, "testing", reception.id)).rejects.toThrow(
+      /payments or invoices/
+    )
   })
 })
 
 test.describe("4. WhatsApp inbox on a phone (admin)", () => {
-  test.use({ storageState: "tests/e2e/.auth/admin.json", viewport: { width: 390, height: 844 }, hasTouch: true })
+  test.use({
+    storageState: "tests/e2e/.auth/admin.json",
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+  })
 
   test("chat list → open chat → back", async ({ page }) => {
     await page.goto("/whatsapp/inbox")
