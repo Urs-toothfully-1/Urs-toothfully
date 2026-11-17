@@ -15,8 +15,9 @@ export default async function WhatsAppInboxPage() {
   const conversations = await whatsappInboxService.listConversations()
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-3 md:space-y-6">
+      {/* Compact on phones so the chat gets the screen. */}
+      <div className="hidden md:block">
         <h1 className="text-2xl font-semibold tracking-tight" style={{ color: BRAND_COLORS.bodyText }}>
           WhatsApp Management
         </h1>

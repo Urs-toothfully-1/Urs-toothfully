@@ -17,6 +17,8 @@ export const leadRowSchema = z.object({
   area: z.string().trim().max(150).optional(),
   source: z.string().trim().max(100).optional(),
   notes: z.string().trim().max(500).optional(),
+  enquiry: z.string().trim().max(200).optional(),
+  lastMessage: z.string().trim().max(1000).optional(),
 })
 export type LeadRow = z.infer<typeof leadRowSchema>
 
@@ -26,6 +28,21 @@ export function normalizeLeadMobile(raw: string): string | null {
   if (!v.valid || !v.normalized) return null
   return v.normalized.startsWith("91") && v.normalized.length === 12 ? v.normalized.slice(2) : v.normalized
 }
+
+const leadPatchSchema = z.object({
+  status: z.enum(["NEW", "CONTACTED", "CONVERTED", "NOT_INTERESTED"]).optional(),
+  whatsappOptIn: z.boolean().optional(),
+  fullName: z.string().max(200).optional(),
+  area: z.string().max(150).optional(),
+  source: z.string().max(100).optional(),
+  notes: z.string().max(500).optional(),
+  enquiry: z.string().max(200).optional(),
+  lastMessage: z.string().max(1000).optional(),
+  followUpOn: z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a valid date"), z.literal(""), z.null()]).optional(),
+})
+
+/** Today's IST calendar day as a @db.Date value. */
+const todayDate = () => new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date())}T00:00:00Z`)
 
 export const potentialClientService = {
   /** Upserts by mobile. Existing leads keep their data; blanks are filled and opt-in can only be granted, not removed. */
@@ -54,6 +71,8 @@ export const potentialClientService = {
             area: existing.area ?? (r.area || null),
             source: existing.source ?? (r.source || source || null),
             notes: existing.notes ?? (r.notes || null),
+            enquiry: existing.enquiry ?? (r.enquiry || null),
+            lastMessage: existing.lastMessage ?? (r.lastMessage || null),
             whatsappOptIn: existing.whatsappOptIn || optIn,
           },
         })
@@ -63,6 +82,7 @@ export const potentialClientService = {
           data: {
             fullName: r.fullName, mobile, email: r.email || null, area: r.area || null,
             source: r.source || source || "CSV import", notes: r.notes || null, whatsappOptIn: optIn, createdById: userId,
+            enquiry: r.enquiry || null, lastMessage: r.lastMessage || null,
           },
         })
         created++
@@ -72,17 +92,35 @@ export const potentialClientService = {
     return { created, updated, skipped }
   },
 
-  async list(opts: { search?: string; status?: LeadStatus; optIn?: boolean; page?: number }) {
+  async list(opts: { search?: string; status?: LeadStatus; optIn?: boolean; due?: boolean; page?: number }) {
     const pageSize = 50
     const page = Math.max(1, opts.page ?? 1)
     const q = opts.search?.trim()
     const where: Prisma.PotentialClientWhereInput = {
       ...(opts.status ? { status: opts.status } : {}),
       ...(opts.optIn !== undefined ? { whatsappOptIn: opts.optIn } : {}),
-      ...(q ? { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { mobile: { contains: q.replace(/\D/g, "") || q } }, { area: { contains: q, mode: "insensitive" } }] } : {}),
+      ...(opts.due ? { followUpOn: { lte: todayDate() }, status: { notIn: ["CONVERTED", "NOT_INTERESTED"] } } : {}),
+      ...(q
+        ? {
+            OR: [
+              { fullName: { contains: q, mode: "insensitive" } },
+              { mobile: { contains: q.replace(/\D/g, "") || q } },
+              { area: { contains: q, mode: "insensitive" } },
+              { enquiry: { contains: q, mode: "insensitive" } },
+              { notes: { contains: q, mode: "insensitive" } },
+              { lastMessage: { contains: q, mode: "insensitive" } },
+            ],
+          }
+        : {}),
     }
     const [rows, total, counts] = await Promise.all([
-      prisma.potentialClient.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize }),
+      prisma.potentialClient.findMany({
+        where,
+        // Due follow-ups: oldest due first, so nobody waits longest.
+        orderBy: opts.due ? [{ followUpOn: "asc" }, { createdAt: "desc" }] : { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
       prisma.potentialClient.count({ where }),
       prisma.potentialClient.groupBy({ by: ["status"], _count: { _all: true } }),
     ])
@@ -97,6 +135,9 @@ export const potentialClientService = {
       total, page, pageSize,
       counts: Object.fromEntries(counts.map((c) => [c.status, c._count._all])) as Partial<Record<LeadStatus, number>>,
       optedIn: await prisma.potentialClient.count({ where: { whatsappOptIn: true } }),
+      due: await prisma.potentialClient.count({
+        where: { followUpOn: { lte: todayDate() }, status: { notIn: ["CONVERTED", "NOT_INTERESTED"] } },
+      }),
     }
   },
 
@@ -106,12 +147,31 @@ export const potentialClientService = {
     if (!mobile) throw new Error("Enter a valid mobile number.")
     if (await prisma.potentialClient.findUnique({ where: { mobile } })) throw new Error("A potential client with this mobile already exists.")
     return prisma.potentialClient.create({
-      data: { fullName: r.fullName, mobile, email: r.email || null, area: r.area || null, source: r.source || "Manual", notes: r.notes || null, whatsappOptIn: optIn, createdById: userId },
+      data: {
+        fullName: r.fullName, mobile, email: r.email || null, area: r.area || null, source: r.source || "Manual",
+        notes: r.notes || null, enquiry: r.enquiry || null, lastMessage: r.lastMessage || null, whatsappOptIn: optIn, createdById: userId,
+      },
     })
   },
 
-  async update(id: string, data: { status?: LeadStatus; whatsappOptIn?: boolean }) {
-    return prisma.potentialClient.update({ where: { id }, data })
+  /** Partial edit from the table (double-click) or the edit popup. Blank text clears a field. */
+  async update(id: string, raw: unknown) {
+    const d = leadPatchSchema.parse(raw)
+    const blank = (v: string | undefined) => (v === undefined ? undefined : v.trim() || null)
+    return prisma.potentialClient.update({
+      where: { id },
+      data: {
+        status: d.status,
+        whatsappOptIn: d.whatsappOptIn,
+        fullName: d.fullName?.trim() || undefined,
+        area: blank(d.area),
+        source: blank(d.source),
+        notes: blank(d.notes),
+        enquiry: blank(d.enquiry),
+        lastMessage: blank(d.lastMessage),
+        followUpOn: d.followUpOn === undefined ? undefined : d.followUpOn ? new Date(`${d.followUpOn}T00:00:00Z`) : null,
+      },
+    })
   },
 
   async remove(ids: string[], userId: string) {

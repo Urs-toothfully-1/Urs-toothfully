@@ -14,7 +14,7 @@ export const addToQueueSchema = z.object({
 
 export type AddToQueueInput = z.infer<typeof addToQueueSchema>
 
-async function generateNextVisitNo(): Promise<string> {
+export async function generateNextVisitNo(): Promise<string> {
   const year = new Date().getFullYear()
   const latest = await visitRepository.getLatestVisitNoForYear(year)
   const next = latest ? parseInt(latest.split("-")[2]) + 1 : 1

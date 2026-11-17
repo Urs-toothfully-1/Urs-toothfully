@@ -21,6 +21,8 @@ interface Props {
   branches: Branch[]
   defaultBranchId: string
   isAdmin: boolean
+  /** Pre-filled values, e.g. when registering a potential client. */
+  prefill?: Record<string, string | undefined>
 }
 
 
@@ -88,14 +90,14 @@ const inputCls = "w-full h-10 rounded-md border border-[#E0E3E5] bg-[#F2F4F6] px
 const selectCls = "w-full h-10 rounded-md border border-[#E0E3E5] bg-[#F2F4F6] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0077BE]"
 const labelCls = "block text-sm font-medium mb-1"
 
-export function PatientRegistrationForm({ branches, defaultBranchId, isAdmin }: Props) {
+export function PatientRegistrationForm({ branches, defaultBranchId, isAdmin, prefill }: Props) {
   const [state, formAction] = useActionState(registerPatientWithHistoryAction, {} as PatientFormState)
   const [leadSource, setLeadSource] = useState(state.fields?.leadSource ?? "")
   const [step, setStep] = useState<1 | 2>(1)
   const step1Ref = useRef<HTMLDivElement>(null)
 
   const fe = state.fieldErrors ?? {}
-  const f = state.fields ?? {}
+  const f: Record<string, string | undefined> = state.fields ?? prefill ?? {}
   const dup = state.duplicate
 
   function goToStep2() {

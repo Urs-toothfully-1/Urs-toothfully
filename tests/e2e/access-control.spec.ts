@@ -171,6 +171,8 @@ test.describe("Front-desk receptionist (no prices or payments)", () => {
     await expect(page.getByText(`E2E Access Other ${stamp}`).first()).toBeVisible()
     await expect(page.getByText("Balance", { exact: true })).toHaveCount(0)
     await expect(page.getByRole("link", { name: /^Payments/ })).toHaveCount(0)
+    // Front-desk scenario also switches off "from the patient profile".
+    await expect(page.getByRole("button", { name: /New prescription \/ estimate/ })).toHaveCount(0)
     await expectNotFound(page, `/patients/${ids.other}/payments`)
   })
 

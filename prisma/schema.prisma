@@ -245,6 +245,8 @@ model User {
   whatsappSettings        WhatsAppSettings[]     @relation("WhatsAppSettingsUpdatedBy")
   whatsappTemplates       WhatsAppTemplate[]     @relation("WhatsAppTemplateCreatedBy")
   whatsappMessages        WhatsAppMessage[]      @relation("WhatsAppMessageCreatedBy")
+  whatsappGroups          WhatsAppGroup[]        @relation("WhatsAppGroupCreatedBy")
+  cancelledVisits         PatientVisit[]         @relation("VisitCancelledBy")
   doctorAppointments      Appointment[]          @relation("AppointmentDoctor")
   createdAppointments     Appointment[]          @relation("AppointmentCreatedBy")
   examinationTemplates    ExaminationTemplate[]  @relation("DoctorExaminationTemplates")
@@ -310,6 +312,7 @@ model Patient {
   mergeLog           PatientMergeLog?     @relation("PrimaryPatient")
   whatsappMessages   WhatsAppMessage[]
   whatsappConsent    WhatsAppConsent?
+  whatsappGroups     WhatsAppGroupMember[]
   appointments       Appointment[]
   referralsMade      Referral[]           @relation("ReferralsMade")
   referredBy         Referral?            @relation("ReferredBy")
@@ -386,6 +389,11 @@ model PatientVisit {
   branch         Branch      @relation(fields: [branchId], references: [id])
   doctorId       String?
   doctor         User?       @relation("VisitDoctor", fields: [doctorId], references: [id])
+  // Set when admin/reception cancels the visit from the patient profile.
+  cancelledAt    DateTime?
+  cancelledById  String?
+  cancelledBy    User?       @relation("VisitCancelledBy", fields: [cancelledById], references: [id])
+  cancelReason   String?     @db.VarChar(300)
   visitType      VisitType
   visitDate      DateTime    @default(now())
   chiefComplaint String?
@@ -1049,7 +1057,12 @@ model WhatsAppMessage {
   @@index([status, scheduledFor])
   @@index([patientId, createdAt])
   @@index([branchId, createdAt])
+  // Sent to a WhatsApp group (broadcast); null for single sends.
+  groupId       String?
+  group         WhatsAppGroup?        @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
   @@index([toPhone])
+  @@index([groupId, createdAt])
 }
 
 model WhatsAppWebhookLog {
@@ -1412,6 +1425,9 @@ model PotentialClient {
   area           String?    @db.VarChar(150)
   source         String?    @db.VarChar(100)
   notes          String?    @db.VarChar(500)
+  lastMessage    String?    @db.VarChar(1000) // last conversation with the lead (free text)
+  enquiry        String?    @db.VarChar(200) // treatment they asked about
+  followUpOn     DateTime?  @db.Date
   // Only opted-in leads can be messaged on WhatsApp.
   whatsappOptIn  Boolean    @default(false)
   status         LeadStatus @default(NEW)
@@ -1423,4 +1439,32 @@ model PotentialClient {
   updatedAt      DateTime   @updatedAt
 
   @@index([status, createdAt])
+  @@index([followUpOn])
+}
+
+// WhatsApp groups ("sections"): a named list of patients that can be sent any
+// approved template at once. Messages carry groupId, so each group has its log.
+model WhatsAppGroup {
+  id          String                @id @default(uuid())
+  name        String                @unique @db.VarChar(100)
+  description String?               @db.VarChar(300)
+  createdById String
+  createdBy   User                  @relation("WhatsAppGroupCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  members     WhatsAppGroupMember[]
+  messages    WhatsAppMessage[]
+}
+
+model WhatsAppGroupMember {
+  id        String        @id @default(uuid())
+  groupId   String
+  group     WhatsAppGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  patientId String
+  patient   Patient       @relation(fields: [patientId], references: [id])
+  addedById String
+  addedAt   DateTime      @default(now())
+
+  @@unique([groupId, patientId])
+  @@index([patientId])
 }

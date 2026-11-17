@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { DirectVisitButton } from "@/components/patients/DirectVisitButton"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { getSession } from "@/lib/auth"
@@ -103,6 +104,10 @@ export default async function PatientOverviewPage({ params }: Props) {
       ])
     : [[], null, null]
 
+  // Admin, or reception with access: prescription / estimate straight from the profile.
+  const canDirect = session.role === "ADMIN" || (session.role === "RECEPTIONIST" && session.perms.directClinical)
+  const directDoctors = canDirect ? (canAddToQueue ? doctors : await userRepository.findAllActiveDoctors()) : []
+
   const recentVisits = visits.slice(0, 5)
 
   const detailRows = [
@@ -180,6 +185,10 @@ export default async function PatientOverviewPage({ params }: Props) {
             <CheckCircle2 className="h-4 w-4 text-green-600" />
             <span className="text-sm font-medium text-green-700">Consultation Fee Paid</span>
           </div>
+        )}
+
+        {canDirect && (
+          <DirectVisitButton patientId={patient.id} doctors={directDoctors.map((d) => ({ id: d.id, name: d.name }))} />
         )}
 
         {/* ── STEP 2: Add to Queue (only available after fee is paid) ── */}

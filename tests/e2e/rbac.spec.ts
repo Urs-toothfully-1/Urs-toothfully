@@ -46,9 +46,11 @@ test.describe("Doctor role boundaries", () => {
 test.describe("Receptionist role boundaries", () => {
   test.beforeEach(async ({ page }) => login(page, "reception"))
 
-  test("cannot reach doctor consultation", async ({ page }) => {
-    await page.goto("/doctor/consultation")
-    await expect(page).not.toHaveURL(/\/doctor\/consultation/)
+  // Reception may open /doctor/consultation/<visit> for a prescription started
+  // from the patient profile (Nov 2026); the doctor queue itself stays off-limits.
+  test("cannot reach the doctor queue", async ({ page }) => {
+    await page.goto("/doctor")
+    await expect(page).not.toHaveURL(/\/doctor$/)
   })
 
   test("cannot reach whatsapp settings (admin only)", async ({ page }) => {

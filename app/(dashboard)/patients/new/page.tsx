@@ -9,7 +9,7 @@ import Link from "next/link"
 
 export const metadata: Metadata = { title: "Register New Patient" }
 
-export default async function NewPatientPage() {
+export default async function NewPatientPage({ searchParams }: { searchParams: Promise<{ name?: string; mobile?: string; reason?: string }> }) {
   const session = await requireRole(["ADMIN", "RECEPTIONIST"])
   if (!session.perms.editPatients) redirect("/patients")
 
@@ -47,6 +47,11 @@ export default async function NewPatientPage() {
             branches={branches}
             defaultBranchId={session.branchId}
             isAdmin={session.role === "ADMIN"}
+            prefill={await searchParams.then((sp) => ({
+              fullName: sp.name?.slice(0, 100),
+              mobile: sp.mobile?.replace(/\D/g, "").slice(-10),
+              reasonForVisit: sp.reason?.slice(0, 300),
+            }))}
           />
         </div>
       </div>

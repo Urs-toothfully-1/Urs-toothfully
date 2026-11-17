@@ -23,7 +23,7 @@ export async function createEstimateAction(
   _prev: EstimateFormState,
   formData: FormData
 ): Promise<EstimateFormState> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("estimates")).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"]).then(gate("estimates", "directClinical", "prices")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   const patientId = formData.get("patientId")?.toString()
@@ -117,7 +117,7 @@ export async function updateEstimateAction(
   _prev: EstimateFormState,
   formData: FormData
 ): Promise<EstimateFormState> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("estimates")).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"]).then(gate("estimates", "directClinical", "prices")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   const estimateId = formData.get("estimateId")?.toString()
@@ -231,7 +231,7 @@ export async function updateEstimateDiscountAction(
   estimateId: string,
   discountPercent: number
 ): Promise<{ success?: boolean; error?: string; subtotal?: number; total?: number; discountAmount?: number }> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).then(gate("estimates")).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"]).then(gate("estimates", "directClinical", "prices")).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) {

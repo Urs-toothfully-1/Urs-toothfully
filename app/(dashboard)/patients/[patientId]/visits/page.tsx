@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { CancelVisitButton } from "@/components/patients/CancelVisitButton"
 import { requireSession } from "@/lib/auth"
 import { visitRepository } from "@/server/repositories/visit.repository"
 import { BRAND_COLORS } from "@/lib/constants"
@@ -18,8 +19,9 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
 }
 
 export default async function VisitHistoryPage({ params }: Props) {
-  await requireSession()
+  const session = await requireSession()
   const { patientId } = await params
+  const canCancel = session.role === "ADMIN" || (session.role === "RECEPTIONIST" && session.perms.directClinical)
   const visits = await visitRepository.findByPatient(patientId)
 
   return (
@@ -84,6 +86,19 @@ export default async function VisitHistoryPage({ params }: Props) {
                           Dr. {v.doctor.name.replace("Dr. ", "")}
                         </p>
                       )}
+                      <p className="text-xs mt-0.5" style={{ color: BRAND_COLORS.borderDivider }}>
+                        Created by {v.createdBy?.name ?? "—"}
+                        {!v.queueEntry && (
+                          <span className="ml-1.5 rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">From profile · no queue</span>
+                        )}
+                      </p>
+                      {v.status === "CANCELLED" && v.cancelledBy && (
+                        <p className="text-xs mt-0.5 text-red-600">
+                          Cancelled by {v.cancelledBy.name}
+                          {v.cancelledAt && ` on ${new Date(v.cancelledAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`}
+                          {v.cancelReason && ` — ${v.cancelReason}`}
+                        </p>
+                      )}
                       {v.chiefComplaint && (
                         <p className="text-xs mt-1 italic" style={{ color: BRAND_COLORS.borderDivider }}>
                           &quot;{v.chiefComplaint}&quot;
@@ -92,7 +107,9 @@ export default async function VisitHistoryPage({ params }: Props) {
                     </div>
                   </div>
 
-                  {/* Estimates count */}
+                  {/* Estimates count + cancel */}
+                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                  {canCancel && v.status !== "CANCELLED" && <CancelVisitButton visitId={v.id} visitNo={v.visitNo} />}
                   {v.estimates && v.estimates.length > 0 && (
                     <div className="text-right flex-shrink-0">
                       <span
@@ -103,6 +120,7 @@ export default async function VisitHistoryPage({ params }: Props) {
                       </span>
                     </div>
                   )}
+                  </div>
                 </div>
               )
             })}

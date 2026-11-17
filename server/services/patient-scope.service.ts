@@ -6,8 +6,8 @@ import type { AppSession } from "@/lib/auth"
 
 /**
  * "Today's patients" for users whose admin switched off `allPatients`:
- *  - doctor:    today's appointments booked with them + queue entries they took today
- *  - reception: today's appointments and queue at their branch
+ *  - doctor:    today's appointments, queue entries and visits assigned to them
+ *  - reception: today's appointments, queue and visits at their branch
  * Returns null when the user may see everyone. cache() = one lookup per request.
  */
 export const allowedPatientIds = cache(async (session: AppSession): Promise<Set<string> | null> => {
@@ -15,7 +15,7 @@ export const allowedPatientIds = cache(async (session: AppSession): Promise<Set<
   const { start, end } = istDayRange(istTodayStr())
   const isDoctor = session.role === "DOCTOR"
 
-  const [appts, queue] = await Promise.all([
+  const [appts, queue, visits] = await Promise.all([
     prisma.appointment.findMany({
       where: {
         scheduledAt: { gte: start, lte: end },
@@ -31,8 +31,17 @@ export const allowedPatientIds = cache(async (session: AppSession): Promise<Set<
       },
       select: { patientId: true },
     }),
+    // Visits started from the patient profile have no queue entry.
+    prisma.patientVisit.findMany({
+      where: {
+        visitDate: { gte: start, lte: end },
+        status: { not: "CANCELLED" },
+        ...(isDoctor ? { doctorId: session.userId } : { branchId: session.branchId }),
+      },
+      select: { patientId: true },
+    }),
   ])
-  return new Set([...appts, ...queue].map((r) => r.patientId))
+  return new Set([...appts, ...queue, ...visits].map((r) => r.patientId))
 })
 
 export async function canSeePatient(session: AppSession, patientId: string): Promise<boolean> {

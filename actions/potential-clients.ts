@@ -38,7 +38,13 @@ export async function addPotentialClientAction(input: unknown, optIn: boolean) {
   }
 }
 
-export async function updatePotentialClientAction(id: string, data: { status?: LeadStatus; whatsappOptIn?: boolean }) {
+export async function updatePotentialClientAction(
+  id: string,
+  data: {
+    status?: LeadStatus; whatsappOptIn?: boolean; fullName?: string; area?: string; source?: string
+    notes?: string; enquiry?: string; lastMessage?: string; followUpOn?: string | null
+  }
+) {
   const session = await admin()
   if (!session) return { error: "Unauthorized" }
   try {

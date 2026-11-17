@@ -2,6 +2,7 @@ import { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { canEstimate, canWriteRx } from "@/lib/permissions"
 import { assertPatientInScope } from "@/server/services/patient-scope.service"
 import { estimateRepository } from "@/server/repositories/estimate.repository"
 import { treatmentRepository } from "@/server/repositories/treatment.repository"
@@ -22,9 +23,9 @@ type Props = { params: Promise<{ visitId: string }> }
 export default async function ConsultationPage({ params }: Props) {
   const session = await getSession()
   if (!session) redirect("/login")
-  if (session.role === "RECEPTIONIST") redirect("/reception")
-  if (!session.perms.prescriptions) redirect("/doctor")
-  const rxOnly = !session.perms.estimates
+  // Doctors via the queue; admin and reception (with access) from the patient profile.
+  if (!canWriteRx(session.role, session.perms)) redirect(session.role === "RECEPTIONIST" ? "/reception" : "/doctor")
+  const rxOnly = !canEstimate(session.role, session.perms)
 
   const { visitId } = await params
 

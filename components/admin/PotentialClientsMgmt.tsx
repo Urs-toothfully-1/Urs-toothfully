@@ -13,7 +13,7 @@ import { renderTemplateBody } from "@/lib/whatsapp/templates"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { CheckCircle2, Download, FileUp, Loader2, MessageCircle, Plus, Search, Trash2, Upload, UserCheck, Users } from "lucide-react"
+import { CalendarClock, CheckCircle2, Download, FileUp, Loader2, MessageCircle, Pencil, Phone, Plus, Search, Trash2, Upload, UserCheck, UserPlus, Users } from "lucide-react"
 
 type LeadStatus = "NEW" | "CONTACTED" | "CONVERTED" | "NOT_INTERESTED"
 const STATUS_LABEL: Record<LeadStatus, string> = { NEW: "New", CONTACTED: "Contacted", CONVERTED: "Converted", NOT_INTERESTED: "Not interested" }
@@ -24,8 +24,10 @@ const STATUS_CLS: Record<LeadStatus, string> = {
 export interface LeadRowView {
   id: string; fullName: string; mobile: string; email: string | null; area: string | null; source: string | null; notes: string | null
   whatsappOptIn: boolean; status: LeadStatus; messageCount: number; lastMessagedAt: string | null; createdAt: string
+  enquiry: string | null; lastMessage: string | null; followUpOn: string | null // YYYY-MM-DD
   patient: { id: string; patientId: string } | null
 }
+type LeadPatch = Parameters<typeof updatePotentialClientAction>[1]
 interface TemplateView { id: string; displayName: string; body: string; category: string; variables: string[] }
 
 // CSV header → field. First match wins; matching ignores case/spaces/punctuation.
@@ -36,6 +38,8 @@ const FIELD_ALIASES: Record<string, string[]> = {
   area: ["area", "city", "location", "locality", "address", "place"],
   source: ["source", "leadsource", "campaign", "channel"],
   notes: ["notes", "note", "remarks", "remark", "comment", "comments"],
+  enquiry: ["enquiry", "inquiry", "treatment", "treatmentenquiry", "interest", "interestedin", "service"],
+  lastMessage: ["lastmessage", "message", "lastconversation", "conversation", "lastchat"],
 }
 const norm = (h: string) => h.toLowerCase().replace(/[^a-z]/g, "")
 
@@ -50,10 +54,13 @@ function mapColumns(header: string[]) {
 
 const fmtDate = (s: string) => new Date(s).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
 
-export function PotentialClientsMgmt({ rows, total, page, pageSize, counts, optedIn, filters, templates }: {
+const todayStr = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date())
+const waLink = (mobile: string) => `https://wa.me/${mobile.length === 10 ? `91${mobile}` : mobile}`
+
+export function PotentialClientsMgmt({ rows, total, page, pageSize, counts, optedIn, due, filters, templates, treatments }: {
   rows: LeadRowView[]; total: number; page: number; pageSize: number
-  counts: Partial<Record<LeadStatus, number>>; optedIn: number
-  filters: { q: string; status: string; optin: string }; templates: TemplateView[]
+  counts: Partial<Record<LeadStatus, number>>; optedIn: number; due: number
+  filters: { q: string; status: string; optin: string; due: string }; templates: TemplateView[]; treatments: string[]
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -93,7 +100,8 @@ export function PotentialClientsMgmt({ rows, total, page, pageSize, counts, opte
     })
   }
 
-  function update(id: string, data: { status?: LeadStatus; whatsappOptIn?: boolean }) {
+  const [editing, setEditing] = useState<LeadRowView | null>(null)
+  function update(id: string, data: LeadPatch) {
     start(async () => {
       const res = await updatePotentialClientAction(id, data)
       if (res.error) toast.error(res.error); else router.refresh()
@@ -107,11 +115,13 @@ export function PotentialClientsMgmt({ rows, total, page, pageSize, counts, opte
     })
   }
 
-  const stats = [
-    { label: "Potential clients", value: allTotal, icon: Users, cls: "text-[#005E97]" },
-    { label: "WhatsApp opted-in", value: optedIn, icon: MessageCircle, cls: "text-emerald-600" },
-    { label: "Contacted", value: counts.CONTACTED ?? 0, icon: CheckCircle2, cls: "text-amber-600" },
-    { label: "Converted", value: counts.CONVERTED ?? 0, icon: UserCheck, cls: "text-violet-600" },
+  // Each tile is also a one-click filter.
+  const stats: { label: string; value: number; icon: typeof Users; cls: string; patch: Record<string, string>; on: boolean }[] = [
+    { label: "Potential clients", value: allTotal, icon: Users, cls: "text-[#005E97]", patch: { status: "", optin: "", due: "" }, on: !filters.status && !filters.optin && !filters.due },
+    { label: "Follow-ups due", value: due, icon: CalendarClock, cls: "text-red-600", patch: { due: "1", status: "" }, on: !!filters.due },
+    { label: "WhatsApp opted-in", value: optedIn, icon: MessageCircle, cls: "text-emerald-600", patch: { optin: "yes", due: "" }, on: filters.optin === "yes" },
+    { label: "Contacted", value: counts.CONTACTED ?? 0, icon: CheckCircle2, cls: "text-amber-600", patch: { status: "CONTACTED", due: "" }, on: filters.status === "CONTACTED" },
+    { label: "Converted", value: counts.CONVERTED ?? 0, icon: UserCheck, cls: "text-violet-600", patch: { status: "CONVERTED", due: "" }, on: filters.status === "CONVERTED" },
   ]
 
   return (
@@ -130,12 +140,13 @@ export function PotentialClientsMgmt({ rows, total, page, pageSize, counts, opte
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {stats.map(({ label, value, icon: Icon, cls }) => (
-          <div key={label} className="rounded-xl bg-white ring-1 ring-black/5 shadow-sm px-4 py-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {stats.map(({ label, value, icon: Icon, cls, patch, on }) => (
+          <button key={label} type="button" onClick={() => go(patch)}
+            className={`rounded-xl bg-white shadow-sm px-4 py-3 text-left transition ${on ? "ring-2 ring-[#005E97]" : "ring-1 ring-black/5 hover:ring-gray-300"}`}>
             <p className="flex items-center gap-1.5 text-xs text-gray-500"><Icon className={`h-3.5 w-3.5 ${cls}`} /> {label}</p>
             <p className="mt-1 text-2xl font-bold tabular-nums text-gray-900">{value.toLocaleString("en-IN")}</p>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -143,7 +154,7 @@ export function PotentialClientsMgmt({ rows, total, page, pageSize, counts, opte
         <div className="flex flex-wrap items-center gap-2 p-3 border-b border-gray-100">
           <form onSubmit={(e) => { e.preventDefault(); go({ q }) }} className="relative">
             <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-gray-400" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, mobile, area" className="h-9 w-64 pl-8" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, mobile, area, enquiry, notes" className="h-9 w-72 pl-8" />
           </form>
           <select value={filters.status} onChange={(e) => go({ status: e.target.value })} className="h-9 rounded-md border border-gray-200 px-2 text-sm bg-white" aria-label="Status filter">
             <option value="">All statuses</option>
@@ -154,6 +165,7 @@ export function PotentialClientsMgmt({ rows, total, page, pageSize, counts, opte
             <option value="yes">Opted in</option>
             <option value="no">Not opted in</option>
           </select>
+          <span className="hidden text-[11px] text-gray-400 lg:inline">Tip: double-click a cell to edit it</span>
           {selected.size > 0 && (
             <div className="ml-auto flex items-center gap-2">
               <span className="text-sm text-gray-600">{selected.size} selected</span>
@@ -168,7 +180,7 @@ export function PotentialClientsMgmt({ rows, total, page, pageSize, counts, opte
         {rows.length === 0 ? (
           <div className="py-16 text-center">
             <FileUp className="h-10 w-10 mx-auto text-gray-300" />
-            <p className="mt-3 font-medium text-gray-800">No potential clients {filters.q || filters.status || filters.optin ? "match these filters" : "yet"}</p>
+            <p className="mt-3 font-medium text-gray-800">No potential clients {filters.q || filters.status || filters.optin || filters.due ? "match these filters" : "yet"}</p>
             <p className="text-sm text-gray-500">Import a CSV with at least a name and a mobile column.</p>
           </div>
         ) : (
@@ -177,33 +189,48 @@ export function PotentialClientsMgmt({ rows, total, page, pageSize, counts, opte
               <thead>
                 <tr className="bg-gray-50/70 border-b border-gray-100">
                   <th className="w-10 px-3"><input type="checkbox" checked={allOnPage} onChange={toggleAll} aria-label="Select all on this page" className="h-4 w-4" /></th>
-                  {["Name", "Mobile", "Area", "Source", "WhatsApp", "Status", "Last message"].map((h) => (
+                  {["Name", "Mobile", "Enquiry", "Last message", "Follow-up", "Status", "WhatsApp"].map((h) => (
                     <th key={h} className="text-left py-2.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} className={`border-b border-gray-50 ${selected.has(r.id) ? "bg-sky-50/50" : "hover:bg-gray-50/60"}`}>
-                    <td className="px-3"><input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)} aria-label={`Select ${r.fullName}`} className="h-4 w-4" /></td>
-                    <td className="py-2.5 px-3">
+                {rows.map((r) => {
+                  const overdue = !!r.followUpOn && r.followUpOn <= todayStr() && r.status !== "CONVERTED" && r.status !== "NOT_INTERESTED"
+                  return (
+                  <tr key={r.id} className={`border-b border-gray-50 align-top ${selected.has(r.id) ? "bg-sky-50/50" : "hover:bg-gray-50/60"}`}>
+                    <td className="px-3 py-2.5"><input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)} aria-label={`Select ${r.fullName}`} className="h-4 w-4" /></td>
+                    <td className="py-2.5 px-3 min-w-[180px]" onDoubleClick={() => setEditing(r)} title="Double-click to edit all details">
                       <span className="font-medium text-gray-900">{r.fullName}</span>
+                      <button type="button" onClick={() => setEditing(r)} className="ml-1 rounded p-0.5 text-gray-300 hover:text-gray-600" aria-label={`Edit ${r.fullName}`}><Pencil className="inline h-3 w-3" /></button>
                       {r.patient && (
-                        <Link href={`/patients/${r.patient.id}`} className="ml-2 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 hover:underline">
+                        <Link href={`/patients/${r.patient.id}`} className="ml-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 hover:underline">
                           Patient {r.patient.patientId}
                         </Link>
                       )}
-                      {r.notes && <span className="block text-xs text-gray-400 truncate max-w-[240px]">{r.notes}</span>}
+                      <span className="block text-[11px] text-gray-400">{[r.area, r.source].filter(Boolean).join(" · ") || "—"}</span>
+                      {r.notes && <span className="block text-xs text-gray-500 truncate max-w-[240px]" title={r.notes}>{r.notes}</span>}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-xs text-gray-700">{r.mobile}</td>
-                    <td className="py-2.5 px-3 text-xs text-gray-600">{r.area ?? "—"}</td>
-                    <td className="py-2.5 px-3 text-xs text-gray-600">{r.source ?? "—"}</td>
-                    <td className="py-2.5 px-3">
-                      <button type="button" onClick={() => update(r.id, { whatsappOptIn: !r.whatsappOptIn })} disabled={pending}
-                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${r.whatsappOptIn ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}
-                        title="Click to change opt-in">
-                        {r.whatsappOptIn ? "Opted in" : "No opt-in"}
-                      </button>
+                    <td className="py-2.5 px-3 whitespace-nowrap">
+                      <span className="font-mono text-xs text-gray-700">{r.mobile}</span>
+                      <span className="mt-1 flex gap-1">
+                        <a href={`tel:${r.mobile}`} className="rounded p-1 text-gray-500 hover:bg-sky-50 hover:text-sky-700" title="Call" aria-label={`Call ${r.fullName}`}><Phone className="h-3.5 w-3.5" /></a>
+                        <a href={waLink(r.mobile)} target="_blank" rel="noreferrer" className="rounded p-1 text-gray-500 hover:bg-emerald-50 hover:text-emerald-700" title="Open WhatsApp chat" aria-label={`WhatsApp ${r.fullName}`}><MessageCircle className="h-3.5 w-3.5" /></a>
+                        {!r.patient && (
+                          <Link href={`/patients/new?${new URLSearchParams({ name: r.fullName, mobile: r.mobile, reason: r.enquiry ?? "" })}`}
+                            className="rounded p-1 text-gray-500 hover:bg-violet-50 hover:text-violet-700" title="Register as patient" aria-label={`Register ${r.fullName} as patient`}><UserPlus className="h-3.5 w-3.5" /></Link>
+                        )}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 min-w-[140px]">
+                      <EditableCell label={`Enquiry for ${r.fullName}`} value={r.enquiry} placeholder="Add enquiry" list="lead-treatments" onSave={(v) => update(r.id, { enquiry: v })} />
+                    </td>
+                    <td className="py-2.5 px-3 min-w-[200px] max-w-[280px]">
+                      <EditableCell label={`Last message for ${r.fullName}`} value={r.lastMessage} placeholder="Add last message" multiline onSave={(v) => update(r.id, { lastMessage: v })} />
+                      {r.lastMessagedAt && <span className="block text-[11px] text-gray-400">Template sent {fmtDate(r.lastMessagedAt)} ({r.messageCount})</span>}
+                    </td>
+                    <td className={`py-2.5 px-3 whitespace-nowrap ${overdue ? "text-red-600 font-semibold" : ""}`}>
+                      <EditableCell label={`Follow-up for ${r.fullName}`} value={r.followUpOn} display={r.followUpOn ? fmtDate(r.followUpOn) : null} placeholder="Set date" type="date" onSave={(v) => update(r.id, { followUpOn: v || null })} />
                     </td>
                     <td className="py-2.5 px-3">
                       <select value={r.status} onChange={(e) => update(r.id, { status: e.target.value as LeadStatus })} disabled={pending}
@@ -211,15 +238,23 @@ export function PotentialClientsMgmt({ rows, total, page, pageSize, counts, opte
                         {(Object.keys(STATUS_LABEL) as LeadStatus[]).map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
                       </select>
                     </td>
-                    <td className="py-2.5 px-3 text-xs text-gray-500">
-                      {r.lastMessagedAt ? <>{fmtDate(r.lastMessagedAt)} <span className="text-gray-400">({r.messageCount})</span></> : "—"}
+                    <td className="py-2.5 px-3">
+                      <button type="button" onClick={() => update(r.id, { whatsappOptIn: !r.whatsappOptIn })} disabled={pending}
+                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${r.whatsappOptIn ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}
+                        title="Click to change opt-in">
+                        {r.whatsappOptIn ? "Opted in" : "No opt-in"}
+                      </button>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
         )}
+
+        <datalist id="lead-treatments">{treatments.map((t) => <option key={t} value={t} />)}</datalist>
+        {editing && <EditLeadDialog lead={editing} onClose={() => setEditing(null)} />}
 
         {total > pageSize && (
           <div className="flex items-center justify-between px-3 py-2.5 border-t border-gray-100 text-sm text-gray-600">
@@ -358,7 +393,8 @@ function ImportDialog() {
 function AddLeadDialog() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [f, setF] = useState({ fullName: "", mobile: "", area: "", source: "", notes: "" })
+  const empty = { fullName: "", mobile: "", area: "", source: "", notes: "", enquiry: "", lastMessage: "" }
+  const [f, setF] = useState(empty)
   const [optIn, setOptIn] = useState(false)
   const [pending, start] = useTransition()
 
@@ -367,7 +403,7 @@ function AddLeadDialog() {
       const res = await addPotentialClientAction(f, optIn)
       if (res.error) { toast.error(res.error); return }
       toast.success("Potential client added")
-      setOpen(false); setF({ fullName: "", mobile: "", area: "", source: "", notes: "" }); setOptIn(false)
+      setOpen(false); setF(empty); setOptIn(false)
       router.refresh()
     })
   }
@@ -383,6 +419,8 @@ function AddLeadDialog() {
             <Input value={f.mobile} onChange={(e) => setF({ ...f, mobile: e.target.value })} placeholder="Mobile" className="h-9" maxLength={15} />
             <Input value={f.area} onChange={(e) => setF({ ...f, area: e.target.value })} placeholder="Area / city (optional)" className="h-9" maxLength={150} />
             <Input value={f.source} onChange={(e) => setF({ ...f, source: e.target.value })} placeholder="Source (optional)" className="h-9" maxLength={100} />
+            <Input value={f.enquiry} onChange={(e) => setF({ ...f, enquiry: e.target.value })} placeholder="Treatment enquiry (e.g. Implants, Braces)" className="h-9" maxLength={200} list="lead-treatments" aria-label="Treatment enquiry" />
+            <textarea value={f.lastMessage} onChange={(e) => setF({ ...f, lastMessage: e.target.value })} placeholder="Last message / conversation (optional)" rows={2} maxLength={1000} aria-label="Last message" className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm" />
             <Input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="Notes (optional)" className="h-9" maxLength={500} />
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={optIn} onChange={(e) => setOptIn(e.target.checked)} className="h-4 w-4" /> Agreed to WhatsApp messages
@@ -468,5 +506,99 @@ function SendDialog({ ids, templates, optedInSelected, onDone }: { ids: string[]
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+/**
+ * Double-click to edit in place. Enter saves (Ctrl+Enter for multi-line),
+ * Esc cancels, clicking away saves. Blank clears the field.
+ */
+function EditableCell({ value, display, placeholder, onSave, type = "text", multiline, list, label }: {
+  value: string | null; display?: string | null; placeholder: string; onSave: (v: string) => void
+  type?: "text" | "date"; multiline?: boolean; list?: string; label: string
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value ?? "")
+  const begin = () => { setDraft(value ?? ""); setEditing(true) }
+  const commit = () => { setEditing(false); if (draft.trim() !== (value ?? "")) onSave(draft.trim()) }
+  const keys = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") { e.preventDefault(); setEditing(false) }
+    if (e.key === "Enter" && (!multiline || e.ctrlKey || e.metaKey)) { e.preventDefault(); commit() }
+  }
+  if (editing)
+    return multiline ? (
+      <textarea autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={keys} rows={3} maxLength={1000}
+        aria-label={label} className="w-full rounded border border-[#005E97] px-2 py-1 text-xs outline-none" />
+    ) : (
+      <input autoFocus type={type} value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={keys} list={list}
+        maxLength={200} aria-label={label} className="w-full rounded border border-[#005E97] px-2 py-1 text-xs outline-none" />
+    )
+  return (
+    <span onDoubleClick={begin} title="Double-click to edit" role="button" tabIndex={0} aria-label={label}
+      onKeyDown={(e) => { if (e.key === "Enter") begin() }}
+      className={`block cursor-text rounded px-1 -mx-1 text-xs hover:bg-gray-100 ${value ? "text-gray-700 whitespace-pre-wrap line-clamp-3" : "text-gray-300 italic"}`}>
+      {display ?? value ?? placeholder}
+    </span>
+  )
+}
+
+/** Everything about one lead in one popup (double-click the name). */
+function EditLeadDialog({ lead, onClose }: { lead: LeadRowView; onClose: () => void }) {
+  const router = useRouter()
+  const [f, setF] = useState({
+    fullName: lead.fullName, area: lead.area ?? "", source: lead.source ?? "", notes: lead.notes ?? "",
+    enquiry: lead.enquiry ?? "", lastMessage: lead.lastMessage ?? "", followUpOn: lead.followUpOn ?? "",
+    status: lead.status, whatsappOptIn: lead.whatsappOptIn,
+  })
+  const [pending, start] = useTransition()
+  function save() {
+    start(async () => {
+      const res = await updatePotentialClientAction(lead.id, { ...f, followUpOn: f.followUpOn || null })
+      if (res.error) return void toast.error(res.error)
+      toast.success("Saved")
+      onClose()
+      router.refresh()
+    })
+  }
+  const field = "h-9 w-full rounded-md border border-gray-200 px-3 text-sm"
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{lead.fullName} · {lead.mobile}</DialogTitle></DialogHeader>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="space-y-1 sm:col-span-2"><span className="text-xs font-medium text-gray-700">Name</span>
+            <input className={field} value={f.fullName} onChange={(e) => setF({ ...f, fullName: e.target.value })} maxLength={200} /></label>
+          <label className="space-y-1 sm:col-span-2"><span className="text-xs font-medium text-gray-700">Treatment enquiry</span>
+            <input className={field} value={f.enquiry} onChange={(e) => setF({ ...f, enquiry: e.target.value })} list="lead-treatments" maxLength={200} placeholder="e.g. Implants, Braces, RCT" /></label>
+          <label className="space-y-1 sm:col-span-2"><span className="text-xs font-medium text-gray-700">Last message</span>
+            <textarea className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm" rows={3} value={f.lastMessage} onChange={(e) => setF({ ...f, lastMessage: e.target.value })} maxLength={1000} placeholder="What was last said to / by them" /></label>
+          <label className="space-y-1"><span className="text-xs font-medium text-gray-700">Follow-up on</span>
+            <input type="date" className={field} value={f.followUpOn} onChange={(e) => setF({ ...f, followUpOn: e.target.value })} /></label>
+          <label className="space-y-1"><span className="text-xs font-medium text-gray-700">Status</span>
+            <select className={field} value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as LeadStatus })}>
+              {(Object.keys(STATUS_LABEL) as LeadStatus[]).map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+            </select></label>
+          <label className="space-y-1"><span className="text-xs font-medium text-gray-700">Area</span>
+            <input className={field} value={f.area} onChange={(e) => setF({ ...f, area: e.target.value })} maxLength={150} /></label>
+          <label className="space-y-1"><span className="text-xs font-medium text-gray-700">Source</span>
+            <input className={field} value={f.source} onChange={(e) => setF({ ...f, source: e.target.value })} maxLength={100} /></label>
+          <label className="space-y-1 sm:col-span-2"><span className="text-xs font-medium text-gray-700">Notes</span>
+            <input className={field} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} maxLength={500} /></label>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" checked={f.whatsappOptIn} onChange={(e) => setF({ ...f, whatsappOptIn: e.target.checked })} className="h-4 w-4" /> Agreed to WhatsApp messages
+          </label>
+        </div>
+        <DialogFooter className="flex-wrap gap-2">
+          {!lead.patient && (
+            <Link href={`/patients/new?${new URLSearchParams({ name: f.fullName, mobile: lead.mobile, reason: f.enquiry })}`}
+              className="mr-auto inline-flex h-9 items-center gap-1.5 rounded-md border border-violet-200 px-3 text-sm font-medium text-violet-700 hover:bg-violet-50">
+              <UserPlus className="h-4 w-4" /> Register as patient
+            </Link>
+          )}
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={save} disabled={pending || !f.fullName.trim()} className="text-white bg-[#005E97] hover:bg-[#00507f]">{pending ? "Saving…" : "Save"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -24,6 +24,8 @@ export interface EnqueueInput {
   triggerKey?: string
   createdById?: string
   scheduledFor?: Date
+  /** WhatsApp group this message was sent to (group broadcast log). */
+  groupId?: string
 }
 
 // Prevents overlapping queue drains inside one server process. Cross-process
@@ -85,6 +87,7 @@ export const whatsappQueueService = {
       variables: input.variables,
       triggerKey: input.triggerKey,
       createdById: input.createdById,
+      groupId: input.groupId,
       maxAttempts: settings?.maxRetryCount ?? 3,
       scheduledFor: input.scheduledFor ?? new Date(),
       status: "PENDING",

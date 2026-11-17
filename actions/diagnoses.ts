@@ -1,6 +1,6 @@
 "use server"
 
-import { requireRole } from "@/lib/auth"
+import { requireRole, gate } from "@/lib/auth"
 import { diagnosisService } from "@/server/services/diagnosis.service"
 import type { PhraseSection } from "@/server/repositories/diagnosis.repository"
 import type { Diagnosis } from "@prisma/client"
@@ -16,7 +16,7 @@ export async function createCustomDiagnosisAction(
   specialty: string,
   section: string = "DIAGNOSIS"
 ): Promise<{ success: boolean; diagnosis?: Diagnosis; error?: string }> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"]).then(gate("prescriptions", "directClinical")).catch(() => null)
   if (!session) return { success: false, error: "Unauthorized" }
 
   const trimmed = name.trim()
@@ -50,7 +50,7 @@ export async function createCustomDiagnosisAction(
 export async function trackDiagnosisUsageAction(
   diagnosisId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
+  const session = await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"]).then(gate("prescriptions", "directClinical")).catch(() => null)
   if (!session) return { success: false, error: "Unauthorized" }
 
   try {

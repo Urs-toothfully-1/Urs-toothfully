@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useRef, useState, useTransition } from "react"
+import { completeDirectVisitAction } from "@/actions/visits"
 import { useRouter } from "next/navigation"
 import {
   ChevronRight, ClipboardList, FileText, FileSignature,
@@ -195,6 +196,13 @@ export function EstimateWizard({
     void commitEstimate().then((ok) => { if (ok) setStep(n) })
   }
 
+  // Started from the patient profile (no queue): close the visit and go back to the patient.
+  async function finishDirect(message: string) {
+    await completeDirectVisitAction(visitId)
+    toast.success(message)
+    router.push(`/patients/${patientId}`)
+  }
+
   // Rx-only: complete the consultation with just the prescription. No estimate,
   // no agreement, no payment step. Patient can consult again later.
   function finishRxOnly() {
@@ -207,7 +215,7 @@ export function EstimateWizard({
         toast.error("Could not save prescription — please review the entries.")
         return
       }
-      if (!queueId) { router.push("/doctor"); return }
+      if (!queueId) { await finishDirect("Prescription saved"); return }
       const result = await updateQueueStatusAction(queueId, "COMPLETED")
       if (result.success) {
         toast.success("Consultation completed (prescription only)")
@@ -240,7 +248,7 @@ export function EstimateWizard({
           return
         }
       }
-      if (!queueId) { router.push("/doctor"); return }
+      if (!queueId) { await finishDirect("Saved"); return }
       const result = await updateQueueStatusAction(queueId, "COMPLETED")
       if (result.success) {
         toast.success(savePlan ? "Consultation completed" : "Consultation completed (no payment plan)")

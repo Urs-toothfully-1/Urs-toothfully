@@ -20,6 +20,8 @@ export const visitRepository = {
       include: {
         branch: { select: { id: true, name: true } },
         doctor: { select: { id: true, name: true } },
+        createdBy: { select: { name: true, role: true } },
+        cancelledBy: { select: { name: true } },
         queueEntry: { select: { id: true, status: true, tokenNumber: true } },
         estimates: { select: { id: true, estimateNo: true, total: true, status: true } },
       },

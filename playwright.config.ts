@@ -80,7 +80,7 @@ export default defineConfig({
     // Per-user access scenarios — logs in its own seeded users (admin part uses admin state).
     {
       name: "access",
-      testMatch: /(access-control|automation)\.spec\.ts/,
+      testMatch: /(access-control|automation|new-features)\.spec\.ts/,
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"], launchOptions: { executablePath } },
     },

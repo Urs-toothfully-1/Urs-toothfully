@@ -56,6 +56,11 @@ export const PERMISSIONS = {
     help: "Needs “See prices”. Collect payment, bill products, create invoices.",
     roles: ["RECEPTIONIST"],
   },
+  directClinical: {
+    label: "Create prescriptions & estimates from the patient profile",
+    help: "Start a prescription or estimate without the queue (you pick the doctor), and cancel such visits. Estimates also need “See prices”.",
+    roles: ["RECEPTIONIST"],
+  },
   queue: {
     label: "Manage the live queue",
     help: "Add patients to the queue and run the reception queue.",
@@ -127,13 +132,13 @@ export const PRESETS: Record<
       id: "front-desk",
       label: "Appointments and queue only",
       help: "Registers patients, books appointments, runs the queue. No prices, payments or billing.",
-      off: ["prices", "payments", "collectPayments", "documents"],
+      off: ["prices", "payments", "collectPayments", "documents", "directClinical"],
     },
     {
       id: "billing",
       label: "Billing desk",
       help: "Collects payments and bills. No appointments, queue or WhatsApp.",
-      off: ["appointments", "queue", "whatsapp", "documents"],
+      off: ["appointments", "queue", "whatsapp", "documents", "directClinical"],
     },
     {
       id: "today-desk",
@@ -174,4 +179,14 @@ export function toOverrides(
 /** Keys an admin can toggle for this role. */
 export function keysForRole(role: Role): PermissionKey[] {
   return PERMISSION_KEYS.filter((k) => (PERMISSIONS[k].roles as readonly Role[]).includes(role))
+}
+
+/** May write a prescription: admin, a doctor with "Write prescriptions", or reception with "from patient profile". */
+export function canWriteRx(role: Role, perms: Perms): boolean {
+  return role === "ADMIN" || (role === "DOCTOR" && perms.prescriptions) || (role === "RECEPTIONIST" && perms.directClinical)
+}
+
+/** May create/edit an estimate: as above, plus price access for reception. */
+export function canEstimate(role: Role, perms: Perms): boolean {
+  return role === "ADMIN" || (role === "DOCTOR" && perms.estimates) || (role === "RECEPTIONIST" && perms.directClinical && perms.prices)
 }

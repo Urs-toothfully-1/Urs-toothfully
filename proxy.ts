@@ -11,6 +11,8 @@ const ROLE_PATHS: Record<string, Role[]> = {
   "/reception": ["RECEPTIONIST", "ADMIN"],
   "/doctor/estimate": ["DOCTOR", "ADMIN", "RECEPTIONIST"],
   "/doctor/prescription": ["DOCTOR", "ADMIN", "RECEPTIONIST"],
+  // Reception may open the consultation screen for a visit started from the patient profile (page checks access).
+  "/doctor/consultation": ["DOCTOR", "ADMIN", "RECEPTIONIST"],
   "/doctor": ["DOCTOR", "ADMIN"],
   "/whatsapp/settings": ["ADMIN"],
   "/whatsapp": ["ADMIN", "RECEPTIONIST"],
