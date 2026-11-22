@@ -13,7 +13,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { NumberInput } from "@/components/ui/number-input"
 import { toast } from "sonner"
-import { KeyRound, Loader2, PlugZap, RefreshCw, Save, ShieldAlert, Webhook, Copy } from "lucide-react"
+import {
+  KeyRound,
+  Loader2,
+  PlugZap,
+  RefreshCw,
+  Save,
+  ShieldAlert,
+  Webhook,
+  Copy,
+} from "lucide-react"
 
 interface SettingsShape {
   businessAccountId: string | null
@@ -107,25 +116,28 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
   }
 
   return (
-    <div className="space-y-5 max-w-3xl">
+    <div className="max-w-3xl space-y-5">
       {/* Credentials */}
       <Card className="border-[#E0E3E5] bg-white">
-        <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
-          <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
+        <CardHeader className="border-b pb-3" style={{ borderColor: BRAND_COLORS.lightBackground }}>
+          <CardTitle
+            className="flex items-center gap-2 text-sm"
+            style={{ color: BRAND_COLORS.bodyText }}
+          >
             <KeyRound className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
             Meta API Credentials
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 space-y-4">
-          <div className="flex gap-2 p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs">
-            <ShieldAlert className="h-4 w-4 mt-0.5 flex-shrink-0" />
+        <CardContent className="space-y-4 p-4">
+          <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <p>
-              Credentials are encrypted at rest and visible only to administrators.
-              Tokens are never shown again after saving — only a masked preview.
+              Credentials are encrypted at rest and visible only to administrators. Tokens are never
+              shown again after saving — only a masked preview.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
                 Business Account ID (WABA) <span className="text-red-500">*</span>
@@ -156,16 +168,23 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
                 type="password"
                 value={form.accessToken}
                 onChange={(e) => set("accessToken", e.target.value)}
-                placeholder={settings?.accessTokenMask ? `Saved: ${settings.accessTokenMask} — enter a new token to replace` : "Permanent System User token"}
+                placeholder={
+                  settings?.accessTokenMask
+                    ? `Saved: ${settings.accessTokenMask} — enter a new token to replace`
+                    : "Permanent System User token"
+                }
                 autoComplete="new-password"
                 className="border-[#E0E3E5] bg-[#F2F4F6]"
               />
               <p className={hintCls} style={{ color: BRAND_COLORS.sidebarMuted }}>
-                Use a permanent System User token from Meta Business Manager. Leave blank to keep the saved token.
+                Use a permanent System User token from Meta Business Manager. Leave blank to keep
+                the saved token.
               </p>
             </div>
             <div>
-              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Graph API Version</label>
+              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+                Graph API Version
+              </label>
               <Input
                 value={form.graphApiVersion}
                 onChange={(e) => set("graphApiVersion", e.target.value)}
@@ -174,7 +193,9 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
               />
             </div>
             <div>
-              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Business Display Name</label>
+              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+                Business Display Name
+              </label>
               <Input
                 value={form.businessDisplayName}
                 onChange={(e) => set("businessDisplayName", e.target.value)}
@@ -183,7 +204,9 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
               />
             </div>
             <div>
-              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Default Country Code</label>
+              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+                Default Country Code
+              </label>
               <Input
                 value={form.defaultCountryCode}
                 onChange={(e) => set("defaultCountryCode", e.target.value)}
@@ -201,18 +224,33 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
 
       {/* Webhook */}
       <Card className="border-[#E0E3E5] bg-white">
-        <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
-          <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
+        <CardHeader className="border-b pb-3" style={{ borderColor: BRAND_COLORS.lightBackground }}>
+          <CardTitle
+            className="flex items-center gap-2 text-sm"
+            style={{ color: BRAND_COLORS.bodyText }}
+          >
             <Webhook className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
             Webhook
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 space-y-4">
+        <CardContent className="space-y-4 p-4">
           <div>
-            <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Webhook URL (read-only)</label>
+            <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+              Webhook URL (read-only)
+            </label>
             <div className="flex gap-2">
-              <Input readOnly value={webhookUrl} className="border-[#E0E3E5] bg-[#F2F4F6] font-mono text-xs" />
-              <Button type="button" variant="outline" onClick={copyWebhookUrl} className="h-9 px-3" aria-label="Copy webhook URL">
+              <Input
+                readOnly
+                value={webhookUrl}
+                className="border-[#E0E3E5] bg-[#F2F4F6] font-mono text-xs"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={copyWebhookUrl}
+                className="h-9 px-3"
+                aria-label="Copy webhook URL"
+              >
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
@@ -220,9 +258,11 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
               Paste this as the Callback URL in Meta App Dashboard → WhatsApp → Configuration.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Webhook Verify Token</label>
+              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+                Webhook Verify Token
+              </label>
               <Input
                 value={form.webhookVerifyToken}
                 onChange={(e) => set("webhookVerifyToken", e.target.value)}
@@ -231,12 +271,18 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
               />
             </div>
             <div>
-              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Webhook Secret (App Secret)</label>
+              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+                Webhook Secret (App Secret)
+              </label>
               <Input
                 type="password"
                 value={form.webhookSecret}
                 onChange={(e) => set("webhookSecret", e.target.value)}
-                placeholder={settings?.webhookSecretMask ? `Saved: ${settings.webhookSecretMask} — enter to replace` : "Meta app secret for signature validation"}
+                placeholder={
+                  settings?.webhookSecretMask
+                    ? `Saved: ${settings.webhookSecretMask} — enter to replace`
+                    : "Meta app secret for signature validation"
+                }
                 autoComplete="new-password"
                 className="border-[#E0E3E5] bg-[#F2F4F6]"
               />
@@ -247,16 +293,21 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
 
       {/* Sending limits */}
       <Card className="border-[#E0E3E5] bg-white">
-        <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
-          <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
+        <CardHeader className="border-b pb-3" style={{ borderColor: BRAND_COLORS.lightBackground }}>
+          <CardTitle
+            className="flex items-center gap-2 text-sm"
+            style={{ color: BRAND_COLORS.bodyText }}
+          >
             <PlugZap className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
             Sending Limits
           </CardTitle>
         </CardHeader>
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
-              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Message Rate Limit (per min)</label>
+              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+                Message Rate Limit (per min)
+              </label>
               <NumberInput
                 integer
                 min={1}
@@ -267,7 +318,9 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
               />
             </div>
             <div>
-              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Daily Sending Limit</label>
+              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+                Daily Sending Limit
+              </label>
               <NumberInput
                 integer
                 min={1}
@@ -278,7 +331,9 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
               />
             </div>
             <div>
-              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Maximum Retry Count</label>
+              <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+                Maximum Retry Count
+              </label>
               <NumberInput
                 integer
                 min={0}
@@ -294,14 +349,20 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
 
       {/* Daily digest */}
       <Card className="border-[#E0E3E5] bg-white">
-        <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
-          <CardTitle className="text-sm flex items-center gap-2" style={{ color: BRAND_COLORS.bodyText }}>
+        <CardHeader className="border-b pb-3" style={{ borderColor: BRAND_COLORS.lightBackground }}>
+          <CardTitle
+            className="flex items-center gap-2 text-sm"
+            style={{ color: BRAND_COLORS.bodyText }}
+          >
             <RefreshCw className="h-4 w-4" style={{ color: BRAND_COLORS.primaryTeal }} />
             Daily Summary Digest
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 space-y-4">
-          <label className="flex items-center gap-2.5 text-sm cursor-pointer" style={{ color: BRAND_COLORS.bodyText }}>
+        <CardContent className="space-y-4 p-4">
+          <label
+            className="flex cursor-pointer items-center gap-2.5 text-sm"
+            style={{ color: BRAND_COLORS.bodyText }}
+          >
             <input
               type="checkbox"
               checked={form.dailyDigestEnabled}
@@ -311,7 +372,9 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
             Send an end-of-day summary (patients seen, revenue, outstanding) via WhatsApp
           </label>
           <div className="max-w-xs">
-            <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>Digest Phone Number</label>
+            <label className={labelCls} style={{ color: BRAND_COLORS.bodyText }}>
+              Digest Phone Number
+            </label>
             <Input
               value={form.dailyDigestPhone}
               onChange={(e) => set("dailyDigestPhone", e.target.value)}
@@ -319,7 +382,8 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
               className="border-[#E0E3E5] bg-[#F2F4F6]"
             />
             <p className={hintCls} style={{ color: BRAND_COLORS.sidebarMuted }}>
-              Owner/admin WhatsApp number. Sent daily at 9:00 PM IST — the daily_summary template must be approved by Meta.
+              Owner/admin WhatsApp number. Sent daily at 9:00 PM IST — the daily_summary template
+              must be approved by Meta.
             </p>
           </div>
         </CardContent>
@@ -331,17 +395,33 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
           onClick={handleSave}
           disabled={isPending}
           className="h-11 px-6 font-semibold text-white"
-          style={{ backgroundColor: isPending ? BRAND_COLORS.borderDivider : BRAND_COLORS.primaryTeal }}
+          style={{
+            backgroundColor: isPending ? BRAND_COLORS.borderDivider : BRAND_COLORS.primaryTeal,
+          }}
         >
-          {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+          {isPending ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="mr-2 h-4 w-4" />
+          )}
           Save Settings
         </Button>
-        <Button onClick={handleTest} disabled={isPending} variant="outline" className="h-11 px-5 font-semibold">
-          <PlugZap className="h-4 w-4 mr-2" />
+        <Button
+          onClick={handleTest}
+          disabled={isPending}
+          variant="outline"
+          className="h-11 px-5 font-semibold"
+        >
+          <PlugZap className="mr-2 h-4 w-4" />
           Test Connection
         </Button>
-        <Button onClick={handleTokenCheck} disabled={isPending} variant="outline" className="h-11 px-5 font-semibold">
-          <RefreshCw className="h-4 w-4 mr-2" />
+        <Button
+          onClick={handleTokenCheck}
+          disabled={isPending}
+          variant="outline"
+          className="h-11 px-5 font-semibold"
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
           Verify Access Token
         </Button>
         <Button

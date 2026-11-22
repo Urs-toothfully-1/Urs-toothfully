@@ -39,7 +39,9 @@ export interface MetaConnectionStatus {
 async function loadConfig(): Promise<MetaConfig> {
   const settings = await whatsappSettingsRepository.get()
   if (!settings?.businessAccountId || !settings.phoneNumberId || !settings.accessTokenEnc) {
-    throw new Error("WhatsApp API is not configured. Ask an administrator to complete Meta API Settings.")
+    throw new Error(
+      "WhatsApp API is not configured. Ask an administrator to complete Meta API Settings."
+    )
   }
   return {
     businessAccountId: settings.businessAccountId,
@@ -67,12 +69,16 @@ async function graphFetch(
 }
 
 function graphErrorMessage(data: Record<string, unknown>): string {
-  const err = data.error as { message?: string; code?: number; error_data?: { details?: string } } | undefined
+  const err = data.error as
+    | { message?: string; code?: number; error_data?: { details?: string } }
+    | undefined
   return err?.error_data?.details || err?.message || "Unknown Graph API error"
 }
 
 // Graph error codes that will never succeed on retry
-const PERMANENT_ERROR_CODES = new Set([100, 131026, 131047, 131051, 132000, 132001, 132005, 132007, 132012, 132015, 132016, 133010])
+const PERMANENT_ERROR_CODES = new Set([
+  100, 131026, 131047, 131051, 132000, 132001, 132005, 132007, 132012, 132015, 132016, 133010,
+])
 
 export const metaService = {
   loadConfig,
@@ -96,7 +102,11 @@ export const metaService = {
     try {
       config = await loadConfig()
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : "Not configured", permanent: false }
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Not configured",
+        permanent: false,
+      }
     }
 
     const components =
@@ -131,7 +141,11 @@ export const metaService = {
       const messages = data.messages as Array<{ id?: string }> | undefined
       return { success: true, metaMessageId: messages?.[0]?.id }
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : "Network error", permanent: false }
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Network error",
+        permanent: false,
+      }
     }
   },
 
@@ -146,7 +160,11 @@ export const metaService = {
     try {
       config = await loadConfig()
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : "Not configured", permanent: false }
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Not configured",
+        permanent: false,
+      }
     }
     try {
       const { ok, data } = await graphFetch(config, `${config.phoneNumberId}/messages`, {
@@ -169,7 +187,11 @@ export const metaService = {
       const messages = data.messages as Array<{ id?: string }> | undefined
       return { success: true, metaMessageId: messages?.[0]?.id }
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : "Network error", permanent: false }
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Network error",
+        permanent: false,
+      }
     }
   },
 
@@ -179,12 +201,17 @@ export const metaService = {
    * Meta's limits so a long label can never make the whole send fail.
    */
   async sendInteractiveMessage(to: string, msg: OutMsg): Promise<MetaSendResult> {
-    if (!msg.ui) return metaService.sendTextMessage(to, msg.footer ? `${msg.text}\n\n${msg.footer}` : msg.text)
+    if (!msg.ui)
+      return metaService.sendTextMessage(to, msg.footer ? `${msg.text}\n\n${msg.footer}` : msg.text)
     let config: MetaConfig
     try {
       config = await loadConfig()
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : "Not configured", permanent: false }
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Not configured",
+        permanent: false,
+      }
     }
     const body = { text: msg.text.slice(0, 1024) }
     const footer = msg.footer ? { footer: { text: msg.footer.slice(0, 60) } } : {}
@@ -196,7 +223,9 @@ export const metaService = {
             body,
             ...footer,
             action: {
-              buttons: ui.items.slice(0, 3).map((i) => ({ type: "reply", reply: { id: i.id, title: i.title.slice(0, 20) } })),
+              buttons: ui.items
+                .slice(0, 3)
+                .map((i) => ({ type: "reply", reply: { id: i.id, title: i.title.slice(0, 20) } })),
             },
           }
         : ui.kind === "list"
@@ -222,13 +251,22 @@ export const metaService = {
               type: "cta_url",
               body,
               ...footer,
-              action: { name: "cta_url", parameters: { display_text: ui.label.slice(0, 20), url: ui.url } },
+              action: {
+                name: "cta_url",
+                parameters: { display_text: ui.label.slice(0, 20), url: ui.url },
+              },
             }
 
     try {
       const { ok, data } = await graphFetch(config, `${config.phoneNumberId}/messages`, {
         method: "POST",
-        body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to, type: "interactive", interactive }),
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to,
+          type: "interactive",
+          interactive,
+        }),
       })
       if (!ok) {
         const errObj = data.error as { code?: number } | undefined
@@ -241,7 +279,11 @@ export const metaService = {
       const messages = data.messages as Array<{ id?: string }> | undefined
       return { success: true, metaMessageId: messages?.[0]?.id }
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : "Network error", permanent: false }
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Network error",
+        permanent: false,
+      }
     }
   },
 
@@ -251,23 +293,36 @@ export const metaService = {
     try {
       config = await loadConfig()
     } catch (err) {
-      return { ok: false, apiStatus: "NOT_CONFIGURED", error: err instanceof Error ? err.message : "Not configured" }
+      return {
+        ok: false,
+        apiStatus: "NOT_CONFIGURED",
+        error: err instanceof Error ? err.message : "Not configured",
+      }
     }
 
     try {
       const [phoneRes, wabaRes] = await Promise.all([
-        graphFetch(config, `${config.phoneNumberId}?fields=display_phone_number,verified_name,quality_rating,code_verification_status`),
+        graphFetch(
+          config,
+          `${config.phoneNumberId}?fields=display_phone_number,verified_name,quality_rating,code_verification_status`
+        ),
         graphFetch(config, `${config.businessAccountId}?fields=name,account_review_status`),
       ])
 
       if (!phoneRes.ok) {
-        const result: MetaConnectionStatus = { ok: false, apiStatus: "ERROR", error: graphErrorMessage(phoneRes.data) }
+        const result: MetaConnectionStatus = {
+          ok: false,
+          apiStatus: "ERROR",
+          error: graphErrorMessage(phoneRes.data),
+        }
         await whatsappSettingsRepository.patch({ apiStatus: "ERROR", updatedById })
         return result
       }
 
       const phoneStatus = String(phoneRes.data.code_verification_status ?? "CONNECTED")
-      const bizStatus = wabaRes.ok ? String(wabaRes.data.account_review_status ?? "UNKNOWN") : "UNKNOWN"
+      const bizStatus = wabaRes.ok
+        ? String(wabaRes.data.account_review_status ?? "UNKNOWN")
+        : "UNKNOWN"
 
       await whatsappSettingsRepository.patch({
         apiStatus: "CONNECTED",
@@ -288,7 +343,11 @@ export const metaService = {
       }
     } catch (err) {
       await whatsappSettingsRepository.patch({ apiStatus: "ERROR", updatedById }).catch(() => null)
-      return { ok: false, apiStatus: "ERROR", error: err instanceof Error ? err.message : "Network error" }
+      return {
+        ok: false,
+        apiStatus: "ERROR",
+        error: err instanceof Error ? err.message : "Network error",
+      }
     }
   },
 
@@ -299,24 +358,37 @@ export const metaService = {
    */
   async enableWelcomeMessage(prompts: string[]): Promise<void> {
     const config = await loadConfig()
-    const { ok, data } = await graphFetch(config, `${config.phoneNumberId}/conversational_automation`, {
-      method: "POST",
-      body: JSON.stringify({ enable_welcome_message: true, prompts: prompts.slice(0, 4) }),
-    })
+    const { ok, data } = await graphFetch(
+      config,
+      `${config.phoneNumberId}/conversational_automation`,
+      {
+        method: "POST",
+        body: JSON.stringify({ enable_welcome_message: true, prompts: prompts.slice(0, 4) }),
+      }
+    )
     if (!ok) throw new Error(graphErrorMessage(data))
   },
 
   /** Fetches all message templates registered on the WABA. */
-  async fetchTemplatesFromMeta(): Promise<Array<{
-    id: string
-    name: string
-    category: string
-    language: string
-    status: string
-    components: Array<Record<string, unknown>>
-  }>> {
+  async fetchTemplatesFromMeta(): Promise<
+    Array<{
+      id: string
+      name: string
+      category: string
+      language: string
+      status: string
+      components: Array<Record<string, unknown>>
+    }>
+  > {
     const config = await loadConfig()
-    const templates: Array<{ id: string; name: string; category: string; language: string; status: string; components: Array<Record<string, unknown>> }> = []
+    const templates: Array<{
+      id: string
+      name: string
+      category: string
+      language: string
+      status: string
+      components: Array<Record<string, unknown>>
+    }> = []
     let path = `${config.businessAccountId}/message_templates?limit=100`
 
     // paginate defensively (max 10 pages)
@@ -373,9 +445,13 @@ export const metaService = {
    */
   async deleteTemplateOnMeta(name: string): Promise<void> {
     const config = await loadConfig()
-    await graphFetch(config, `${config.businessAccountId}/message_templates?name=${encodeURIComponent(name)}`, {
-      method: "DELETE",
-    })
+    await graphFetch(
+      config,
+      `${config.businessAccountId}/message_templates?name=${encodeURIComponent(name)}`,
+      {
+        method: "DELETE",
+      }
+    )
   },
 
   /** Checks token validity and reports expiry details where available. */

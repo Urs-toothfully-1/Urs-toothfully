@@ -32,7 +32,9 @@ const settingsSchema = z.object({
   dailyDigestPhone: z.string().max(20).optional(),
 })
 
-export async function saveWhatsAppSettingsAction(input: z.infer<typeof settingsSchema>): Promise<WhatsAppActionState> {
+export async function saveWhatsAppSettingsAction(
+  input: z.infer<typeof settingsSchema>
+): Promise<WhatsAppActionState> {
   const session = await requireRole(["ADMIN"]).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
@@ -48,16 +50,23 @@ export async function saveWhatsAppSettingsAction(input: z.infer<typeof settingsS
   }
 }
 
-export async function testWhatsAppConnectionAction(): Promise<WhatsAppActionState & {
-  status?: Awaited<ReturnType<typeof metaService.testConnection>>
-}> {
+export async function testWhatsAppConnectionAction(): Promise<
+  WhatsAppActionState & {
+    status?: Awaited<ReturnType<typeof metaService.testConnection>>
+  }
+> {
   const session = await requireRole(["ADMIN"]).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   const status = await metaService.testConnection(session.userId)
   revalidatePath("/whatsapp/settings")
   return status.ok
-    ? { success: true, message: `Connected — ${status.verifiedName ?? ""} ${status.displayPhoneNumber ?? ""}`.trim(), status }
+    ? {
+        success: true,
+        message:
+          `Connected — ${status.verifiedName ?? ""} ${status.displayPhoneNumber ?? ""}`.trim(),
+        status,
+      }
     : { error: status.error ?? "Connection failed", status }
 }
 
@@ -72,7 +81,10 @@ export async function enableWhatsAppWelcomeAction(): Promise<WhatsAppActionState
       "Where are your clinics?",
       "How much does treatment cost?",
     ])
-    return { success: true, message: "Welcome message is on — new chats are greeted automatically." }
+    return {
+      success: true,
+      message: "Welcome message is on — new chats are greeted automatically.",
+    }
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Could not turn on the welcome message" }
   }
@@ -85,16 +97,23 @@ export async function refreshWhatsAppTokenStatusAction(): Promise<WhatsAppAction
   const result = await metaService.checkTokenStatus()
   return result.valid
     ? { success: true, message: "Access token is valid." }
-    : { error: `Access token problem: ${result.error}. Generate a new token in Meta Business Manager and save it here.` }
+    : {
+        error: `Access token problem: ${result.error}. Generate a new token in Meta Business Manager and save it here.`,
+      }
 }
 
-export async function setWhatsAppSendingEnabledAction(enabled: boolean): Promise<WhatsAppActionState> {
+export async function setWhatsAppSendingEnabledAction(
+  enabled: boolean
+): Promise<WhatsAppActionState> {
   const session = await requireRole(["ADMIN"]).catch(() => null)
   if (!session) return { error: "Unauthorized" }
   try {
     await whatsappService.setSendingEnabled(enabled, session.userId)
     revalidatePath("/whatsapp")
-    return { success: true, message: enabled ? "Sending enabled" : "EMERGENCY STOP — sending disabled" }
+    return {
+      success: true,
+      message: enabled ? "Sending enabled" : "EMERGENCY STOP — sending disabled",
+    }
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed" }
   }
@@ -114,7 +133,9 @@ export async function setWhatsAppQueuePausedAction(paused: boolean): Promise<Wha
 
 // ─── Templates (ADMIN only) ───────────────────────────────────
 
-export async function createWhatsAppTemplateAction(input: z.infer<typeof templateSchema>): Promise<WhatsAppActionState> {
+export async function createWhatsAppTemplateAction(
+  input: z.infer<typeof templateSchema>
+): Promise<WhatsAppActionState> {
   const session = await requireRole(["ADMIN"]).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
@@ -149,7 +170,10 @@ export async function updateWhatsAppTemplateAction(
   }
 }
 
-export async function setWhatsAppTemplateEnabledAction(id: string, isEnabled: boolean): Promise<WhatsAppActionState> {
+export async function setWhatsAppTemplateEnabledAction(
+  id: string,
+  isEnabled: boolean
+): Promise<WhatsAppActionState> {
   const session = await requireRole(["ADMIN"]).catch(() => null)
   if (!session) return { error: "Unauthorized" }
   try {
@@ -179,7 +203,10 @@ export async function syncTemplatesFromMetaAction(): Promise<WhatsAppActionState
   try {
     const result = await templateService.syncFromMeta(session.userId)
     revalidatePath("/whatsapp/templates")
-    return { success: true, message: `Synced ${result.total} template(s) from Meta — ${result.updated} updated locally` }
+    return {
+      success: true,
+      message: `Synced ${result.total} template(s) from Meta — ${result.updated} updated locally`,
+    }
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Sync failed" }
   }
@@ -205,8 +232,12 @@ const sendSchema = z.object({
   variables: z.array(z.string().max(500)).max(10),
 })
 
-export async function sendWhatsAppMessageAction(input: z.infer<typeof sendSchema>): Promise<WhatsAppActionState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp")).catch(() => null)
+export async function sendWhatsAppMessageAction(
+  input: z.infer<typeof sendSchema>
+): Promise<WhatsAppActionState> {
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+    .then(gate("whatsapp"))
+    .catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
   const parsed = sendSchema.safeParse(input)
@@ -226,7 +257,9 @@ export async function sendWhatsAppMessageAction(input: z.infer<typeof sendSchema
 }
 
 export async function retryWhatsAppMessageAction(id: string): Promise<WhatsAppActionState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp")).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+    .then(gate("whatsapp"))
+    .catch(() => null)
   if (!session) return { error: "Unauthorized" }
   try {
     await whatsappQueueService.retryMessage(id, session.userId)
@@ -250,7 +283,9 @@ export async function retryAllFailedWhatsAppMessagesAction(): Promise<WhatsAppAc
 }
 
 export async function cancelWhatsAppMessageAction(id: string): Promise<WhatsAppActionState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp")).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+    .then(gate("whatsapp"))
+    .catch(() => null)
   if (!session) return { error: "Unauthorized" }
   try {
     await whatsappQueueService.cancelMessage(id, session.userId)
@@ -262,7 +297,9 @@ export async function cancelWhatsAppMessageAction(id: string): Promise<WhatsAppA
 }
 
 export async function cancelAllQueuedWhatsAppMessagesAction(): Promise<WhatsAppActionState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp")).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+    .then(gate("whatsapp"))
+    .catch(() => null)
   if (!session) return { error: "Unauthorized" }
   try {
     const count = await whatsappQueueService.cancelAll(session.userId)
@@ -274,12 +311,17 @@ export async function cancelAllQueuedWhatsAppMessagesAction(): Promise<WhatsAppA
 }
 
 export async function processWhatsAppQueueAction(): Promise<WhatsAppActionState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp")).catch(() => null)
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+    .then(gate("whatsapp"))
+    .catch(() => null)
   if (!session) return { error: "Unauthorized" }
   try {
     const result = await whatsappQueueService.processQueue()
     revalidatePath("/whatsapp/queue")
-    return { success: true, message: `Processed ${result.processed} — sent ${result.sent}, failed ${result.failed}` }
+    return {
+      success: true,
+      message: `Processed ${result.processed} — sent ${result.sent}, failed ${result.failed}`,
+    }
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Processing failed" }
   }
@@ -287,13 +329,21 @@ export async function processWhatsAppQueueAction(): Promise<WhatsAppActionState>
 
 // ─── Consent (ADMIN + RECEPTIONIST) ──────────────────────────
 
-export async function setWhatsAppConsentAction(patientId: string, consented: boolean): Promise<WhatsAppActionState> {
-  const session = await requireRole(["ADMIN", "RECEPTIONIST"]).then(gate("whatsapp")).catch(() => null)
+export async function setWhatsAppConsentAction(
+  patientId: string,
+  consented: boolean
+): Promise<WhatsAppActionState> {
+  const session = await requireRole(["ADMIN", "RECEPTIONIST"])
+    .then(gate("whatsapp"))
+    .catch(() => null)
   if (!session) return { error: "Unauthorized" }
   try {
     await whatsappService.setConsent(patientId, consented)
     revalidatePath(`/patients/${patientId}`)
-    return { success: true, message: consented ? "WhatsApp consent recorded" : "WhatsApp consent revoked" }
+    return {
+      success: true,
+      message: consented ? "WhatsApp consent recorded" : "WhatsApp consent revoked",
+    }
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Failed to update consent" }
   }

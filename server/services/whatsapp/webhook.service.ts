@@ -14,7 +14,12 @@ interface MetaStatusEvent {
   id: string // meta message id (wamid.…)
   status: "sent" | "delivered" | "read" | "failed" | string
   timestamp: string
-  errors?: Array<{ code?: number; title?: string; message?: string; error_data?: { details?: string } }>
+  errors?: Array<{
+    code?: number
+    title?: string
+    message?: string
+    error_data?: { details?: string }
+  }>
 }
 
 interface MetaInboundMessage {
@@ -31,7 +36,11 @@ interface MetaInboundMessage {
 
 export const webhookService = {
   /** GET handshake — Meta sends hub.mode/hub.verify_token/hub.challenge. */
-  async handleVerification(mode: string | null, token: string | null, challenge: string | null): Promise<string | null> {
+  async handleVerification(
+    mode: string | null,
+    token: string | null,
+    challenge: string | null
+  ): Promise<string | null> {
     if (mode !== "subscribe" || !token || !challenge) return null
     const settings = await whatsappSettingsRepository.get()
     if (!settings?.webhookVerifyToken) return null
@@ -95,7 +104,8 @@ export const webhookService = {
               handled++
             } else if (s.status === "failed") {
               const err = s.errors?.[0]
-              const reason = err?.error_data?.details || err?.message || err?.title || "Delivery failed"
+              const reason =
+                err?.error_data?.details || err?.message || err?.title || "Delivery failed"
               await whatsappMessageRepository.updateStatusByMetaId(s.id, "FAILED", at, reason)
               handled++
             }
@@ -113,11 +123,14 @@ export const webhookService = {
               (m.type === "request_welcome" ? "hi" : undefined)
             if (!m.from || !body) continue
             // Tapped button / list row id — routes the bot independent of display text.
-            const replyId = m.interactive?.button_reply?.id ?? m.interactive?.list_reply?.id ?? m.button?.payload
+            const replyId =
+              m.interactive?.button_reply?.id ?? m.interactive?.list_reply?.id ?? m.button?.payload
             eventType = eventType ?? "message.inbound"
             firstMetaId = firstMetaId ?? m.id
             const { chatbotService } = await import("@/server/services/whatsapp/chatbot.service")
-            await chatbotService.handleInbound({ fromPhone: m.from, wamid: m.id, text: body, replyId }).catch(() => {})
+            await chatbotService
+              .handleInbound({ fromPhone: m.from, wamid: m.id, text: body, replyId })
+              .catch(() => {})
             handled++
           }
         }

@@ -6,13 +6,24 @@ import { WHATSAPP_TRIGGERS } from "@/lib/whatsapp/templates"
 import { istDayRange, istDayKey, istTodayStr, fmtIstDate, fmtIstTime } from "@/lib/ist"
 
 const APPOINTMENT_INCLUDE = {
-  patient: { select: { id: true, patientId: true, fullName: true, mobile: true, gender: true, dateOfBirth: true } },
+  patient: {
+    select: {
+      id: true,
+      patientId: true,
+      fullName: true,
+      mobile: true,
+      gender: true,
+      dateOfBirth: true,
+    },
+  },
   doctor: { select: { id: true, name: true } },
   branch: { select: { id: true, name: true } },
   createdBy: { select: { id: true, name: true } },
 } satisfies Prisma.AppointmentInclude
 
-export type AppointmentWithRelations = Prisma.AppointmentGetPayload<{ include: typeof APPOINTMENT_INCLUDE }>
+export type AppointmentWithRelations = Prisma.AppointmentGetPayload<{
+  include: typeof APPOINTMENT_INCLUDE
+}>
 
 // Day boundaries and keys are IST-based (istDayRange / istDayKey) so an
 // appointment's day matches the wall-clock the clinic sees, not the UTC day.
@@ -47,12 +58,20 @@ function dayKey(d: Date): string {
 }
 
 // Blocks bookings that collide with an existing SCHEDULED slot for the doctor.
-async function assertNoClash(db: Prisma.TransactionClient, doctorId: string, start: Date, durationMins: number, excludeId?: string) {
+async function assertNoClash(
+  db: Prisma.TransactionClient,
+  doctorId: string,
+  start: Date,
+  durationMins: number,
+  excludeId?: string
+) {
   const end = new Date(start.getTime() + durationMins * 60_000)
   const { start: dayStart, end: dayEnd } = dayRange(start)
   const sameDay = await db.appointment.findMany({
     where: {
-      doctorId, status: "SCHEDULED", scheduledAt: { gte: dayStart, lte: dayEnd },
+      doctorId,
+      status: "SCHEDULED",
+      scheduledAt: { gte: dayStart, lte: dayEnd },
       ...(excludeId ? { id: { not: excludeId } } : {}),
     },
     select: { scheduledAt: true, durationMins: true },
@@ -70,7 +89,10 @@ async function assertNoClash(db: Prisma.TransactionClient, doctorId: string, sta
  * it two desks booking the same slot at the same moment both pass the check
  * and both insert. The lock is transaction-scoped, so it is pgbouncer-safe.
  */
-function withDoctorLock<T>(doctorId: string, fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+function withDoctorLock<T>(
+  doctorId: string,
+  fn: (tx: Prisma.TransactionClient) => Promise<T>
+): Promise<T> {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"appt:" + doctorId}))`
     return fn(tx)
@@ -108,8 +130,14 @@ export const appointmentService = {
     }
 
     const [patient, doctor] = await Promise.all([
-      prisma.patient.findUnique({ where: { id: input.patientId, isDeleted: false }, select: { id: true } }),
-      prisma.user.findUnique({ where: { id: input.doctorId, role: "DOCTOR", isActive: true }, select: { id: true } }),
+      prisma.patient.findUnique({
+        where: { id: input.patientId, isDeleted: false },
+        select: { id: true },
+      }),
+      prisma.user.findUnique({
+        where: { id: input.doctorId, role: "DOCTOR", isActive: true },
+        select: { id: true },
+      }),
     ])
     if (!patient) throw new Error("Patient not found")
     if (!doctor) throw new Error("Doctor not found or inactive")
@@ -120,7 +148,6 @@ export const appointmentService = {
     }
 
     await assertPatientDayLimit(input.patientId, input.scheduledAt)
-
 
     const appointment = await withDoctorLock(input.doctorId, async (tx) => {
       await assertNoClash(tx, input.doctorId, input.scheduledAt, durationMins)
@@ -146,30 +173,39 @@ export const appointmentService = {
       entityId: appointment.id,
       action: "CREATE",
       changedById: createdById,
-      newValues: { patientId: input.patientId, doctorId: input.doctorId, scheduledAt: input.scheduledAt.toISOString() },
+      newValues: {
+        patientId: input.patientId,
+        doctorId: input.doctorId,
+        scheduledAt: input.scheduledAt.toISOString(),
+      },
       branchId: input.branchId,
     })
 
     // Consent + consultation-gated; never throws. Skipped for backdated entries —
     // nobody wants a "your appointment is confirmed" for last Tuesday.
-    if (!isPast) void whatsappService.sendTrigger({
-      triggerKey: WHATSAPP_TRIGGERS.APPOINTMENT_CONFIRMATION,
-      patientId: appointment.patientId,
-      variables: [
-        appointment.patient.fullName,
-        formatApptDate(appointment.scheduledAt),
-        formatApptTime(appointment.scheduledAt),
-        appointment.branch.name,
-      ],
-      branchId: appointment.branchId,
-      createdById,
-      skipConsultationGate: input.skipWhatsappGate,
-    })
+    if (!isPast)
+      void whatsappService.sendTrigger({
+        triggerKey: WHATSAPP_TRIGGERS.APPOINTMENT_CONFIRMATION,
+        patientId: appointment.patientId,
+        variables: [
+          appointment.patient.fullName,
+          formatApptDate(appointment.scheduledAt),
+          formatApptTime(appointment.scheduledAt),
+          appointment.branch.name,
+        ],
+        branchId: appointment.branchId,
+        createdById,
+        skipConsultationGate: input.skipWhatsappGate,
+      })
 
     return appointment
   },
 
-  async listForDay(opts: { date: Date; branchId?: string; doctorId?: string }): Promise<AppointmentWithRelations[]> {
+  async listForDay(opts: {
+    date: Date
+    branchId?: string
+    doctorId?: string
+  }): Promise<AppointmentWithRelations[]> {
     const { start, end } = dayRange(opts.date)
     return prisma.appointment.findMany({
       where: {
@@ -188,7 +224,12 @@ export const appointmentService = {
    * they can still be closed instead of being stranded on a date nobody visits.
    */
   /** Every appointment between two instants — backs the week/calendar grid. */
-  async listForRange(opts: { start: Date; end: Date; branchId?: string; doctorId?: string }): Promise<AppointmentWithRelations[]> {
+  async listForRange(opts: {
+    start: Date
+    end: Date
+    branchId?: string
+    doctorId?: string
+  }): Promise<AppointmentWithRelations[]> {
     return prisma.appointment.findMany({
       where: {
         scheduledAt: { gte: opts.start, lte: opts.end },
@@ -200,7 +241,10 @@ export const appointmentService = {
     })
   },
 
-  async listOverdue(opts: { branchId?: string; doctorId?: string }): Promise<AppointmentWithRelations[]> {
+  async listOverdue(opts: {
+    branchId?: string
+    doctorId?: string
+  }): Promise<AppointmentWithRelations[]> {
     return prisma.appointment.findMany({
       where: {
         status: "SCHEDULED",
@@ -215,7 +259,12 @@ export const appointmentService = {
   },
 
   /** SCHEDULED appointment count per local day for a date range (calendar dots). */
-  async countsForRange(opts: { start: Date; end: Date; branchId?: string; doctorId?: string }): Promise<Record<string, number>> {
+  async countsForRange(opts: {
+    start: Date
+    end: Date
+    branchId?: string
+    doctorId?: string
+  }): Promise<Record<string, number>> {
     const rows = await prisma.appointment.findMany({
       where: {
         status: "SCHEDULED",
@@ -231,10 +280,18 @@ export const appointmentService = {
   },
 
   /** Reschedule a SCHEDULED appointment to a new time (patient asked to move). */
-  async reschedule(id: string, scheduledAt: Date, changedById: string): Promise<AppointmentWithRelations> {
-    const existing = await prisma.appointment.findUnique({ where: { id }, include: APPOINTMENT_INCLUDE })
+  async reschedule(
+    id: string,
+    scheduledAt: Date,
+    changedById: string
+  ): Promise<AppointmentWithRelations> {
+    const existing = await prisma.appointment.findUnique({
+      where: { id },
+      include: APPOINTMENT_INCLUDE,
+    })
     if (!existing) throw new Error("Appointment not found")
-    if (existing.status !== "SCHEDULED") throw new Error("Only scheduled appointments can be rescheduled.")
+    if (existing.status !== "SCHEDULED")
+      throw new Error("Only scheduled appointments can be rescheduled.")
     if (scheduledAt.getTime() < Date.now() - 60_000) throw new Error("New time is in the past.")
     await assertPatientDayLimit(existing.patientId, scheduledAt, id)
     const appointment = await withDoctorLock(existing.doctorId, async (tx) => {
@@ -287,9 +344,13 @@ export const appointmentService = {
     changedById: string,
     cancellationReason?: string
   ): Promise<AppointmentWithRelations> {
-    const existing = await prisma.appointment.findUnique({ where: { id }, include: APPOINTMENT_INCLUDE })
+    const existing = await prisma.appointment.findUnique({
+      where: { id },
+      include: APPOINTMENT_INCLUDE,
+    })
     if (!existing) throw new Error("Appointment not found")
-    if (existing.status !== "SCHEDULED") throw new Error("Only scheduled appointments can be updated.")
+    if (existing.status !== "SCHEDULED")
+      throw new Error("Only scheduled appointments can be updated.")
 
     const appointment = await prisma.appointment.update({
       where: { id },
@@ -359,7 +420,10 @@ export const appointmentService = {
         skipConsultationGate: true,
       })
       if (result.queued) {
-        await prisma.appointment.update({ where: { id: appt.id }, data: { reminderSentAt: new Date() } })
+        await prisma.appointment.update({
+          where: { id: appt.id },
+          data: { reminderSentAt: new Date() },
+        })
         sent++
       } else {
         skipped++
