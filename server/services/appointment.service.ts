@@ -314,11 +314,10 @@ export const appointmentService = {
       void whatsappService.sendTrigger({
         triggerKey: WHATSAPP_TRIGGERS.APPOINTMENT_CANCELLED,
         patientId: appointment.patientId,
+        // The approved template has 2 params: name, "on {{2}}" — Meta rejects any other count.
         variables: [
           appointment.patient.fullName,
-          formatApptDate(appointment.scheduledAt),
-          formatApptTime(appointment.scheduledAt),
-          appointment.branch.name,
+          `${formatApptDate(appointment.scheduledAt)} at ${formatApptTime(appointment.scheduledAt)}`,
         ],
         branchId: appointment.branchId,
         createdById: changedById,

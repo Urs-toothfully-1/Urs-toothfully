@@ -5,6 +5,8 @@ import { digestService } from "@/server/services/whatsapp/digest.service"
 import { whatsappQueueService } from "@/server/services/whatsapp/queue.service"
 import { whatsappWebhookRepository } from "@/server/repositories/whatsapp-webhook.repository"
 import { prunePdfCache } from "@/server/services/pdf.service"
+import { templateService } from "@/server/services/whatsapp/template.service"
+import { prisma } from "@/lib/prisma"
 
 export const maxDuration = 60
 
@@ -27,6 +29,15 @@ export async function GET(request: NextRequest) {
   }
 
   const results: Record<string, unknown> = {}
+  // Refresh template approval status from Meta first — the automations below
+  // only run for APPROVED templates, and without this the local status stays
+  // "pending" until someone presses Sync on the Templates page.
+  try {
+    const owner = await prisma.whatsAppSettings.findFirst({ select: { updatedById: true } })
+    if (owner) results.templateSync = await templateService.syncFromMeta(owner.updatedById)
+  } catch (err) {
+    results.templateSync = { error: err instanceof Error ? err.message : "failed" }
+  }
   try {
     results.reminders = await appointmentService.sendReminders()
   } catch (err) {
