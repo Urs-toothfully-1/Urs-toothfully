@@ -16,7 +16,7 @@ import { referralService } from "@/server/services/referral.service"
 const OUTRAM = "branch-outram-0000-0000-000000000001"
 const ALIPORE = "branch-alipo-0000-0000-000000000002"
 const stamp = Date.now().toString().slice(-6)
-const ids = { referrer: "", friend: "", referrerName: `E2E Referrer ${stamp}`, friendName: `E2E Friend ${stamp}`, referrerMobile: `96${stamp}01` }
+const ids = { reward: "", rewardName: `E2E Checkup ${stamp}`, referrer: "", friend: "", referrerName: `E2E Referrer ${stamp}`, friendName: `E2E Friend ${stamp}`, referrerMobile: `96${stamp}01` }
 
 test.describe.configure({ mode: "serial" })
 
@@ -34,6 +34,8 @@ test.beforeAll(async () => {
   ids.referrer = referrer.id
   ids.friend = friend.id
   await referralService.linkReferrer({ refereeId: friend.id, referrerId: referrer.id, userId: reception.id })
+  const admin = await prisma.user.findFirstOrThrow({ where: { role: "ADMIN" } })
+  ids.reward = (await prisma.rewardItem.create({ data: { name: ids.rewardName, points: 500, kind: "FREE_CHECKUP", createdById: admin.id } })).id
 
   const fee = await paymentService.getConsultationFee(OUTRAM)
   await paymentService.create({ paymentType: "CONSULTATION", patientId: friend.id, branchId: OUTRAM, amount: fee, mode: "CASH" } as any, reception.id)
@@ -50,7 +52,10 @@ test.beforeAll(async () => {
   })
 })
 
-test.afterAll(async () => { await prisma.$disconnect() })
+test.afterAll(async () => {
+  await prisma.rewardItem.update({ where: { id: ids.reward }, data: { isActive: false } }).catch(() => null)
+  await prisma.$disconnect()
+})
 
 test.describe("Doctor", () => {
   test.use({ storageState: "tests/e2e/.auth/doctor.json" })
@@ -61,13 +66,13 @@ test.describe("Doctor", () => {
     await expect(page.getByRole("link", { name: ids.referrerName })).toBeVisible()
   })
 
-  test("doctor spends the referrer's point on a reward — once only", async ({ page }) => {
+  test("doctor spends the referrer's 500 points on a catalogue reward — once only", async ({ page }) => {
     await page.goto(`/patients/${ids.referrer}/referrals`)
     await expect(page.getByText(ids.friendName).first()).toBeVisible()
-    await expect(page.getByText("1 point available", { exact: true })).toBeVisible()
+    await expect(page.getByText("500 points available", { exact: true })).toBeVisible()
     await page.getByRole("button", { name: /use points/i }).click()
     const dialog = page.getByRole("dialog")
-    await dialog.locator("select").last().selectOption("FREE_CHECKUP")
+    await dialog.getByRole("button", { name: new RegExp(ids.rewardName) }).click()
     await dialog.getByRole("button", { name: /give reward/i }).click()
     await expect(page.getByRole("dialog")).toHaveCount(0)
     await expect(page.getByText("0 points available", { exact: true })).toBeVisible()

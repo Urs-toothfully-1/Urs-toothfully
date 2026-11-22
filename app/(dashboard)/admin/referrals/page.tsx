@@ -3,11 +3,12 @@ import Link from "next/link"
 import { requireRole } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { istTodayStr } from "@/lib/ist"
-import { campaignStatus, rewardText, type RewardKind } from "@/lib/rewards"
+import { REFERRAL_POINTS, campaignStatus, rewardText, type RewardKind } from "@/lib/rewards"
 import { formatDate } from "@/lib/utils"
 import { referralService } from "@/server/services/referral.service"
 import { rewardService } from "@/server/services/reward.service"
 import { CampaignManager, type CampaignView } from "@/components/referrals/CampaignManager"
+import { RewardCatalogManager } from "@/components/referrals/RewardCatalogManager"
 import { Award, Crown, Gift, Sparkles, Users } from "lucide-react"
 
 export const metadata: Metadata = { title: "Rewards & Referrals" }
@@ -29,19 +30,19 @@ export default async function RewardsPage({ searchParams }: Props) {
   const sp = await searchParams
   const status = STATUSES.some((s) => s.key === sp.status) ? (sp.status as Status) : undefined
 
-  const [campaigns, referrals, totals, earned, usedReferrer, usedReferee, rewardsGiven, top, recent] = await Promise.all([
+  const [campaigns, referrals, totals, earned, spent, rewardsGiven, top, recent, catalogue] = await Promise.all([
     rewardService.listCampaigns(),
     referralService.list({ status }),
     prisma.referral.count({ where: { status: { not: "CANCELLED" } } }),
     prisma.referral.count({ where: { status: { in: ["QUALIFIED", "REWARDED"] } } }),
-    prisma.referral.count({ where: { referrerRedemptionId: { not: null } } }),
-    prisma.referral.count({ where: { refereeRedemptionId: { not: null } } }),
+    prisma.referralRedemption.aggregate({ _sum: { points: true } }),
     prisma.referralRedemption.count(),
     prisma.referral.groupBy({ by: ["referrerId"], where: { status: { not: "CANCELLED" } }, _count: { _all: true }, orderBy: { _count: { referrerId: "desc" } }, take: 5 }),
     prisma.referralRedemption.findMany({
       orderBy: { createdAt: "desc" }, take: 8,
-      include: { patient: { select: { id: true, fullName: true } }, campaign: { select: { name: true } }, createdBy: { select: { name: true } } },
+      include: { patient: { select: { id: true, fullName: true } }, campaign: { select: { name: true } }, rewardItem: { select: { name: true } }, createdBy: { select: { name: true } } },
     }),
+    rewardService.listItems(),
   ])
   const topPatients = await prisma.patient.findMany({ where: { id: { in: top.map((t) => t.referrerId) } }, select: { id: true, fullName: true, patientId: true } })
   const today = istTodayStr()
@@ -53,8 +54,8 @@ export default async function RewardsPage({ searchParams }: Props) {
     isActive: c.isActive, theme: c.theme, status: campaignStatus(c, today), rewardsGiven: c._count.redemptions,
   }))
   const live = views.filter((v) => v.status === "LIVE").length
-  const pointsEarned = earned * 2 // 1 for the referrer + 1 for the new patient
-  const pointsUsed = usedReferrer + usedReferee
+  const pointsEarned = earned * 2 * REFERRAL_POINTS // referrer + new patient each earn 500
+  const pointsUsed = spent._sum.points ?? 0
 
   const stats = [
     { label: "Referrals", value: totals, icon: Users },
@@ -75,8 +76,8 @@ export default async function RewardsPage({ searchParams }: Props) {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Ur&apos;s Toothfully</p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">Rewards &amp; Referrals</h1>
             <p className="mt-1.5 text-sm text-white/80 max-w-xl">
-              Every referral earns 1 point for the patient who referred and 1 for the friend they brought, once the friend visits.
-              Doctors spend points on rewards — each point only once.
+              Every referral earns {REFERRAL_POINTS} points for the patient who referred and {REFERRAL_POINTS} for the friend they brought,
+              once the friend pays for a first visit. Both get a WhatsApp message. Doctors spend points on rewards from the catalogue.
             </p>
           </div>
           <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 text-sm backdrop-blur">
@@ -92,6 +93,13 @@ export default async function RewardsPage({ searchParams }: Props) {
           ))}
         </div>
       </div>
+
+      <RewardCatalogManager
+        items={catalogue.map((i) => ({
+          id: i.id, name: i.name, points: i.points, kind: i.kind, value: i.value != null ? Number(i.value) : null,
+          description: i.description, isActive: i.isActive, given: i._count.redemptions,
+        }))}
+      />
 
       <CampaignManager campaigns={views} />
 
@@ -133,8 +141,8 @@ export default async function RewardsPage({ searchParams }: Props) {
                   <div className="flex-1 min-w-0">
                     <Link href={`/patients/${r.patient.id}/referrals`} className="font-medium text-gray-900 hover:underline">{r.patient.fullName}</Link>
                     <p className="text-xs text-gray-500 truncate">
-                      {rewardText(r.kind as RewardKind, Number(r.value), r.description)} · {r.points} pt{r.points === 1 ? "" : "s"}
-                      {r.campaign ? ` · ${r.campaign.name}` : ""} · {r.createdBy.name}
+                      {rewardText(r.kind as RewardKind, Number(r.value), r.description)} · {r.points.toLocaleString("en-IN")} pts
+                      {r.rewardItem ? ` · ${r.rewardItem.name}` : r.campaign ? ` · ${r.campaign.name}` : ""} · {r.createdBy.name}
                     </p>
                   </div>
                   <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${r.usedAt ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>

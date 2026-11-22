@@ -40,7 +40,7 @@ export default async function RewardsLandingPage({ searchParams }: { searchParam
             <em className="not-italic" style={serif}>You&rsquo;re both rewarded.</em>
           </h1>
           <p className="mt-6 max-w-[460px] text-[16px] leading-[1.8]" style={{ color: "rgba(246,241,232,.82)" }}>
-            When a friend you refer visits us, you each earn a point. Your doctor turns points into a reward made for you — at your next visit.
+            When a friend you refer visits us, you each earn 500 points — and we’ll WhatsApp you both. Spend your points on rewards at your next visit.
           </p>
 
           {/* Invite code */}
@@ -59,7 +59,7 @@ export default async function RewardsLandingPage({ searchParams }: { searchParam
         </div>
 
         <div className="relative mx-[6vw] hidden sm:flex flex-wrap justify-between gap-x-8 gap-y-3 border-t py-6 text-[12px] tracking-[0.12em]" style={{ borderColor: "rgba(246,241,232,.2)" }}>
-          {["YOUR FRIEND BOOKS", "THEY VISIT US", "YOU BOTH EARN A POINT", "YOUR DOCTOR CHOOSES THE REWARD"].map((t, i) => (
+          {["YOUR FRIEND BOOKS", "THEY VISIT US", "YOU BOTH EARN 500 POINTS", "SPEND POINTS ON REWARDS"].map((t, i) => (
             <span key={t} className="flex items-center gap-3">{i > 0 && <span style={{ color: C.gold }}>✦</span>}{t}</span>
           ))}
         </div>
@@ -82,7 +82,7 @@ export default async function RewardsLandingPage({ searchParams }: { searchParam
           {[
             ["Share your link", "Ask at the clinic for your personal invite link, or give friends your mobile number or code."],
             ["They visit us", "Your friend books through your link and comes in for a consultation at any of our three clinics."],
-            ["You’re both rewarded", "Each of you earns a point. At your next visit your doctor turns points into a reward for you."],
+            ["You’re both rewarded", "Each of you earns 500 points. At your next visit, swap your points for a reward from our rewards list."],
           ].map(([t, d], i) => (
             <li key={t} className={`pt-8 pb-2 sm:pr-10 ${i > 0 ? "sm:pl-10 sm:border-l" : ""} border-b sm:border-b-0`} style={{ borderColor: "rgba(52,40,34,.2)" }}>
               <span className="text-[13px] tracking-[0.12em]" style={{ color: C.gold }}>0{i + 1}</span>

@@ -3,6 +3,9 @@
  * public /rewards page, the doctor's redeem dialog and invoices.
  */
 
+/** Points each side of a referral earns (referrer + new patient) once the new patient pays. */
+export const REFERRAL_POINTS = 500
+
 export type RewardKind = "DISCOUNT_FLAT" | "DISCOUNT_PERCENT" | "FREE_CHECKUP" | "FREE_TREATMENT" | "OTHER"
 
 export const REWARD_KINDS: { value: RewardKind; label: string }[] = [

@@ -342,3 +342,77 @@ test.describe("4. WhatsApp inbox on a phone (admin)", () => {
     await expect(page.getByLabel("Search chats")).toBeVisible()
   })
 })
+
+// ─── Nov-22 features ─────────────────────────────────────────────────────────
+
+test.describe("5. WhatsApp group import from a file (reception)", () => {
+  test.use({ storageState: "tests/e2e/.auth/reception.json" })
+
+  test("a CSV with names and formatted mobiles adds the matching patient", async ({ page }) => {
+    const reception = await prisma.user.findFirstOrThrow({ where: { email: "reception.outram@toothfully.in" } })
+    const group = await prisma.whatsAppGroup.create({ data: { name: `E2E Import ${stamp}`, createdById: reception.id } })
+    const p = await prisma.patient.findUniqueOrThrow({ where: { id: ids.withConsent }, select: { mobile: true } })
+    const csv = `Name,Mobile\n${names.withConsent},+91 ${p.mobile.slice(0, 5)} ${p.mobile.slice(5)}\nStranger,9000000000\n`
+    try {
+      await page.goto(`/whatsapp/groups/${group.id}`, { waitUntil: "networkidle" })
+      await page.getByLabel("Import patients from file").setInputFiles({ name: "patients.csv", mimeType: "text/csv", buffer: Buffer.from(csv) })
+      await expect(page.getByText(/Imported: 1 added/)).toBeVisible()
+      await expect(page.getByText(/1 not registered as patients: 9000000000/)).toBeVisible()
+      await expect.poll(() => prisma.whatsAppGroupMember.count({ where: { groupId: group.id } })).toBe(1)
+    } finally {
+      await prisma.whatsAppGroupMember.deleteMany({ where: { groupId: group.id } })
+      await prisma.whatsAppGroup.delete({ where: { id: group.id } })
+    }
+  })
+})
+
+test.describe("6. Accounting: payment-method filter, select all, export (admin)", () => {
+  test.use({ storageState: "tests/e2e/.auth/admin.json" })
+
+  test("filter Cash → select all → export holds only cash rows", async ({ page }) => {
+    const ExcelJS = (await import("exceljs")).default
+    const reception = await prisma.user.findFirstOrThrow({ where: { email: "reception.outram@toothfully.in" } })
+    const fee = await paymentService.getConsultationFee(OUTRAM)
+    await paymentService.create({ paymentType: "CONSULTATION", patientId: ids.withConsent, branchId: OUTRAM, amount: fee, mode: "CASH" } as any, reception.id)
+    await paymentService.create({ paymentType: "CONSULTATION", patientId: ids.withConsent, branchId: OUTRAM, amount: fee, mode: "UPI" } as any, reception.id)
+
+    await page.goto("/admin/accounting")
+    await page.locator('select[name="mode"]').selectOption("CASH")
+    await page.getByRole("button", { name: "Filter" }).click()
+    await expect(page).toHaveURL(/mode=CASH/)
+    await expect(page.locator("tbody").getByText("UPI", { exact: true })).toHaveCount(0)
+
+    await page.getByLabel("Select all payments").check()
+    await expect(page.getByText(/\d+ selected · ₹/)).toBeVisible()
+    const download = page.waitForEvent("download")
+    await page.getByRole("link", { name: /Export \d+ selected/ }).click()
+    const file = await (await download).path()
+    const wb = new ExcelJS.Workbook()
+    await wb.xlsx.readFile(file!)
+    const modes: string[] = []
+    wb.getWorksheet("Payments")!.eachRow((row, n) => {
+      const m = String(row.getCell(5).value ?? "")
+      if (n > 1 && m) modes.push(m)
+    })
+    expect(modes.length).toBeGreaterThan(0)
+    expect(new Set(modes)).toEqual(new Set(["CASH"]))
+  })
+})
+
+test.describe("7. Rewards catalogue (admin)", () => {
+  test.use({ storageState: "tests/e2e/.auth/admin.json" })
+
+  test("add a reward with a points price", async ({ page }) => {
+    const name = `E2E Scaling ${stamp}`
+    await page.goto("/admin/referrals")
+    await expect(page.getByText(/earns 500 points/).first()).toBeVisible()
+    await page.getByRole("button", { name: "Add reward" }).click()
+    await page.getByPlaceholder("Free scaling & polishing").fill(name)
+    await page.getByLabel("Price (points)").fill("1000")
+    await page.getByRole("button", { name: "Save reward" }).click()
+    await expect(page.getByText(name)).toBeVisible()
+    const item = await prisma.rewardItem.findFirstOrThrow({ where: { name } })
+    expect(item.points).toBe(1000)
+    await prisma.rewardItem.delete({ where: { id: item.id } })
+  })
+})

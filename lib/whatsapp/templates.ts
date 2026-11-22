@@ -29,6 +29,10 @@ export const WHATSAPP_TRIGGERS = {
   RCT_REVIEW: "RCT_REVIEW",
   THANK_YOU: "THANK_YOU",
   DAILY_SUMMARY: "DAILY_SUMMARY",
+  REFERRAL_RECORDED_REFERRER: "REFERRAL_RECORDED_REFERRER",
+  REFERRAL_RECORDED_REFEREE: "REFERRAL_RECORDED_REFEREE",
+  REFERRAL_POINTS_REFERRER: "REFERRAL_POINTS_REFERRER",
+  REFERRAL_POINTS_REFEREE: "REFERRAL_POINTS_REFEREE",
 } as const
 
 export type WhatsAppTriggerKey = (typeof WHATSAPP_TRIGGERS)[keyof typeof WHATSAPP_TRIGGERS]
@@ -203,6 +207,38 @@ export const DEFAULT_UTILITY_TEMPLATES: DefaultTemplateDef[] = [
     triggerKey: WHATSAPP_TRIGGERS.THANK_YOU,
     variables: ["Patient Name"],
     body: "Thank you, {{1}}, for trusting Ur's Toothfully with your smile! We're always here for your dental care. Mon–Sat 10:30 AM–8:30 PM, Sun 10 AM–2:30 PM (Thu off) · 7890008331.",
+    footerText: FOOTER,
+  },
+  {
+    name: "referral_recorded_referrer",
+    displayName: "Referral Recorded (to referrer)",
+    triggerKey: WHATSAPP_TRIGGERS.REFERRAL_RECORDED_REFERRER,
+    variables: ["Referrer Name", "New Patient Name", "Points"],
+    body: "Hi {{1}}, thank you for referring {{2}} to Ur's Toothfully! Once {{2}} completes their first visit, you will both receive {{3}} reward points.",
+    footerText: FOOTER,
+  },
+  {
+    name: "referral_recorded_referee",
+    displayName: "Referral Recorded (to new patient)",
+    triggerKey: WHATSAPP_TRIGGERS.REFERRAL_RECORDED_REFEREE,
+    variables: ["New Patient Name", "Referrer Name", "Points"],
+    body: "Hi {{1}}, welcome to Ur's Toothfully! You were referred by {{2}}. After your first visit, you and {{2}} will each receive {{3}} reward points.",
+    footerText: FOOTER,
+  },
+  {
+    name: "referral_points_referrer",
+    displayName: "Referral Points Earned (to referrer)",
+    triggerKey: WHATSAPP_TRIGGERS.REFERRAL_POINTS_REFERRER,
+    variables: ["Referrer Name", "New Patient Name", "Points", "Balance"],
+    body: "Hi {{1}}, {{2}} has completed their first visit at Ur's Toothfully. {{3}} reward points have been added to your account. Your balance is now {{4}} points.",
+    footerText: FOOTER,
+  },
+  {
+    name: "referral_points_referee",
+    displayName: "Referral Points Earned (to new patient)",
+    triggerKey: WHATSAPP_TRIGGERS.REFERRAL_POINTS_REFEREE,
+    variables: ["New Patient Name", "Points", "Balance"],
+    body: "Hi {{1}}, thank you for your first visit to Ur's Toothfully! {{2}} referral reward points have been added to your account. Your balance is now {{3}} points.",
     footerText: FOOTER,
   },
   {

@@ -5,90 +5,65 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { redeemPointsAction } from "@/actions/rewards"
 import { BRAND_COLORS } from "@/lib/constants"
-import { REWARD_KINDS, isDiscountKind, rewardText, type RewardKind } from "@/lib/rewards"
+import { isDiscountKind, rewardText, type RewardKind } from "@/lib/rewards"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { NumberInput } from "@/components/ui/number-input"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Gift, Loader2, Minus, Plus } from "lucide-react"
+import { Gift, Loader2 } from "lucide-react"
 
-export interface RedeemCampaign {
+export interface CatalogueItem {
   id: string
   name: string
-  referrerOffer: string
-  refereeOffer: string
-  referrerKind: RewardKind
-  referrerValue: number | null
-  refereeKind: RewardKind
-  refereeValue: number | null
+  points: number
+  kind: RewardKind
+  value: number | null
+  description: string | null
 }
 
-/**
- * Doctor spends some of a patient's referral points on a reward she decides.
- * A campaign only pre-fills the suggestion; everything stays editable.
- */
+const pts = (n: number) => n.toLocaleString("en-IN")
+
+/** Spend a patient's referral points on a reward from the catalogue. */
 export function RedeemPointsDialog({
   patientId,
   available,
-  campaigns,
-  defaultSide,
+  items,
 }: {
   patientId: string
   available: number
-  campaigns: RedeemCampaign[]
-  /** Which offer to pre-fill: this patient as the referrer, or as the new patient. */
-  defaultSide: "REFERRER" | "REFEREE"
+  items: CatalogueItem[]
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [pending, start] = useTransition()
-  const [campaignId, setCampaignId] = useState("")
-  const [side, setSide] = useState(defaultSide)
-  const [points, setPoints] = useState(1)
-  const [kind, setKind] = useState<RewardKind>("DISCOUNT_FLAT")
-  const [value, setValue] = useState("")
-  const [description, setDescription] = useState("")
+  const [itemId, setItemId] = useState("")
   const [note, setNote] = useState("")
   const [markUsedNow, setMarkUsedNow] = useState(false)
+  const item = items.find((i) => i.id === itemId)
+  const cheapest = items.length ? Math.min(...items.map((i) => i.points)) : Infinity
 
-  function prefill(cid: string, s: "REFERRER" | "REFEREE") {
-    const c = campaigns.find((x) => x.id === cid)
-    if (!c) return
-    const k = s === "REFERRER" ? c.referrerKind : c.refereeKind
-    const v = s === "REFERRER" ? c.referrerValue : c.refereeValue
-    setKind(k)
-    setValue(v ? String(v) : "")
-    setDescription(isDiscountKind(k) ? "" : s === "REFERRER" ? c.referrerOffer : c.refereeOffer)
-    setMarkUsedNow(!isDiscountKind(k))
+  function choose(i: CatalogueItem) {
+    setItemId(i.id)
+    setMarkUsedNow(!isDiscountKind(i.kind))
   }
 
   function submit() {
+    if (!item) return
     start(async () => {
-      const res = await redeemPointsAction({
-        patientId,
-        points,
-        campaignId: campaignId || null,
-        kind,
-        value: isDiscountKind(kind) ? Number(value) || 0 : null,
-        description: description.trim(),
-        note: note.trim() || undefined,
-        markUsedNow,
-      })
+      const res = await redeemPointsAction({ patientId, rewardItemId: item.id, note: note.trim() || undefined, markUsedNow })
       if (res.success) {
-        toast.success(`Reward given — ${points} point${points === 1 ? "" : "s"} used`)
+        toast.success(`${item.name} given — ${pts(item.points)} points used`)
         setOpen(false)
-        setPoints(1)
+        setItemId("")
+        setNote("")
         router.refresh()
       } else toast.error(res.error ?? "Failed to give the reward")
     })
   }
 
-  const selected = campaigns.find((c) => c.id === campaignId)
-  const label = "text-xs font-medium"
-
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)} disabled={available < 1} className="h-8 gap-1.5 text-white" style={{ backgroundColor: BRAND_COLORS.primaryTeal }}>
+      <Button size="sm" onClick={() => setOpen(true)} disabled={available < cheapest} className="h-8 gap-1.5 text-white" style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
+        title={items.length ? undefined : "Add rewards to the catalogue in Admin → Rewards & Referrals"}>
         <Gift className="h-3.5 w-3.5" /> Use points
       </Button>
 
@@ -97,85 +72,32 @@ export function RedeemPointsDialog({
           <DialogHeader>
             <DialogTitle>Give a referral reward</DialogTitle>
             <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
-              {`${available} point${available === 1 ? "" : "s"} available · 1 referral = 1 point. Used points can’t be used again.`}
+              {pts(available)} points available · each referral earns 500 points for both patients.
             </p>
           </DialogHeader>
 
-          <div className="space-y-4">
-            {/* Points */}
-            <div>
-              <p className={label} style={{ color: BRAND_COLORS.bodyText }}>Points to use</p>
-              <div className="mt-1 flex items-center gap-2">
-                <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => setPoints((p) => Math.max(1, p - 1))} aria-label="Fewer points">
-                  <Minus className="h-4 w-4" />
-                </Button>
-                <NumberInput
-                  integer min={1} max={available} value={points}
-                  onValueChange={setPoints}
-                  className="h-9 w-20 text-center font-semibold" aria-label="Points to use"
-                />
-                <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => setPoints((p) => Math.min(available, p + 1))} aria-label="More points">
-                  <Plus className="h-4 w-4" />
-                </Button>
-                <span className="text-xs ml-1" style={{ color: BRAND_COLORS.borderDivider }}>of {available}</span>
-              </div>
-            </div>
-
-            {/* Campaign → suggestion */}
-            {campaigns.length > 0 && (
-              <div className="space-y-1.5">
-                <p className={label} style={{ color: BRAND_COLORS.bodyText }}>Campaign (fills a suggestion)</p>
-                <select
-                  value={campaignId}
-                  onChange={(e) => { setCampaignId(e.target.value); prefill(e.target.value, side) }}
-                  className="w-full h-9 rounded-md border px-2 text-sm bg-white" style={{ borderColor: "#E0E3E5" }}
-                >
-                  <option value="">No campaign</option>
-                  {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                {selected && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {(["REFERRER", "REFEREE"] as const).map((s) => (
-                      <button
-                        key={s} type="button"
-                        onClick={() => { setSide(s); prefill(campaignId, s) }}
-                        className="rounded-md border p-2 text-left text-xs"
-                        style={{ borderColor: side === s ? BRAND_COLORS.primaryTeal : "#E0E3E5", backgroundColor: side === s ? `${BRAND_COLORS.primaryTeal}0D` : "white" }}
-                      >
-                        <span className="block font-semibold" style={{ color: BRAND_COLORS.bodyText }}>{s === "REFERRER" ? "Referrer offer" : "New-patient offer"}</span>
-                        <span style={{ color: BRAND_COLORS.borderDivider }}>{s === "REFERRER" ? selected.referrerOffer : selected.refereeOffer}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Reward — the doctor decides */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <p className={label} style={{ color: BRAND_COLORS.bodyText }}>Reward</p>
-                <select
-                  value={kind}
-                  onChange={(e) => { const k = e.target.value as RewardKind; setKind(k); setMarkUsedNow(!isDiscountKind(k)) }}
-                  className="w-full h-9 rounded-md border px-2 text-sm bg-white" style={{ borderColor: "#E0E3E5" }}
-                >
-                  {REWARD_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
-                </select>
-              </div>
-              {isDiscountKind(kind) ? (
-                <div className="space-y-1">
-                  <p className={label} style={{ color: BRAND_COLORS.bodyText }}>{kind === "DISCOUNT_PERCENT" ? "Discount %" : "Discount ₹"}</p>
-                  <Input type="number" min={0} value={value} onChange={(e) => setValue(e.target.value)} className="h-9" placeholder={kind === "DISCOUNT_PERCENT" ? "10" : "500"} />
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <p className={label} style={{ color: BRAND_COLORS.bodyText }}>{kind === "FREE_TREATMENT" ? "Which treatment?" : "Details"}</p>
-                  <Input value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} className="h-9"
-                    placeholder={kind === "FREE_TREATMENT" ? "Scaling & polishing" : kind === "FREE_CHECKUP" ? "Optional" : "Describe the reward"} />
-                </div>
-              )}
-            </div>
+          <div className="space-y-3">
+            <ul className="max-h-72 space-y-1.5 overflow-y-auto">
+              {items.map((i) => {
+                const afford = i.points <= available
+                const active = i.id === itemId
+                return (
+                  <li key={i.id}>
+                    <button type="button" disabled={!afford} onClick={() => choose(i)}
+                      className="w-full rounded-md border p-2.5 text-left disabled:opacity-45 disabled:cursor-not-allowed"
+                      style={{ borderColor: active ? BRAND_COLORS.primaryTeal : "#E0E3E5", backgroundColor: active ? `${BRAND_COLORS.primaryTeal}0D` : "white" }}>
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold" style={{ color: BRAND_COLORS.bodyText }}>{i.name}</span>
+                        <span className="shrink-0 text-xs font-bold" style={{ color: BRAND_COLORS.primaryTeal }}>{pts(i.points)} pts</span>
+                      </span>
+                      <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
+                        {rewardText(i.kind, i.value, i.description)}{!afford ? ` · needs ${pts(i.points - available)} more` : ""}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
 
             <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} placeholder="Note (optional)" className="h-9" />
 
@@ -184,19 +106,21 @@ export function RedeemPointsDialog({
               <span>
                 Given today — mark as used now
                 <span className="block" style={{ color: BRAND_COLORS.borderDivider }}>
-                  {isDiscountKind(kind) ? "Leave unticked to apply this discount from the Bill treatment dialog." : "Untick if the patient will use it on a later visit."}
+                  {item && isDiscountKind(item.kind) ? "Leave unticked to apply this discount from the Bill treatment dialog." : "Untick if the patient will use it on a later visit."}
                 </span>
               </span>
             </label>
 
-            <div className="rounded-md p-2.5 text-sm" style={{ backgroundColor: "#EAF7EF", color: "#065F46" }}>
-              {points} point{points === 1 ? "" : "s"} → <strong>{rewardText(kind, Number(value) || 0, description)}</strong>
-            </div>
+            {item && (
+              <div className="rounded-md p-2.5 text-sm" style={{ backgroundColor: "#EAF7EF", color: "#065F46" }}>
+                {pts(item.points)} points → <strong>{item.name}</strong> · {pts(available - item.points)} left
+              </div>
+            )}
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>Cancel</Button>
-            <Button onClick={submit} disabled={pending} className="text-white" style={{ backgroundColor: BRAND_COLORS.primaryTeal }}>
+            <Button onClick={submit} disabled={pending || !item} className="text-white" style={{ backgroundColor: BRAND_COLORS.primaryTeal }}>
               {pending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : "Give reward"}
             </Button>
           </DialogFooter>

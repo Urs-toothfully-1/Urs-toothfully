@@ -1,10 +1,10 @@
 import Link from "next/link"
 import { rewardService } from "@/server/services/reward.service"
-import { RedeemPointsDialog, type RedeemCampaign } from "@/components/referrals/RedeemPointsDialog"
+import { RedeemPointsDialog } from "@/components/referrals/RedeemPointsDialog"
 import { RewardRowActions } from "@/components/referrals/RewardRowActions"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatDate } from "@/lib/utils"
-import { rewardText, themeOf } from "@/lib/rewards"
+import { REFERRAL_POINTS, rewardText, themeOf } from "@/lib/rewards"
 import { Gift, Sparkles, UserPlus, Users } from "lucide-react"
 
 type Campaign = { id: string; name: string; theme: string; referrerOffer: string; refereeOffer: string }
@@ -31,20 +31,14 @@ function CampaignChips({ campaigns, side }: { campaigns: Campaign[]; side: "REFE
  * doctor. Shown on consultation + treatment screens and the Referrals tab.
  */
 export async function ReferralPanel({ patientId, canReward, defaultOpen = false }: { patientId: string; canReward: boolean; defaultOpen?: boolean }) {
-  const o = await rewardService.overview(patientId)
+  const [o, catalogue] = await Promise.all([rewardService.overview(patientId), canReward ? rewardService.listItems(true) : []])
   const hasAnything = o.referredBy || o.made.length > 0 || o.redemptions.length > 0
   if (!hasAnything && !defaultOpen) return null
-
-  // Campaigns the doctor can pick from: live now + any that ran at this patient's referrals.
-  const pickable = new Map<string, RedeemCampaign>()
-  for (const c of [...o.live, ...(o.referredBy?.campaigns ?? []), ...o.made.flatMap((m) => m.campaigns)]) {
-    pickable.set(c.id, {
-      id: c.id, name: c.name, referrerOffer: c.referrerOffer, refereeOffer: c.refereeOffer,
-      referrerKind: c.referrerKind, referrerValue: c.referrerValue != null ? Number(c.referrerValue) : null,
-      refereeKind: c.refereeKind, refereeValue: c.refereeValue != null ? Number(c.refereeValue) : null,
-    })
-  }
-  const referrerAvailable = o.points.units.some((u) => u.side === "REFERRER" && u.state === "AVAILABLE")
+  const items = catalogue.map((i) => ({
+    id: i.id, name: i.name, points: i.points, kind: i.kind,
+    value: i.value != null ? Number(i.value) : null, description: i.description,
+  }))
+  const pts = (n: number) => n.toLocaleString("en-IN")
   const muted = { color: BRAND_COLORS.borderDivider }
 
   return (
@@ -61,9 +55,9 @@ export async function ReferralPanel({ patientId, canReward, defaultOpen = false 
           <span className="flex items-center gap-1.5"><Users className="h-4 w-4" /> Referred {o.made.length} patient{o.made.length === 1 ? "" : "s"}</span>
         )}
         <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: o.points.available ? "#1D4ED8" : "#CBD5E1", color: "white" }}>
-          {o.points.available} point{o.points.available === 1 ? "" : "s"} available
+          {pts(o.points.available)} points available
         </span>
-        {o.points.pending > 0 && <span className="text-xs opacity-80">+{o.points.pending} after first visit</span>}
+        {o.points.pending > 0 && <span className="text-xs opacity-80">+{pts(o.points.pending)} after first visit</span>}
         <span className="ml-auto text-xs opacity-70 group-open:hidden">Show details ▾</span>
         <span className="ml-auto text-xs opacity-70 hidden group-open:inline">Hide ▴</span>
       </summary>
@@ -101,10 +95,10 @@ export async function ReferralPanel({ patientId, canReward, defaultOpen = false 
                   <Link href={`/patients/${m.referee.id}`} className="font-medium hover:underline" style={{ color: BRAND_COLORS.bodyText }}>{m.referee.fullName}</Link>
                   <span className="text-xs" style={muted}>{formatDate(m.createdAt)}</span>
                   <span className="text-[11px] px-1.5 py-0.5 rounded" style={
-                    m.referrerRedemptionId ? { backgroundColor: "#F3F4F6", color: "#6B7280" }
-                      : m.status === "PENDING" ? { backgroundColor: "#FEF3C7", color: "#92400E" }
+                    m.status === "PENDING" ? { backgroundColor: "#FEF3C7", color: "#92400E" }
+                      : m.status === "CANCELLED" ? { backgroundColor: "#F3F4F6", color: "#6B7280" }
                       : { backgroundColor: "#DBEAFE", color: "#1D4ED8" }}>
-                    {m.referrerRedemptionId ? "point used" : m.status === "PENDING" ? "awaiting first visit" : "1 point"}
+                    {m.status === "PENDING" ? "awaiting first visit" : m.status === "CANCELLED" ? "cancelled" : `+${REFERRAL_POINTS} points`}
                   </span>
                   <CampaignChips campaigns={m.campaigns} side="REFERRER" />
                 </li>
@@ -117,7 +111,7 @@ export async function ReferralPanel({ patientId, canReward, defaultOpen = false 
           <div className="flex items-center justify-between gap-2 mb-1">
             <p className="text-xs font-semibold" style={{ color: BRAND_COLORS.bodyText }}>Rewards given</p>
             {canReward && (
-              <RedeemPointsDialog patientId={patientId} available={o.points.available} campaigns={[...pickable.values()]} defaultSide={referrerAvailable ? "REFERRER" : "REFEREE"} />
+              <RedeemPointsDialog patientId={patientId} available={o.points.available} items={items} />
             )}
           </div>
           {o.redemptions.length === 0 ? (
@@ -128,7 +122,7 @@ export async function ReferralPanel({ patientId, canReward, defaultOpen = false 
                 <li key={r.id} className="py-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="font-medium" style={{ color: BRAND_COLORS.bodyText }}>{rewardText(r.kind, Number(r.value), r.description)}</span>
                   <span className="text-xs" style={muted}>
-                    {r.points} pt{r.points === 1 ? "" : "s"}{r.campaign ? ` · ${r.campaign.name}` : ""} · {formatDate(r.createdAt)} · {r.createdBy.name}
+                    {pts(r.points)} pts{r.rewardItem ? ` · ${r.rewardItem.name}` : r.campaign ? ` · ${r.campaign.name}` : ""} · {formatDate(r.createdAt)} · {r.createdBy.name}
                   </span>
                   {r.usedAt ? (
                     <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "#D1FAE5", color: "#065F46" }}>

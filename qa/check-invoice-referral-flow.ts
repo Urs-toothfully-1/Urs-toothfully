@@ -175,7 +175,7 @@ async function main() {
   const ovRef = await rewardService.overview(friend.id)
   check("referral shows campaigns running on its date", ovRef.referredBy!.campaigns.some((c) => c.id === camp.id))
 
-  console.log("\n── Points: 1 per referral, both sides, never twice")
+  console.log("\n── Points: 500 per referral, both sides, catalogue rewards, never overspent")
   const referral = await prisma.referral.findUniqueOrThrow({ where: { refereeId: friend.id } })
   check("referral qualified after first payment", referral.status === "QUALIFIED", referral.status)
   const friend2 = await newPatient("QA Friend Two", `97${stamp}03`, reception.id)
@@ -185,30 +185,38 @@ async function main() {
   // friend3 visits (pays) → qualifies; friend2 has not visited.
   await visitFor(friend3.id, reception.id, doctor.id)
   let pts = await rewardService.points(referrer.id)
-  check("referrer: 2 points available, 1 pending (friend not visited)", pts.available === 2 && pts.pending === 1, pts)
-  check("referred patient has 1 point", (await rewardService.points(friend.id)).available === 1)
+  check("referrer: 1000 available, 500 pending (friend not visited)", pts.available === 1000 && pts.pending === 500, pts)
+  check("referred patient has 500 points", (await rewardService.points(friend.id)).available === 500)
 
-  await expectThrows("can't use more points than available", () =>
-    rewardService.redeem({ patientId: referrer.id, points: 3, kind: "DISCOUNT_FLAT", value: 1500 }, doctor.id, OUTRAM))
-  await expectThrows("discount needs an amount", () =>
-    rewardService.redeem({ patientId: referrer.id, points: 1, kind: "DISCOUNT_FLAT", value: 0 }, doctor.id, OUTRAM))
-  await expectThrows("free treatment needs a description", () =>
-    rewardService.redeem({ patientId: referrer.id, points: 1, kind: "FREE_TREATMENT" }, doctor.id, OUTRAM))
+  await expectThrows("catalogue: discount needs an amount", () =>
+    rewardService.saveItem(null, { name: "Bad", points: 500, kind: "DISCOUNT_FLAT", value: 0 }, admin2.id))
+  const big = await rewardService.saveItem(null, { name: `QA Big ${stamp}`, points: 1500, kind: "FREE_TREATMENT", description: "Scaling" }, admin2.id)
+  const off1000 = await rewardService.saveItem(null, { name: `QA ₹1000 off ${stamp}`, points: 1000, kind: "DISCOUNT_FLAT", value: 1000 }, admin2.id)
+  const checkup = await rewardService.saveItem(null, { name: `QA Checkup ${stamp}`, points: 500, kind: "FREE_CHECKUP" }, admin2.id)
 
-  const disc = await rewardService.redeem({ patientId: referrer.id, points: 2, campaignId: camp.id, kind: "DISCOUNT_FLAT", value: 1000 }, doctor.id, OUTRAM)
+  await expectThrows("can't buy a reward costing more than the balance", () =>
+    rewardService.redeem({ patientId: referrer.id, rewardItemId: big.id }, doctor.id, OUTRAM))
+  const disc = await rewardService.redeem({ patientId: referrer.id, rewardItemId: off1000.id }, doctor.id, OUTRAM)
+  check("reward copies the catalogue price and discount", disc.points === 1000 && Number(disc.value) === 1000 && disc.kind === "DISCOUNT_FLAT", disc)
   pts = await rewardService.points(referrer.id)
-  check("2 points spent → 0 available", pts.available === 0 && pts.used === 2, pts)
+  check("1000 spent → 0 available", pts.available === 0 && pts.used === 1000, pts)
   await expectThrows("spent points can't be used again", () =>
-    rewardService.redeem({ patientId: referrer.id, points: 1, kind: "FREE_CHECKUP" }, doctor.id, OUTRAM))
-  check("referee's own point is untouched", (await rewardService.points(friend.id)).available === 1)
+    rewardService.redeem({ patientId: referrer.id, rewardItemId: checkup.id }, doctor.id, OUTRAM))
+  check("referee's own points are untouched", (await rewardService.points(friend.id)).available === 500)
 
-  // Two doctors redeem the referee's single point at the same moment → only one wins.
+  // Two doctors redeem the referee's 500 points at the same moment → only one wins.
   const race = await Promise.allSettled([
-    rewardService.redeem({ patientId: friend.id, points: 1, kind: "FREE_CHECKUP", markUsedNow: true }, doctor.id, OUTRAM),
-    rewardService.redeem({ patientId: friend.id, points: 1, kind: "FREE_CHECKUP", markUsedNow: true }, doctor.id, OUTRAM),
+    rewardService.redeem({ patientId: friend.id, rewardItemId: checkup.id, markUsedNow: true }, doctor.id, OUTRAM),
+    rewardService.redeem({ patientId: friend.id, rewardItemId: checkup.id, markUsedNow: true }, doctor.id, OUTRAM),
   ])
-  check("concurrent redeem of one point: exactly one succeeds", race.filter((r) => r.status === "fulfilled").length === 1, race.map((r) => r.status))
-  check("referee point now used", (await rewardService.points(friend.id)).available === 0)
+  check("concurrent redeem: exactly one succeeds", race.filter((r) => r.status === "fulfilled").length === 1, race.map((r) => r.status))
+  check("referee points now used", (await rewardService.points(friend.id)).available === 0)
+  await expectThrows("a reward that was given can't be deleted (pause instead)", () => rewardService.deleteItem(checkup.id, admin2.id))
+  await rewardService.deleteItem(big.id, admin2.id)
+  check("an unused reward can be deleted", !(await prisma.rewardItem.findUnique({ where: { id: big.id } })))
+  await rewardService.saveItem(checkup.id, { name: checkup.name, points: 500, kind: "FREE_CHECKUP", isActive: false }, admin2.id)
+  await expectThrows("a paused reward can't be given", () =>
+    rewardService.redeem({ patientId: friend2.id, rewardItemId: checkup.id }, doctor.id, OUTRAM))
 
   console.log("\n── Using a discount reward on an invoice")
   check("₹1,000 discount offered in billing", (await rewardService.availableDiscounts(referrer.id)).some((r) => r.id === disc.id && r.value === 1000))
@@ -229,9 +237,8 @@ async function main() {
     invoiceService.create({ estimateId: rEst.id, items: [{ treatmentName: "X", quantity: 1, unitRate: 100 }], redeemRewardId: disc.id }, doctor.id))
   await invoiceService.softDelete(rInv.id, admin.id, "QA: undo")
   check("deleting the invoice returns the reward", (await rewardService.availableDiscounts(referrer.id)).some((r) => r.id === disc.id))
-  await expectThrows("unused reward with campaign blocks campaign delete", () => rewardService.deleteCampaign(camp.id, admin2.id))
   await rewardService.cancelRedemption(disc.id, doctor.id)
-  check("cancelling a reward gives its points back", (await rewardService.points(referrer.id)).available === 2)
+  check("cancelling a reward gives its points back", (await rewardService.points(referrer.id)).available === 1000)
   await rewardService.deleteCampaign(camp.id, admin2.id)
   check("unused campaign can be deleted", !(await prisma.rewardCampaign.findUnique({ where: { id: camp.id } })))
 

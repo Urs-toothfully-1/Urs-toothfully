@@ -56,6 +56,32 @@ export async function deleteCampaignAction(id: string): Promise<Result> {
   }
 }
 
+// ─── Rewards catalogue (admin) ───────────────────────────────
+
+export async function saveRewardItemAction(id: string | null, input: unknown): Promise<Result> {
+  const session = await requireRole(["ADMIN"]).catch(() => null)
+  if (!session) return { error: "Only an administrator can manage the rewards catalogue." }
+  try {
+    await rewardService.saveItem(id, input, session.userId)
+    refresh()
+    return { success: true }
+  } catch (e) {
+    return fail(e, "Failed to save the reward.")
+  }
+}
+
+export async function deleteRewardItemAction(id: string): Promise<Result> {
+  const session = await requireRole(["ADMIN"]).catch(() => null)
+  if (!session) return { error: "Unauthorized" }
+  try {
+    await rewardService.deleteItem(id, session.userId)
+    refresh()
+    return { success: true }
+  } catch (e) {
+    return fail(e, "Failed to delete the reward.")
+  }
+}
+
 // ─── Points (doctor / admin) ─────────────────────────────────
 
 export async function redeemPointsAction(input: RedeemInput): Promise<Result> {

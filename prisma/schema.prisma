@@ -232,6 +232,7 @@ model User {
   createdInvoices         Invoice[]              @relation("InvoiceCreatedBy")
   createdCampaigns        RewardCampaign[]       @relation("RewardCampaignCreatedBy")
   createdRedemptions      ReferralRedemption[]   @relation("RedemptionCreatedBy")
+  createdRewardItems      RewardItem[]           @relation("RewardItemCreatedBy")
   createdPotentialClients PotentialClient[]      @relation("PotentialClientCreatedBy")
   exportBatches           ExportBatch[]
   settings                SystemSetting[]
@@ -1380,6 +1381,25 @@ model RewardCampaign {
 }
 
 // A reward the doctor gave by spending a patient's referral points.
+// Rewards catalogue: what a patient can buy with referral points.
+model RewardItem {
+  id          String     @id @default(uuid())
+  name        String     @db.VarChar(120)
+  points      Int // price in points
+  kind        RewardKind @default(OTHER)
+  value       Decimal?   @db.Decimal(10, 2) // ₹ or % for discount kinds
+  description String?    @db.VarChar(300)
+  isActive    Boolean    @default(true)
+  createdById String
+  createdBy   User       @relation("RewardItemCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  redemptions ReferralRedemption[]
+
+  @@index([isActive, points])
+}
+
 model ReferralRedemption {
   id          String          @id @default(uuid())
   patientId   String
@@ -1388,7 +1408,9 @@ model ReferralRedemption {
   branch      Branch          @relation(fields: [branchId], references: [id])
   campaignId  String?
   campaign    RewardCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  points      Int
+  rewardItemId String?
+  rewardItem   RewardItem?    @relation(fields: [rewardItemId], references: [id], onDelete: SetNull)
+  points      Int // points spent (each referral side earns REFERRAL_POINTS = 500)
   kind        RewardKind
   value       Decimal?        @db.Decimal(10, 2)
   description String          @db.VarChar(300)

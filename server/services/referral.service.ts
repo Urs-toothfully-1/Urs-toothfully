@@ -1,6 +1,45 @@
 import { prisma } from "@/lib/prisma"
 import { generateReferralCode, normalizeReferralCode } from "@/lib/referral-code"
 import { createAuditLog } from "@/lib/audit"
+import { REFERRAL_POINTS } from "@/lib/rewards"
+import { WHATSAPP_TRIGGERS } from "@/lib/whatsapp/templates"
+
+const first = (n: string) => n.trim().split(/\s+/)[0] || n
+const fmtPts = (n: number) => n.toLocaleString("en-IN")
+
+/**
+ * WhatsApp both sides of a referral. Never throws — a message problem (no
+ * consent, template not approved yet) must not break registration or payment.
+ */
+async function notifyReferral(referralId: string, stage: "RECORDED" | "POINTS") {
+  try {
+    const [{ whatsappService }, { rewardService }] = await Promise.all([
+      import("@/server/services/whatsapp/whatsapp.service"),
+      import("@/server/services/reward.service"),
+    ])
+    const r = await prisma.referral.findUnique({
+      where: { id: referralId },
+      select: {
+        branchId: true,
+        referrer: { select: { id: true, fullName: true } },
+        referee: { select: { id: true, fullName: true } },
+      },
+    })
+    if (!r) return
+    const pts = fmtPts(REFERRAL_POINTS)
+    const base = { branchId: r.branchId, skipConsultationGate: true }
+    if (stage === "RECORDED") {
+      await whatsappService.sendTrigger({ ...base, triggerKey: WHATSAPP_TRIGGERS.REFERRAL_RECORDED_REFERRER, patientId: r.referrer.id, variables: [first(r.referrer.fullName), first(r.referee.fullName), pts] })
+      await whatsappService.sendTrigger({ ...base, triggerKey: WHATSAPP_TRIGGERS.REFERRAL_RECORDED_REFEREE, patientId: r.referee.id, variables: [first(r.referee.fullName), first(r.referrer.fullName), pts] })
+    } else {
+      const [a, b] = await Promise.all([rewardService.points(r.referrer.id), rewardService.points(r.referee.id)])
+      await whatsappService.sendTrigger({ ...base, triggerKey: WHATSAPP_TRIGGERS.REFERRAL_POINTS_REFERRER, patientId: r.referrer.id, variables: [first(r.referrer.fullName), first(r.referee.fullName), pts, fmtPts(a.available)] })
+      await whatsappService.sendTrigger({ ...base, triggerKey: WHATSAPP_TRIGGERS.REFERRAL_POINTS_REFEREE, patientId: r.referee.id, variables: [first(r.referee.fullName), pts, fmtPts(b.available)] })
+    }
+  } catch {
+    // best-effort
+  }
+}
 
 export const referralService = {
   /** Lazily assign a unique referral code to a patient (idempotent). */
@@ -66,6 +105,7 @@ export const referralService = {
       entityType: "Referral", entityId: referral.id, action: "CREATE",
       changedById: input.createdById, branchId: input.branchId,
     })
+    await notifyReferral(referral.id, "RECORDED")
     return referral
   },
 
@@ -79,10 +119,12 @@ export const referralService = {
       select: { id: true, status: true },
     })
     if (!referral || referral.status !== "PENDING") return
-    await prisma.referral.update({
-      where: { id: referral.id },
+    // Conditional flip so a double-submitted payment can't credit (or message) twice.
+    const flipped = await prisma.referral.updateMany({
+      where: { id: referral.id, status: "PENDING" },
       data: { status: "QUALIFIED", qualifyingPaymentId: payment.id, qualifiedAt: new Date() },
     })
+    if (flipped.count === 1) await notifyReferral(referral.id, "POINTS")
   },
 
   /** Total un-redeemed discount-credit reward a patient can spend on their next estimate. */

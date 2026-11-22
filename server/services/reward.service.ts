@@ -3,16 +3,16 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { createAuditLog } from "@/lib/audit"
 import { istTodayStr } from "@/lib/ist"
-import { campaignRanOn, campaignStatus, isDiscountKind, rewardText } from "@/lib/rewards"
+import { REFERRAL_POINTS, campaignRanOn, campaignStatus, isDiscountKind, rewardText } from "@/lib/rewards"
 
 /**
- * Referral points + reward campaigns.
+ * Referral points, rewards catalogue and campaigns.
  *
- * Every referral is worth 1 point to the patient who referred and 1 point to
- * the patient who was referred, once the referred patient has paid for a first
- * visit (status QUALIFIED). The doctor spends any number of a patient's points
- * on a reward they decide; the exact referral "sides" spent are stamped with
- * the redemption id, so a point can never be used twice.
+ * Every referral earns REFERRAL_POINTS (500) for the patient who referred and
+ * 500 for the patient who was referred, once the referred patient pays for a
+ * first visit (status QUALIFIED). Points are spent on catalogue rewards
+ * (RewardItem, each with a points price). Balance = earned - spent; redeeming
+ * takes a per-patient advisory lock so two redemptions can't overspend.
  */
 
 type Db = Prisma.TransactionClient | typeof prisma
@@ -41,25 +41,27 @@ export const campaignSchema = z
   .refine((c) => c.refereeKind !== "DISCOUNT_PERCENT" || (c.refereeValue ?? 0) <= 100, { message: "A % discount can't exceed 100", path: ["refereeValue"] })
 export type CampaignInput = z.infer<typeof campaignSchema>
 
-export const redeemSchema = z
+export const redeemSchema = z.object({
+  patientId: z.string().min(1),
+  rewardItemId: z.string().min(1, "Choose a reward"),
+  note: z.string().trim().max(300).optional(),
+  /** Free check-up / treatment given today -> mark used straight away. */
+  markUsedNow: z.boolean().default(false),
+})
+export type RedeemInput = z.input<typeof redeemSchema>
+
+export const rewardItemSchema = z
   .object({
-    patientId: z.string().min(1),
-    points: z.number().int().min(1, "Use at least 1 point").max(500),
-    campaignId: z.string().min(1).optional().nullable(),
+    name: z.string().trim().min(2, "Name the reward").max(120),
+    points: z.coerce.number().int().min(1, "Price must be at least 1 point").max(1_000_000),
     kind: z.enum(KIND_VALUES),
-    value: z.number().min(0).max(10_000_000).optional().nullable(),
-    description: z.string().trim().max(300).optional().default(""),
-    note: z.string().trim().max(300).optional(),
-    /** Free check-up / treatment given today → mark used straight away. */
-    markUsedNow: z.boolean().default(false),
+    value: z.coerce.number().min(0).max(10_000_000).optional().nullable(),
+    description: z.string().trim().max(300).optional().or(z.literal("")),
+    isActive: z.boolean().default(true),
   })
   .refine((r) => !isDiscountKind(r.kind) || (r.value ?? 0) > 0, { message: "Enter the discount amount", path: ["value"] })
   .refine((r) => r.kind !== "DISCOUNT_PERCENT" || (r.value ?? 0) <= 100, { message: "A % discount can't exceed 100", path: ["value"] })
-  .refine((r) => !(r.kind === "FREE_TREATMENT" || r.kind === "OTHER") || r.description.length > 0, {
-    message: "Describe the reward (e.g. the treatment)",
-    path: ["description"],
-  })
-export type RedeemInput = z.input<typeof redeemSchema>
+export type RewardItemInput = z.input<typeof rewardItemSchema>
 
 const dateOnly = (d: string) => new Date(`${d}T00:00:00Z`)
 
@@ -69,7 +71,8 @@ export type PointUnit = {
   date: Date
   /** The other patient on this referral. */
   other: { id: string; fullName: string; patientId: string }
-  state: "AVAILABLE" | "PENDING" | "USED"
+  /** EARNED once the referred patient has paid; PENDING until then. */
+  state: "EARNED" | "PENDING"
 }
 
 async function pointUnits(patientId: string, db: Db): Promise<PointUnit[]> {
@@ -77,20 +80,19 @@ async function pointUnits(patientId: string, db: Db): Promise<PointUnit[]> {
     db.referral.findMany({
       where: { referrerId: patientId, status: { not: "CANCELLED" } },
       orderBy: { createdAt: "asc" },
-      select: { id: true, status: true, createdAt: true, referrerRedemptionId: true, referee: { select: { id: true, fullName: true, patientId: true } } },
+      select: { id: true, status: true, createdAt: true, referee: { select: { id: true, fullName: true, patientId: true } } },
     }),
     db.referral.findUnique({
       where: { refereeId: patientId },
-      select: { id: true, status: true, createdAt: true, refereeRedemptionId: true, referrer: { select: { id: true, fullName: true, patientId: true } } },
+      select: { id: true, status: true, createdAt: true, referrer: { select: { id: true, fullName: true, patientId: true } } },
     }),
   ])
-  const state = (status: string, spent: string | null): PointUnit["state"] =>
-    spent ? "USED" : (EARNED as readonly string[]).includes(status) ? "AVAILABLE" : "PENDING"
+  const state = (status: string): PointUnit["state"] => ((EARNED as readonly string[]).includes(status) ? "EARNED" : "PENDING")
   const units: PointUnit[] = made.map((r) => ({
-    referralId: r.id, side: "REFERRER", date: r.createdAt, other: r.referee, state: state(r.status, r.referrerRedemptionId),
+    referralId: r.id, side: "REFERRER", date: r.createdAt, other: r.referee, state: state(r.status),
   }))
   if (received && received.status !== "CANCELLED") {
-    units.push({ referralId: received.id, side: "REFEREE", date: received.createdAt, other: received.referrer, state: state(received.status, received.refereeRedemptionId) })
+    units.push({ referralId: received.id, side: "REFEREE", date: received.createdAt, other: received.referrer, state: state(received.status) })
   }
   return units.sort((a, b) => a.date.getTime() - b.date.getTime())
 }
@@ -138,56 +140,86 @@ export const rewardService = {
     await createAuditLog({ entityType: "RewardCampaign", entityId: id, action: "DELETE", changedById: userId })
   },
 
-  // ─── Points ─────────────────────────────────────────────────
+  // --- Rewards catalogue -------------------------------------
 
-  async points(patientId: string) {
-    const units = await pointUnits(patientId, prisma)
-    const count = (s: PointUnit["state"]) => units.filter((u) => u.state === s).length
-    return { units, available: count("AVAILABLE"), pending: count("PENDING"), used: count("USED") }
+  async listItems(activeOnly = false) {
+    return prisma.rewardItem.findMany({
+      where: activeOnly ? { isActive: true } : {},
+      orderBy: [{ isActive: "desc" }, { points: "asc" }],
+      include: { _count: { select: { redemptions: true } } },
+    })
   },
 
-  /**
-   * Spend `points` of a patient's available points on a reward. Oldest points
-   * are used first. Each referral side is claimed with a conditional update, so
-   * two doctors redeeming at once can never spend the same point.
-   */
+  async saveItem(id: string | null, raw: unknown, userId: string) {
+    const r = rewardItemSchema.parse(raw)
+    const data = {
+      name: r.name,
+      points: r.points,
+      kind: r.kind as RewardKind,
+      value: isDiscountKind(r.kind) && r.value ? new Prisma.Decimal(r.value) : null,
+      description: r.description || null,
+      isActive: r.isActive,
+    }
+    const item = id
+      ? await prisma.rewardItem.update({ where: { id }, data })
+      : await prisma.rewardItem.create({ data: { ...data, createdById: userId } })
+    await createAuditLog({ entityType: "RewardItem", entityId: item.id, action: id ? "UPDATE" : "CREATE", changedById: userId, newValues: { name: r.name, points: r.points } })
+    return item
+  },
+
+  /** Delete only if never redeemed; otherwise pause it so history keeps its name. */
+  async deleteItem(id: string, userId: string) {
+    const used = await prisma.referralRedemption.count({ where: { rewardItemId: id } })
+    if (used > 0) throw new Error("This reward has been given before — pause it instead of deleting.")
+    await prisma.rewardItem.delete({ where: { id } })
+    await createAuditLog({ entityType: "RewardItem", entityId: id, action: "DELETE", changedById: userId })
+  },
+
+  // --- Points ------------------------------------------------
+
+  /** Balance in points: 500 per earned referral side, minus points spent. */
+  async points(patientId: string, db: Db = prisma) {
+    const [units, spent] = await Promise.all([
+      pointUnits(patientId, db),
+      db.referralRedemption.aggregate({ where: { patientId }, _sum: { points: true } }),
+    ])
+    const earned = units.filter((u) => u.state === "EARNED").length * REFERRAL_POINTS
+    const pending = units.filter((u) => u.state === "PENDING").length * REFERRAL_POINTS
+    const used = spent._sum.points ?? 0
+    return { units, earned, pending, used, available: Math.max(0, earned - used) }
+  },
+
+  /** Spend points on a catalogue reward. Locked per patient so two at once can't overspend. */
   async redeem(raw: RedeemInput, userId: string, branchId: string) {
     const input = redeemSchema.parse(raw)
     const redemption = await prisma.$transaction(async (tx) => {
-      const available = (await pointUnits(input.patientId, tx)).filter((u) => u.state === "AVAILABLE")
-      if (available.length < input.points) {
-        throw new Error(`Only ${available.length} point${available.length === 1 ? "" : "s"} available.`)
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"redeem:" + input.patientId}))`
+      const item = await tx.rewardItem.findUnique({ where: { id: input.rewardItemId } })
+      if (!item || !item.isActive) throw new Error("This reward is no longer available.")
+      const { available } = await rewardService.points(input.patientId, tx)
+      if (available < item.points) {
+        throw new Error(`"${item.name}" needs ${item.points.toLocaleString("en-IN")} points — only ${available.toLocaleString("en-IN")} available.`)
       }
-      if (input.campaignId) {
-        const exists = await tx.rewardCampaign.findUnique({ where: { id: input.campaignId }, select: { id: true } })
-        if (!exists) throw new Error("Campaign not found.")
-      }
-      const created = await tx.referralRedemption.create({
+      const value = item.value != null ? Number(item.value) : null
+      return tx.referralRedemption.create({
         data: {
           patientId: input.patientId,
           branchId,
-          campaignId: input.campaignId || null,
-          points: input.points,
-          kind: input.kind as RewardKind,
-          value: isDiscountKind(input.kind) ? new Prisma.Decimal(input.value ?? 0) : null,
-          description: input.description || rewardText(input.kind, input.value),
+          rewardItemId: item.id,
+          points: item.points,
+          kind: item.kind,
+          value: item.value,
+          description: item.description || (isDiscountKind(item.kind) ? rewardText(item.kind, value) : item.name),
           note: input.note || null,
           usedAt: input.markUsedNow ? new Date() : null,
           usedNote: input.markUsedNow ? "Given at the visit" : null,
           createdById: userId,
         },
       })
-      for (const u of available.slice(0, input.points)) {
-        const res = u.side === "REFERRER"
-          ? await tx.referral.updateMany({ where: { id: u.referralId, referrerRedemptionId: null }, data: { referrerRedemptionId: created.id } })
-          : await tx.referral.updateMany({ where: { id: u.referralId, refereeRedemptionId: null }, data: { refereeRedemptionId: created.id } })
-        if (res.count !== 1) throw new Error("Those points were just used by someone else — please refresh and try again.")
-      }
-      return created
     })
     await createAuditLog({
       entityType: "ReferralRedemption", entityId: redemption.id, action: "CREATE", changedById: userId, branchId,
-      newValues: { patientId: input.patientId, points: input.points, reward: rewardText(input.kind, input.value, input.description) },
+      newValues: { patientId: input.patientId, points: redemption.points, reward: redemption.description },
     })
     return redemption
   },
@@ -225,7 +257,7 @@ export const rewardService = {
       id: r.id,
       kind: r.kind as "DISCOUNT_FLAT" | "DISCOUNT_PERCENT",
       value: Number(r.value ?? 0),
-      label: `${rewardText(r.kind, Number(r.value))} — ${r.points} referral point${r.points === 1 ? "" : "s"}${r.campaign ? ` (${r.campaign.name})` : ""}`,
+      label: `${rewardText(r.kind, Number(r.value))} — ${r.points.toLocaleString("en-IN")} referral points${r.campaign ? ` (${r.campaign.name})` : ""}`,
     }))
   },
 
@@ -240,13 +272,13 @@ export const rewardService = {
       prisma.referral.findMany({
         where: { referrerId: patientId },
         orderBy: { createdAt: "desc" },
-        select: { id: true, createdAt: true, status: true, referrerRedemptionId: true, referee: { select: { id: true, fullName: true, patientId: true } } },
+        select: { id: true, createdAt: true, status: true, referee: { select: { id: true, fullName: true, patientId: true } } },
       }),
       rewardService.points(patientId),
       prisma.referralRedemption.findMany({
         where: { patientId },
         orderBy: { createdAt: "desc" },
-        include: { campaign: { select: { name: true, theme: true } }, createdBy: { select: { name: true } } },
+        include: { campaign: { select: { name: true, theme: true } }, rewardItem: { select: { name: true } }, createdBy: { select: { name: true } } },
       }),
       prisma.rewardCampaign.findMany({ orderBy: { startsAt: "desc" } }),
     ])
