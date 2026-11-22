@@ -5,6 +5,7 @@ import {
   saveWhatsAppSettingsAction,
   testWhatsAppConnectionAction,
   refreshWhatsAppTokenStatusAction,
+  enableWhatsAppWelcomeAction,
 } from "@/actions/whatsapp"
 import { BRAND_COLORS } from "@/lib/constants"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -342,6 +343,21 @@ export function WhatsAppSettingsForm({ settings, webhookUrl }: Props) {
         <Button onClick={handleTokenCheck} disabled={isPending} variant="outline" className="h-11 px-5 font-semibold">
           <RefreshCw className="h-4 w-4 mr-2" />
           Verify Access Token
+        </Button>
+        <Button
+          onClick={() =>
+            startTransition(async () => {
+              const r = await enableWhatsAppWelcomeAction()
+              if (r.success) toast.success(r.message)
+              else toast.error(r.error ?? "Failed")
+            })
+          }
+          disabled={isPending}
+          variant="outline"
+          className="h-11 px-5 font-semibold"
+          title="Greets people the moment they open a chat with the clinic for the first time"
+        >
+          Turn on welcome message
         </Button>
       </div>
 

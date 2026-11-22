@@ -108,7 +108,9 @@ export const webhookService = {
               m.text?.body ??
               m.button?.text ??
               m.interactive?.list_reply?.title ??
-              m.interactive?.button_reply?.title
+              m.interactive?.button_reply?.title ??
+              // Chat opened for the first time (welcome message enabled) → greet with the menu.
+              (m.type === "request_welcome" ? "hi" : undefined)
             if (!m.from || !body) continue
             // Tapped button / list row id — routes the bot independent of display text.
             const replyId = m.interactive?.button_reply?.id ?? m.interactive?.list_reply?.id ?? m.button?.payload

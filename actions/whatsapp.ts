@@ -61,6 +61,23 @@ export async function testWhatsAppConnectionAction(): Promise<WhatsAppActionStat
     : { error: status.error ?? "Connection failed", status }
 }
 
+/** Greets people the moment they first open the chat (website button, wa.me link). */
+export async function enableWhatsAppWelcomeAction(): Promise<WhatsAppActionState> {
+  const session = await requireRole(["ADMIN"]).catch(() => null)
+  if (!session) return { error: "Unauthorized" }
+  try {
+    await metaService.enableWelcomeMessage([
+      "I want to book an appointment",
+      "What are your clinic timings?",
+      "Where are your clinics?",
+      "How much does treatment cost?",
+    ])
+    return { success: true, message: "Welcome message is on — new chats are greeted automatically." }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not turn on the welcome message" }
+  }
+}
+
 export async function refreshWhatsAppTokenStatusAction(): Promise<WhatsAppActionState> {
   const session = await requireRole(["ADMIN"]).catch(() => null)
   if (!session) return { error: "Unauthorized" }

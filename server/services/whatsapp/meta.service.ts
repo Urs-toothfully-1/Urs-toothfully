@@ -292,6 +292,20 @@ export const metaService = {
     }
   },
 
+  /**
+   * Turns on Meta's welcome message: when someone opens a chat with the clinic for
+   * the first time, Meta sends a `request_welcome` webhook and the bot greets them
+   * before they type. `prompts` (≤4, ≤80 chars) show as tap-to-ask ice breakers.
+   */
+  async enableWelcomeMessage(prompts: string[]): Promise<void> {
+    const config = await loadConfig()
+    const { ok, data } = await graphFetch(config, `${config.phoneNumberId}/conversational_automation`, {
+      method: "POST",
+      body: JSON.stringify({ enable_welcome_message: true, prompts: prompts.slice(0, 4) }),
+    })
+    if (!ok) throw new Error(graphErrorMessage(data))
+  },
+
   /** Fetches all message templates registered on the WABA. */
   async fetchTemplatesFromMeta(): Promise<Array<{
     id: string
