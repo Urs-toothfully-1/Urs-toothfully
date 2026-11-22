@@ -42,7 +42,15 @@ const MODE_ABBR: Record<string, string> = {
   CASH: "Cash", UPI: "UPI", CARD: "Card", BANK_TRANSFER: "Bank",
 }
 
-export function AccountingEntryRow({ entry }: { entry: Entry }) {
+export function AccountingEntryRow({
+  entry,
+  selected = false,
+  onToggle,
+}: {
+  entry: Entry
+  selected?: boolean
+  onToggle?: () => void
+}) {
   const [isPending, startTransition] = useTransition()
   const [showDeletePrompt, setShowDeletePrompt] = useState(false)
   const [deleteReason, setDeleteReason] = useState("")
@@ -80,8 +88,19 @@ export function AccountingEntryRow({ entry }: { entry: Entry }) {
     <>
       <tr
         className="border-b hover:bg-gray-50 transition-colors"
-        style={{ borderColor: BRAND_COLORS.lightBackground }}
+        style={{ borderColor: BRAND_COLORS.lightBackground, backgroundColor: selected ? "#EFF6FF" : undefined }}
       >
+        {onToggle && (
+          <td className="pl-3 py-3 w-8">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggle}
+              className="h-4 w-4 cursor-pointer"
+              aria-label={`Select payment of ${entry.patient.fullName}`}
+            />
+          </td>
+        )}
         <td className="px-3 py-3 text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
           {formatDate(entry.entryDate)}
         </td>
@@ -174,7 +193,7 @@ export function AccountingEntryRow({ entry }: { entry: Entry }) {
       {/* Delete confirmation row */}
       {showDeletePrompt && (
         <tr style={{ backgroundColor: "#FEF2F2" }}>
-          <td colSpan={8} className="px-3 py-2">
+          <td colSpan={onToggle ? 9 : 8} className="px-3 py-2">
             <div className="flex items-center gap-2">
               <input
                 type="text"

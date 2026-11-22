@@ -174,6 +174,33 @@ export const whatsappGroupService = {
     return { added, matched: found.length, notFound }
   },
 
+  /**
+   * Import file (.csv / .xlsx) → the mobiles and patient IDs in it, one per
+   * line, for addByCodes. Every cell is checked, so any column layout works;
+   * names and other text are ignored rather than reported as "not found".
+   */
+  async codesFromFile(file: File): Promise<string> {
+    const cells: string[] = []
+    if (/\.xlsx$/i.test(file.name)) {
+      const ExcelJS = (await import("exceljs")).default
+      const wb = new ExcelJS.Workbook()
+      await wb.xlsx.load(Buffer.from(await file.arrayBuffer()) as never)
+      wb.eachSheet((ws) => ws.eachRow((row) => row.eachCell((c) => void cells.push(c.text ?? ""))))
+    } else {
+      cells.push(...(await file.text()).split(/[\n\r,;\t]+/))
+    }
+    const codes = new Set<string>()
+    for (const raw of cells) {
+      const cell = raw.trim().replace(/^"|"$/g, "")
+      if (/^PAT-\d{4}-\d+$/i.test(cell)) codes.add(cell.toUpperCase())
+      else {
+        const digits = cell.replace(/\D/g, "")
+        if (digits.length >= 10 && digits.length <= 13 && !/[a-z]/i.test(cell)) codes.add(digits.slice(-10))
+      }
+    }
+    return [...codes].join("\n")
+  },
+
   async removeMember(groupId: string, patientId: string) {
     await prisma.whatsAppGroupMember.deleteMany({ where: { groupId, patientId } })
   },

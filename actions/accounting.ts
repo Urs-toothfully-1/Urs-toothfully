@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { requireRole } from "@/lib/auth"
 import { accountingRepository } from "@/server/repositories/accounting.repository"
 import { createAuditLog } from "@/lib/audit"
+import { prisma } from "@/lib/prisma"
 
 export type AccountingActionState = {
   success?: boolean
@@ -35,6 +36,26 @@ export async function approveEntryAction(
   } catch {
     return { error: "Failed to approve entry" }
   }
+}
+
+/** Approve every ticked entry that is still pending review. */
+export async function approveEntriesAction(ids: string[]): Promise<AccountingActionState & { count?: number }> {
+  const session = await requireRole(["ADMIN"]).catch(() => null)
+  if (!session) return { error: "Unauthorized" }
+  if (!ids.length) return { error: "Nothing selected" }
+  const { count } = await prisma.accountingEntry.updateMany({
+    where: { id: { in: ids.slice(0, 500) }, status: "PENDING_REVIEW", isDeleted: false },
+    data: { status: "APPROVED" },
+  })
+  await createAuditLog({
+    entityType: "AccountingEntry",
+    entityId: "BULK",
+    action: "APPROVE",
+    changedById: session.userId,
+    newValues: { status: "APPROVED", count },
+  })
+  revalidatePath("/admin/accounting")
+  return { success: true, count }
 }
 
 export async function deleteEntryAction(

@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useDebouncedCallback } from "@/lib/hooks/use-debounced-callback"
 import { toast } from "sonner"
-import { ArrowLeft, Loader2, Pencil, Search, Send, Trash2, UserPlus, X } from "lucide-react"
+import { ArrowLeft, FileUp, Loader2, Pencil, Search, Send, Trash2, UserPlus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { MessageStatusBadge } from "@/components/whatsapp/MessageStatusBadge"
@@ -13,6 +13,7 @@ import { renderTemplateBody } from "@/lib/whatsapp/templates"
 import {
   addGroupMembersAction,
   addGroupMembersByCodesAction,
+  importGroupMembersFileAction,
   deleteGroupAction,
   removeGroupMemberAction,
   sendGroupMessageAction,
@@ -244,6 +245,23 @@ function Members({ groupId, members }: { groupId: string; members: GroupMemberVi
       router.refresh()
     })
   }
+  function importFile(file: File | undefined) {
+    if (!file) return
+    const form = new FormData()
+    form.append("file", file)
+    start(async () => {
+      const res = await importGroupMembersFileAction(groupId, form)
+      if ("error" in res && res.error) return void toast.error(res.error)
+      if ("added" in res) {
+        toast.success(`Imported: ${res.added} added (${res.matched} patients matched)`)
+        if (res.notFound.length)
+          toast.error(
+            `${res.notFound.length} not registered as patients: ${res.notFound.slice(0, 5).join(", ")}${res.notFound.length > 5 ? "…" : ""}`
+          )
+      }
+      router.refresh()
+    })
+  }
   function remove(patientId: string) {
     setRemoved((s) => new Set(s).add(patientId))
     start(async () => {
@@ -372,6 +390,24 @@ function Members({ groupId, members }: { groupId: string; members: GroupMemberVi
           >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add to group"}
           </Button>
+          <label
+            className={`mt-2 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-dashed border-emerald-400 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 ${pending ? "pointer-events-none opacity-50" : ""}`}
+          >
+            <FileUp className="h-4 w-4" /> Import from file (.xlsx / .csv)
+            <input
+              type="file"
+              accept=".csv,.xlsx,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="hidden"
+              onChange={(e) => {
+                importFile(e.target.files?.[0])
+                e.target.value = ""
+              }}
+              aria-label="Import patients from file"
+            />
+          </label>
+          <p className="mt-1 text-[11px] text-gray-400">
+            Any column layout — mobile numbers and patient IDs are picked up automatically.
+          </p>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { AccountingStatus, PaymentType } from "@prisma/client"
+import { AccountingStatus, PaymentMode, PaymentType } from "@prisma/client"
 
 export const accountingRepository = {
   async findByBranch(params: {
@@ -8,16 +8,18 @@ export const accountingRepository = {
     toDate?: Date
     status?: AccountingStatus
     paymentType?: PaymentType
+    paymentMode?: PaymentMode
     page?: number
     pageSize?: number
   }) {
-    const { branchId, fromDate, toDate, status, paymentType, page = 1, pageSize = 50 } = params
+    const { branchId, fromDate, toDate, status, paymentType, paymentMode, page = 1, pageSize = 50 } = params
 
     const where = {
       isDeleted: false,
       ...(branchId && { branchId }),
       ...(status && { status }),
       ...(paymentType && { paymentType }),
+      ...(paymentMode && { paymentMode }),
       ...(fromDate || toDate
         ? { entryDate: { ...(fromDate && { gte: fromDate }), ...(toDate && { lte: toDate }) } }
         : {}),
@@ -126,12 +128,13 @@ export const accountingRepository = {
     })
   },
 
-  async getSummaryByType(params: { branchId?: string; fromDate: Date; toDate: Date }) {
+  async getSummaryByType(params: { branchId?: string; fromDate: Date; toDate: Date; paymentMode?: PaymentMode }) {
     return prisma.accountingEntry.groupBy({
       by: ["paymentType"],
       where: {
         isDeleted: false,
         ...(params.branchId && { branchId: params.branchId }),
+        ...(params.paymentMode && { paymentMode: params.paymentMode }),
         entryDate: { gte: params.fromDate, lte: params.toDate },
       },
       _sum: { amount: true },

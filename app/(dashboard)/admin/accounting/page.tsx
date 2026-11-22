@@ -2,7 +2,7 @@ import { Metadata } from "next"
 import { requireRole } from "@/lib/auth"
 import { accountingRepository } from "@/server/repositories/accounting.repository"
 import { prisma } from "@/lib/prisma"
-import { AccountingEntryRow } from "@/components/accounting/AccountingEntryRow"
+import { AccountingTable } from "@/components/accounting/AccountingTable"
 import { BRAND_COLORS } from "@/lib/constants"
 import { formatCurrency } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
@@ -10,6 +10,13 @@ import { BookOpen, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 type AccountingStatus = "PENDING_REVIEW" | "APPROVED" | "EXPORTED"
 type PaymentType = "CONSULTATION" | "TREATMENT" | "ADVANCE" | "ADJUSTMENT" | "PRODUCT"
+type PaymentMode = "CASH" | "UPI" | "CARD" | "BANK_TRANSFER"
+const MODES: { value: PaymentMode; label: string }[] = [
+  { value: "CASH", label: "Cash" },
+  { value: "UPI", label: "UPI" },
+  { value: "CARD", label: "Card" },
+  { value: "BANK_TRANSFER", label: "Bank transfer" },
+]
 
 export const metadata: Metadata = { title: "Accounting Ledger" }
 export const dynamic = "force-dynamic"
@@ -17,7 +24,7 @@ export const dynamic = "force-dynamic"
 type Props = {
   searchParams: Promise<{
     branch?: string; from?: string; to?: string
-    status?: string; type?: string; page?: string
+    status?: string; type?: string; mode?: string; page?: string
   }>
 }
 
@@ -36,16 +43,17 @@ export default async function AccountingPage({ searchParams }: Props) {
   const toDate = sp.to || defaultTo
   const status = sp.status && sp.status !== "all" ? (sp.status as AccountingStatus) : undefined
   const paymentType = sp.type && sp.type !== "all" ? (sp.type as PaymentType) : undefined
+  const paymentMode = MODES.find((m) => m.value === sp.mode)?.value
   const page = parseInt(sp.page ?? "1")
 
   const [branches, result, summary] = await Promise.all([
     prisma.branch.findMany({ where: { isActive: true }, select: { id: true, name: true } }),
     accountingRepository.findByBranch({
       branchId, fromDate: new Date(fromDate), toDate: new Date(toDate + "T23:59:59"),
-      status, paymentType, page, pageSize: PAGE_SIZE,
+      status, paymentType, paymentMode, page, pageSize: PAGE_SIZE,
     }),
     accountingRepository.getSummaryByType({
-      branchId, fromDate: new Date(fromDate), toDate: new Date(toDate + "T23:59:59"),
+      branchId, fromDate: new Date(fromDate), toDate: new Date(toDate + "T23:59:59"), paymentMode,
     }),
   ])
 
@@ -58,11 +66,16 @@ export default async function AccountingPage({ searchParams }: Props) {
   function buildUrl(updates: Record<string, string>) {
     const params = new URLSearchParams({
       branch: sp.branch ?? "all", from: fromDate, to: toDate,
-      status: sp.status ?? "all", type: sp.type ?? "all", page: "1",
+      status: sp.status ?? "all", type: sp.type ?? "all", mode: sp.mode ?? "all", page: "1",
       ...updates,
     })
     return `/admin/accounting?${params.toString()}`
   }
+
+  const exportQuery = new URLSearchParams({
+    branch: sp.branch ?? "all", from: fromDate, to: toDate,
+    status: sp.status ?? "all", type: sp.type ?? "all", mode: paymentMode ?? "all",
+  }).toString()
 
   return (
     <div className="space-y-5">
@@ -149,6 +162,14 @@ export default async function AccountingPage({ searchParams }: Props) {
                 <option value="PRODUCT">Products &amp; Services</option>
               </select>
             </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: BRAND_COLORS.borderDivider }}>Payment method</label>
+              <select name="mode" defaultValue={paymentMode ?? "all"}
+                className="h-9 rounded border border-[#E0E3E5] bg-[#F2F4F6] px-2 text-sm">
+                <option value="all">All Methods</option>
+                {MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+            </div>
             <button type="submit" className="h-9 px-4 rounded text-sm font-medium text-white"
               style={{ backgroundColor: BRAND_COLORS.primaryTeal }}>
               Filter
@@ -170,28 +191,11 @@ export default async function AccountingPage({ searchParams }: Props) {
               <p className="text-sm" style={{ color: BRAND_COLORS.borderDivider }}>No entries found for selected filters</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ backgroundColor: BRAND_COLORS.lightBackground, borderBottom: `1px solid ${BRAND_COLORS.borderDivider}20` }}>
-                    {["Date", "Patient", "Type", "Mode", "Amount", "Status", "Receipt", "Actions"].map((h) => (
-                      <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold"
-                        style={{ color: BRAND_COLORS.borderDivider }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {entries.map((entry) => (
-                    <AccountingEntryRow
-                      key={entry.id}
-                      entry={{ ...entry, amount: Number(entry.amount) } as any}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <AccountingTable
+              key={exportQuery}
+              entries={entries.map((e) => ({ ...e, amount: Number(e.amount) })) as never}
+              exportQuery={exportQuery}
+            />
           )}
         </CardContent>
       </Card>

@@ -81,6 +81,25 @@ export async function addGroupMembersByCodesAction(id: string, text: string) {
   }
 }
 
+/** Upload a .csv / .xlsx of mobiles or patient IDs → every matching patient joins the group. */
+export async function importGroupMembersFileAction(id: string, form: FormData) {
+  const session = await staff()
+  if (!session) return { error: "Unauthorized" }
+  const file = form.get("file")
+  if (!(file instanceof File) || !file.size) return { error: "Choose a file." }
+  if (file.size > 3.5 * 1024 * 1024) return { error: "File is too large (max 3.5 MB)." } // server-action body cap is 4 MB
+  if (!/\.(csv|txt|xlsx)$/i.test(file.name)) return { error: "Use a .csv or .xlsx file." }
+  try {
+    const codes = await whatsappGroupService.codesFromFile(file)
+    if (!codes) return { error: "No mobile numbers or patient IDs found in the file." }
+    const res = await whatsappGroupService.addByCodes(id, codes, session.userId)
+    refresh(id)
+    return { success: true as const, ...res }
+  } catch (e) {
+    return { error: msg(e, "Could not read the file.") }
+  }
+}
+
 export async function removeGroupMemberAction(id: string, patientId: string) {
   const session = await staff()
   if (!session) return { error: "Unauthorized" }
