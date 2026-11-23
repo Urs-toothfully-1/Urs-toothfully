@@ -48,7 +48,10 @@ export function AccountingTable({ entries, exportQuery }: { entries: Row[]; expo
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
+      <div
+        className="flex flex-wrap items-center gap-2 border-b px-3 py-2"
+        style={{ borderColor: BRAND_COLORS.lightBackground }}
+      >
         <span className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
           {ticked.length
             ? `${ticked.length} selected · ${formatCurrency(tickedTotal)}`
@@ -56,12 +59,24 @@ export function AccountingTable({ entries, exportQuery }: { entries: Row[]; expo
         </span>
         <div className="ml-auto flex gap-2">
           {tickedPending.length > 0 && (
-            <button onClick={approve} disabled={pending} className={`${btn} text-white bg-green-600 hover:bg-green-700`}>
-              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            <button
+              onClick={approve}
+              disabled={pending}
+              className={`${btn} bg-green-600 text-white hover:bg-green-700`}
+            >
+              {pending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              )}
               Approve {tickedPending.length}
             </button>
           )}
-          <a href={exportHref} className={`${btn} border border-[#E0E3E5] bg-white`} style={{ color: BRAND_COLORS.bodyText }}>
+          <a
+            href={exportHref}
+            className={`${btn} border border-[#E0E3E5] bg-white`}
+            style={{ color: BRAND_COLORS.bodyText }}
+          >
             <Download className="h-3.5 w-3.5" style={{ color: BRAND_COLORS.primaryTeal }} />
             {ticked.length ? `Export ${ticked.length} selected` : "Export all (filtered)"}
           </a>
@@ -70,20 +85,42 @@ export function AccountingTable({ entries, exportQuery }: { entries: Row[]; expo
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ backgroundColor: BRAND_COLORS.lightBackground, borderBottom: `1px solid ${BRAND_COLORS.borderDivider}20` }}>
-              <th className="pl-3 py-2.5 w-8">
-                <input type="checkbox" checked={allTicked} onChange={toggleAll} className="h-4 w-4 cursor-pointer" aria-label="Select all payments" />
+            <tr
+              style={{
+                backgroundColor: BRAND_COLORS.lightBackground,
+                borderBottom: `1px solid ${BRAND_COLORS.borderDivider}20`,
+              }}
+            >
+              <th className="w-8 py-2.5 pl-3">
+                <input
+                  type="checkbox"
+                  checked={allTicked}
+                  onChange={toggleAll}
+                  className="h-4 w-4 cursor-pointer"
+                  aria-label="Select all payments"
+                />
               </th>
-              {["Date", "Patient", "Type", "Mode", "Amount", "Status", "Receipt", "Actions"].map((h) => (
-                <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold" style={{ color: BRAND_COLORS.borderDivider }}>
-                  {h}
-                </th>
-              ))}
+              {["Date", "Patient", "Type", "Mode", "Amount", "Status", "Receipt", "Actions"].map(
+                (h) => (
+                  <th
+                    key={h}
+                    className="px-3 py-2.5 text-left text-xs font-semibold"
+                    style={{ color: BRAND_COLORS.borderDivider }}
+                  >
+                    {h}
+                  </th>
+                )
+              )}
             </tr>
           </thead>
           <tbody>
             {entries.map((entry) => (
-              <AccountingEntryRow key={entry.id} entry={entry} selected={selected.has(entry.id)} onToggle={() => toggle(entry.id)} />
+              <AccountingEntryRow
+                key={entry.id}
+                entry={entry}
+                selected={selected.has(entry.id)}
+                onToggle={() => toggle(entry.id)}
+              />
             ))}
           </tbody>
         </table>

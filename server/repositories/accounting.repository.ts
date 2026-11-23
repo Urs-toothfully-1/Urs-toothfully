@@ -12,7 +12,16 @@ export const accountingRepository = {
     page?: number
     pageSize?: number
   }) {
-    const { branchId, fromDate, toDate, status, paymentType, paymentMode, page = 1, pageSize = 50 } = params
+    const {
+      branchId,
+      fromDate,
+      toDate,
+      status,
+      paymentType,
+      paymentMode,
+      page = 1,
+      pageSize = 50,
+    } = params
 
     const where = {
       isDeleted: false,
@@ -128,7 +137,12 @@ export const accountingRepository = {
     })
   },
 
-  async getSummaryByType(params: { branchId?: string; fromDate: Date; toDate: Date; paymentMode?: PaymentMode }) {
+  async getSummaryByType(params: {
+    branchId?: string
+    fromDate: Date
+    toDate: Date
+    paymentMode?: PaymentMode
+  }) {
     return prisma.accountingEntry.groupBy({
       by: ["paymentType"],
       where: {

@@ -11,9 +11,7 @@ export type AccountingActionState = {
   error?: string
 }
 
-export async function approveEntryAction(
-  entryId: string
-): Promise<AccountingActionState> {
+export async function approveEntryAction(entryId: string): Promise<AccountingActionState> {
   const session = await requireRole(["ADMIN"]).catch(() => null)
   if (!session) return { error: "Unauthorized" }
 
@@ -39,7 +37,9 @@ export async function approveEntryAction(
 }
 
 /** Approve every ticked entry that is still pending review. */
-export async function approveEntriesAction(ids: string[]): Promise<AccountingActionState & { count?: number }> {
+export async function approveEntriesAction(
+  ids: string[]
+): Promise<AccountingActionState & { count?: number }> {
   const session = await requireRole(["ADMIN"]).catch(() => null)
   if (!session) return { error: "Unauthorized" }
   if (!ids.length) return { error: "Nothing selected" }

@@ -96,7 +96,11 @@ export async function redeemPointsAction(input: RedeemInput): Promise<Result> {
   }
 }
 
-export async function markRewardUsedAction(id: string, note: string, patientId: string): Promise<Result> {
+export async function markRewardUsedAction(
+  id: string,
+  note: string,
+  patientId: string
+): Promise<Result> {
   const session = await requireRole(["ADMIN", "DOCTOR"]).catch(() => null)
   if (!session) return { error: "Unauthorized" }
   try {

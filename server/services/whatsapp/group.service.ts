@@ -195,7 +195,8 @@ export const whatsappGroupService = {
       if (/^PAT-\d{4}-\d+$/i.test(cell)) codes.add(cell.toUpperCase())
       else {
         const digits = cell.replace(/\D/g, "")
-        if (digits.length >= 10 && digits.length <= 13 && !/[a-z]/i.test(cell)) codes.add(digits.slice(-10))
+        if (digits.length >= 10 && digits.length <= 13 && !/[a-z]/i.test(cell))
+          codes.add(digits.slice(-10))
       }
     }
     return [...codes].join("\n")
