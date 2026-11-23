@@ -37,6 +37,7 @@ const LOCAL_BROWSER_PATHS = [
   "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "/usr/bin/google-chrome",
+  "/usr/bin/chromium", // Railway (Dockerfile installs Debian's chromium)
 ].filter((p): p is string => !!p)
 
 let browserPromise: Promise<Browser> | null = null
@@ -61,7 +62,8 @@ async function launchBrowser(): Promise<Browser> {
   return puppeteer.launch({
     executablePath,
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    // Containers have a tiny /dev/shm — Chromium crashes on big pages without this.
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
   })
 }
 

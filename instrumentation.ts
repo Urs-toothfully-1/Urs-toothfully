@@ -7,8 +7,9 @@
  * there, so pin the process timezone here instead. On POSIX runtimes Node
  * picks this up for all subsequent Date operations.
  */
-export function register() {
-  if (process.env.NEXT_RUNTIME === "nodejs" && !process.env.TZ) {
-    process.env.TZ = process.env.APP_TIMEZONE ?? "Asia/Kolkata"
-  }
+export async function register() {
+  if (process.env.NEXT_RUNTIME !== "nodejs") return
+  if (!process.env.TZ) process.env.TZ = process.env.APP_TIMEZONE ?? "Asia/Kolkata"
+  // Vercel runs the crons in vercel.json; on Railway the always-on server runs them itself.
+  if (process.env.RAILWAY_ENVIRONMENT) (await import("./lib/scheduler")).startScheduler()
 }
