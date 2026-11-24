@@ -18,8 +18,16 @@ export type BookingFormState = {
 
 const schema = z.object({
   branchId: z.string().min(1, "Please choose a clinic"),
-  fullName: z.string().min(2, "Please enter your name").max(200).regex(/^[^<>]+$/, "Name contains invalid characters"),
-  mobile: z.string().min(10, "Enter a valid 10-digit mobile number").max(15).regex(/^\d+$/, "Mobile must be digits only"),
+  fullName: z
+    .string()
+    .min(2, "Please enter your name")
+    .max(200)
+    .regex(/^[^<>]+$/, "Name contains invalid characters"),
+  mobile: z
+    .string()
+    .min(10, "Enter a valid 10-digit mobile number")
+    .max(15)
+    .regex(/^\d+$/, "Mobile must be digits only"),
   preferredDate: z.string().min(1, "Please pick a date"),
   problem: z.string().max(500).optional(),
 })
@@ -48,7 +56,9 @@ export async function submitAppointmentRequestAction(
   warnIfTurnstileMissing("/book")
   const bot = checkBotSignals(formData)
   if (!bot.ok) {
-    console.warn(`[security] /book submission rejected: ${bot.reason} (ip=${clientIp || "unknown"})`)
+    console.warn(
+      `[security] /book submission rejected: ${bot.reason} (ip=${clientIp || "unknown"})`
+    )
     await recordIntakeAttempt(clientIp, false)
     return { error: bot.error, fields: raw }
   }
@@ -58,7 +68,10 @@ export async function submitAppointmentRequestAction(
     clientIp || undefined
   )
   if (!turnstile.success) {
-    return { error: turnstile.error ?? "Security verification failed. Please try again.", fields: raw }
+    return {
+      error: turnstile.error ?? "Security verification failed. Please try again.",
+      fields: raw,
+    }
   }
 
   const rateLimit = await checkIntakeRateLimit(clientIp)
@@ -83,7 +96,8 @@ export async function submitAppointmentRequestAction(
 
   // Reject a date in the past
   const preferred = new Date(parsed.data.preferredDate)
-  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
   if (Number.isNaN(preferred.getTime()) || preferred < today) {
     return { fieldErrors: { preferredDate: ["Please choose today or a future date"] }, fields: raw }
   }
@@ -107,6 +121,9 @@ export async function submitAppointmentRequestAction(
     redirect(referralCode ? `/rewards/${referralCode}/booked?${nameQs}` : `/book/success?${nameQs}`)
   } catch (err) {
     if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) throw err
-    return { error: "Could not submit your request. Please try again or call 7890008331.", fields: raw }
+    return {
+      error: "Could not submit your request. Please try again or call 7890008331.",
+      fields: raw,
+    }
   }
 }

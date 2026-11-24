@@ -24,7 +24,13 @@ async function nextPatientId(): Promise<string> {
  * registers at the desk.
  */
 export async function findOrCreateStubPatient(
-  input: { fullName: string; mobile: string; branchId: string; problem?: string | null; leadSource?: string },
+  input: {
+    fullName: string
+    mobile: string
+    branchId: string
+    problem?: string | null
+    leadSource?: string
+  },
   createdById: string
 ): Promise<{ id: string; created: boolean }> {
   // Match on the last 10 digits so "09876…" / "+91 98765…" find the same patient
@@ -66,7 +72,9 @@ export const appointmentRequestService = {
   },
 
   async countPending(branchId?: string): Promise<number> {
-    return prisma.appointmentRequest.count({ where: { status: "PENDING", ...(branchId ? { branchId } : {}) } })
+    return prisma.appointmentRequest.count({
+      where: { status: "PENDING", ...(branchId ? { branchId } : {}) },
+    })
   },
 
   /** Confirms a request into a real Appointment. Reuses an existing patient
@@ -80,10 +88,15 @@ export const appointmentRequestService = {
     if (!request) throw new Error("Request not found")
     if (request.status !== "PENDING") throw new Error("This request has already been handled.")
 
-    const referrer = request.referralCode ? await referralService.findReferrerByCode(request.referralCode).catch(() => null) : null
+    const referrer = request.referralCode
+      ? await referralService.findReferrerByCode(request.referralCode).catch(() => null)
+      : null
     const patient = await findOrCreateStubPatient(
       {
-        fullName: request.fullName, mobile: request.mobile, branchId: request.branchId, problem: request.problem,
+        fullName: request.fullName,
+        mobile: request.mobile,
+        branchId: request.branchId,
+        problem: request.problem,
         leadSource: referrer ? "Referral" : undefined,
       },
       handledById
@@ -92,7 +105,9 @@ export const appointmentRequestService = {
     // Must happen BEFORE the referral (it WhatsApps both patients) and before
     // create() (the confirmation) — the queue refuses patients without consent.
     if (request.whatsappConsent) {
-      await whatsappService.setConsent(patient.id, true, request.consentIp ?? undefined).catch(() => null)
+      await whatsappService
+        .setConsent(patient.id, true, request.consentIp ?? undefined)
+        .catch(() => null)
     }
 
     // Booked from a friend's /rewards link → record who referred them. Only for
@@ -105,7 +120,12 @@ export const appointmentRequestService = {
         (await prisma.payment.count({ where: { patientId: patient.id, isDeleted: false } })) > 0
       if (!alreadyPaying) {
         await referralService
-          .createReferral({ referrerId: referrer.id, refereeId: patient.id, branchId: request.branchId, createdById: handledById })
+          .createReferral({
+            referrerId: referrer.id,
+            refereeId: patient.id,
+            branchId: request.branchId,
+            createdById: handledById,
+          })
           .catch(() => null)
       }
     }
@@ -125,7 +145,12 @@ export const appointmentRequestService = {
 
     await prisma.appointmentRequest.update({
       where: { id: requestId },
-      data: { status: "CONFIRMED", appointmentId: appointment.id, handledById, handledAt: new Date() },
+      data: {
+        status: "CONFIRMED",
+        appointmentId: appointment.id,
+        handledById,
+        handledAt: new Date(),
+      },
     })
 
     return appointment

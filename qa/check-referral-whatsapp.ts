@@ -130,33 +130,65 @@ async function main() {
   // ── Booking from a friend's /rewards link, confirmed by reception ──
   const doctor = await prisma.user.findFirstOrThrow({ where: { role: "DOCTOR", isActive: true } })
   await referralService.ensureCode(referrer.id)
-  const code = (await prisma.patient.findUniqueOrThrow({ where: { id: referrer.id } })).referralCode!
+  const code = (await prisma.patient.findUniqueOrThrow({ where: { id: referrer.id } }))
+    .referralCode!
   let slot = 0
   const book = async (fullName: string, mobile: string) => {
     const req = await prisma.appointmentRequest.create({
-      data: { branchId: OUTRAM, fullName, mobile, preferredDate: new Date(), referralCode: code, whatsappConsent: true },
+      data: {
+        branchId: OUTRAM,
+        fullName,
+        mobile,
+        preferredDate: new Date(),
+        referralCode: code,
+        whatsappConsent: true,
+      },
     })
     const at = new Date(Date.now() + (3 + (Number(stamp) % 50)) * 86_400_000)
     at.setUTCHours(5 + slot++, 0, 0, 0)
-    await appointmentRequestService.confirm(req.id, { doctorId: doctor.id, scheduledAt: at }, reception.id)
+    await appointmentRequestService.confirm(
+      req.id,
+      { doctorId: doctor.id, scheduledAt: at },
+      reception.id
+    )
   }
 
   // New person, consent ticked on the form → referred AND gets the referral WhatsApp.
   const newMobile = `95${stamp}21`
   await book("Neha Invitee", newMobile)
-  const neha = await prisma.patient.findFirstOrThrow({ where: { mobile: newMobile }, select: { id: true, referredBy: { select: { referrerId: true } } } })
+  const neha = await prisma.patient.findFirstOrThrow({
+    where: { mobile: newMobile },
+    select: { id: true, referredBy: { select: { referrerId: true } } },
+  })
   check("invite booking links the referrer", neha.referredBy?.referrerId === referrer.id, neha)
   check(
     "new patient gets the 'you were referred' WhatsApp (consent saved first)",
-    (await prisma.whatsAppMessage.count({ where: { patientId: neha.id, triggerKey: "REFERRAL_RECORDED_REFEREE" } })) === 1
+    (await prisma.whatsAppMessage.count({
+      where: { patientId: neha.id, triggerKey: "REFERRAL_RECORDED_REFEREE" },
+    })) === 1
   )
 
   // Existing paying patient books with a 0-prefixed number → same record, no referral.
   const regular = await patient("Old Regular", `95${stamp}22`, reception.id)
-  await paymentService.create({ paymentType: "CONSULTATION", patientId: regular.id, branchId: OUTRAM, amount: fee, mode: "CASH" } as any, reception.id)
+  await paymentService.create(
+    {
+      paymentType: "CONSULTATION",
+      patientId: regular.id,
+      branchId: OUTRAM,
+      amount: fee,
+      mode: "CASH",
+    } as any,
+    reception.id
+  )
   await book("Old Regular", `0${regular.mobile}`)
-  check("'0'-prefixed mobile finds the existing patient (no duplicate)", (await prisma.patient.count({ where: { mobile: { endsWith: regular.mobile } } })) === 1)
-  check("an already-paying patient isn't recorded as referred", !(await prisma.referral.findUnique({ where: { refereeId: regular.id } })))
+  check(
+    "'0'-prefixed mobile finds the existing patient (no duplicate)",
+    (await prisma.patient.count({ where: { mobile: { endsWith: regular.mobile } } })) === 1
+  )
+  check(
+    "an already-paying patient isn't recorded as referred",
+    !(await prisma.referral.findUnique({ where: { refereeId: regular.id } }))
+  )
 
   console.log(failed ? `\n${failed} failed` : "\nall passed")
   await prisma.$disconnect()
