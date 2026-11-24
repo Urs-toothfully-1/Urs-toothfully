@@ -93,7 +93,8 @@ export async function submitAppointmentRequestAction(
       data: {
         branchId: parsed.data.branchId,
         fullName: parsed.data.fullName.trim(),
-        mobile: parsed.data.mobile.trim(),
+        // Store the 10-digit number (validateMobile accepted 0/91 prefixes) so it matches patients.
+        mobile: (phone.normalized ?? parsed.data.mobile).slice(-10),
         problem: parsed.data.problem?.trim() || undefined,
         preferredDate: preferred,
         whatsappConsent,

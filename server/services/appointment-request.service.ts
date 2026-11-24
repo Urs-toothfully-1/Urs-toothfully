@@ -27,8 +27,13 @@ export async function findOrCreateStubPatient(
   input: { fullName: string; mobile: string; branchId: string; problem?: string | null; leadSource?: string },
   createdById: string
 ): Promise<{ id: string; created: boolean }> {
+  // Match on the last 10 digits so "09876…" / "+91 98765…" find the same patient
+  // as "98765…" instead of creating a duplicate.
+  const mobile = input.mobile.replace(/\D/g, "").slice(-10)
+  if (mobile.length !== 10) throw new Error("Enter a valid 10-digit mobile number.")
   const existing = await prisma.patient.findFirst({
-    where: { mobile: input.mobile, isDeleted: false },
+    where: { mobile: { endsWith: mobile }, isDeleted: false },
+    orderBy: { createdAt: "asc" },
     select: { id: true },
   })
   if (existing) return { id: existing.id, created: false }
@@ -38,7 +43,7 @@ export async function findOrCreateStubPatient(
       patientId: await nextPatientId(),
       registrationBranchId: input.branchId,
       fullName: input.fullName.trim(),
-      mobile: input.mobile.trim(),
+      mobile,
       dateOfBirth: UNKNOWN_DOB,
       gender: "OTHER",
       leadSource: input.leadSource ?? "Online Appointment Request",
@@ -83,19 +88,26 @@ export const appointmentRequestService = {
       },
       handledById
     )
-    // Booked from a friend's /rewards link → record who referred them. No-op if
-    // they already have a referrer or the link is their own.
-    if (referrer && referrer.id !== patient.id) {
-      await referralService
-        .createReferral({ referrerId: referrer.id, refereeId: patient.id, branchId: request.branchId, createdById: handledById })
-        .catch(() => null)
-    }
-
     // Record the opt-in captured on the public form against the real patient.
-    // Must happen BEFORE create() — that is what fires the confirmation, and
-    // the WhatsApp queue refuses to enqueue for a patient without consent.
+    // Must happen BEFORE the referral (it WhatsApps both patients) and before
+    // create() (the confirmation) — the queue refuses patients without consent.
     if (request.whatsappConsent) {
       await whatsappService.setConsent(patient.id, true, request.consentIp ?? undefined).catch(() => null)
+    }
+
+    // Booked from a friend's /rewards link → record who referred them. Only for
+    // someone genuinely new: an existing patient who has already paid isn't a
+    // referral (and would otherwise earn both sides 500 points). No-op if they
+    // already have a referrer or the link is their own.
+    if (referrer && referrer.id !== patient.id) {
+      const alreadyPaying =
+        !patient.created &&
+        (await prisma.payment.count({ where: { patientId: patient.id, isDeleted: false } })) > 0
+      if (!alreadyPaying) {
+        await referralService
+          .createReferral({ referrerId: referrer.id, refereeId: patient.id, branchId: request.branchId, createdById: handledById })
+          .catch(() => null)
+      }
     }
 
     const appointment = await appointmentService.create(
