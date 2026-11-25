@@ -28,58 +28,139 @@ async function main() {
   await templateService.ensureDefaults(admin.id)
 
   const v2s = await prisma.whatsAppTemplate.findMany({
-    where: { name: { in: ["appointment_confirmed_v2", "appointment_reminder_v2", "appointment_cancelled_v2"] } },
+    where: {
+      name: {
+        in: ["appointment_confirmed_v2", "appointment_reminder_v2", "appointment_cancelled_v2"],
+      },
+    },
   })
-  check("3 professional templates seeded", v2s.length === 3, v2s.map((t) => t.name))
+  check(
+    "3 professional templates seeded",
+    v2s.length === 3,
+    v2s.map((t) => t.name)
+  )
   for (const t of v2s) {
-    const buttons = (t.buttons as { type: string; phone_number?: string; url?: string }[] | null) ?? []
+    const buttons =
+      (t.buttons as { type: string; phone_number?: string; url?: string }[] | null) ?? []
     check(
       `${t.name}: heading, footer, Call + Website buttons`,
-      t.headerType === "TEXT" && !!t.headerText && !!t.footerText &&
-        buttons.some((b) => b.type === "PHONE_NUMBER" && b.phone_number) && buttons.some((b) => b.type === "URL" && b.url),
+      t.headerType === "TEXT" &&
+        !!t.headerText &&
+        !!t.footerText &&
+        buttons.some((b) => b.type === "PHONE_NUMBER" && b.phone_number) &&
+        buttons.some((b) => b.type === "URL" && b.url),
       t
     )
   }
 
-  const oldCancel = await prisma.whatsAppTemplate.findUniqueOrThrow({ where: { name: "appointment_cancelled" } })
+  const oldCancel = await prisma.whatsAppTemplate.findUniqueOrThrow({
+    where: { name: "appointment_cancelled" },
+  })
   const newCancel = v2s.find((t) => t.name === "appointment_cancelled_v2")!
-  const saved = [oldCancel, newCancel].map((t) => ({ id: t.id, status: t.status, isEnabled: t.isEnabled, triggerKey: t.triggerKey }))
-  check("old template keeps the trigger until v2 is approved", oldCancel.triggerKey === "APPOINTMENT_CANCELLED" && newCancel.triggerKey === null)
-  check("v2 cancel has 3 values, old has 2", countTemplateVariables(newCancel.body) === 3 && countTemplateVariables(oldCancel.body) === 2)
+  const saved = [oldCancel, newCancel].map((t) => ({
+    id: t.id,
+    status: t.status,
+    isEnabled: t.isEnabled,
+    triggerKey: t.triggerKey,
+  }))
+  check(
+    "old template keeps the trigger until v2 is approved",
+    oldCancel.triggerKey === "APPOINTMENT_CANCELLED" && newCancel.triggerKey === null
+  )
+  check(
+    "v2 cancel has 3 values, old has 2",
+    countTemplateVariables(newCancel.body) === 3 && countTemplateVariables(oldCancel.body) === 2
+  )
 
-  const reception = await prisma.user.findFirstOrThrow({ where: { role: "RECEPTIONIST", branchId: OUTRAM } })
+  const reception = await prisma.user.findFirstOrThrow({
+    where: { role: "RECEPTIONIST", branchId: OUTRAM },
+  })
   const p = await patientService.createWithHistory(
-    { registrationBranchId: OUTRAM, fullName: "Tara Template", dateOfBirth: "1990-01-01", gender: "FEMALE", mobile: `94${stamp}31`, email: `tpl${stamp}@example.com`, address: "1 QA Road", leadSource: "", referenceName: "", reasonForVisit: "" } as any,
+    {
+      registrationBranchId: OUTRAM,
+      fullName: "Tara Template",
+      dateOfBirth: "1990-01-01",
+      gender: "FEMALE",
+      mobile: `94${stamp}31`,
+      email: `tpl${stamp}@example.com`,
+      address: "1 QA Road",
+      leadSource: "",
+      referenceName: "",
+      reasonForVisit: "",
+    } as any,
     { consentGiven: true } as any,
     reception.id
   )
-  await prisma.whatsAppConsent.upsert({ where: { patientId: p.id }, create: { patientId: p.id, consented: true, consentAt: new Date() }, update: { consented: true, revokedAt: null } })
+  await prisma.whatsAppConsent.upsert({
+    where: { patientId: p.id },
+    create: { patientId: p.id, consented: true, consentAt: new Date() },
+    update: { consented: true, revokedAt: null },
+  })
   const values = ["Tara", "26 Nov 2026 at 11:00 AM", "Outram"]
-  const send = () => whatsappService.sendTrigger({ triggerKey: "APPOINTMENT_CANCELLED", patientId: p.id, variables: values, skipConsultationGate: true })
-  const last = () => prisma.whatsAppMessage.findFirst({ where: { patientId: p.id }, orderBy: { createdAt: "desc" }, select: { templateName: true, variables: true } })
+  const send = () =>
+    whatsappService.sendTrigger({
+      triggerKey: "APPOINTMENT_CANCELLED",
+      patientId: p.id,
+      variables: values,
+      skipConsultationGate: true,
+    })
+  const last = () =>
+    prisma.whatsAppMessage.findFirst({
+      where: { patientId: p.id },
+      orderBy: { createdAt: "desc" },
+      select: { templateName: true, variables: true },
+    })
 
   try {
     await prisma.whatsAppTemplate.update({ where: { id: oldCancel.id }, data: { isEnabled: true } })
     await send()
     let m = await last()
-    check("old template gets only its 2 values (Meta would reject 3)", m?.templateName === "appointment_cancelled" && (m.variables as string[]).length === 2, m)
+    check(
+      "old template gets only its 2 values (Meta would reject 3)",
+      m?.templateName === "appointment_cancelled" && (m.variables as string[]).length === 2,
+      m
+    )
 
-    await prisma.whatsAppTemplate.update({ where: { id: newCancel.id }, data: { status: "APPROVED", isEnabled: true } })
+    await prisma.whatsAppTemplate.update({
+      where: { id: newCancel.id },
+      data: { status: "APPROVED", isEnabled: true },
+    })
     const moved = await templateService.switchToApprovedVersions()
     const [o, n] = await Promise.all([
       prisma.whatsAppTemplate.findUniqueOrThrow({ where: { id: oldCancel.id } }),
       prisma.whatsAppTemplate.findUniqueOrThrow({ where: { id: newCancel.id } }),
     ])
-    check("approved v2 takes over the trigger", moved >= 1 && n.triggerKey === "APPOINTMENT_CANCELLED" && o.triggerKey === null, { moved, o: o.triggerKey, n: n.triggerKey })
+    check(
+      "approved v2 takes over the trigger",
+      moved >= 1 && n.triggerKey === "APPOINTMENT_CANCELLED" && o.triggerKey === null,
+      { moved, o: o.triggerKey, n: n.triggerKey }
+    )
     await send()
     m = await last()
-    check("after switchover the same call sends all 3 values to v2", m?.templateName === "appointment_cancelled_v2" && (m.variables as string[]).length === 3, m)
-    check("running the switch again changes nothing", (await templateService.switchToApprovedVersions()) === 0)
+    check(
+      "after switchover the same call sends all 3 values to v2",
+      m?.templateName === "appointment_cancelled_v2" && (m.variables as string[]).length === 3,
+      m
+    )
+    check(
+      "running the switch again changes nothing",
+      (await templateService.switchToApprovedVersions()) === 0
+    )
   } finally {
     // Put both templates back exactly as they were.
-    await prisma.whatsAppTemplate.updateMany({ where: { id: { in: saved.map((s) => s.id) } }, data: { triggerKey: null } })
-    for (const s of saved) await prisma.whatsAppTemplate.update({ where: { id: s.id }, data: { status: s.status, isEnabled: s.isEnabled, triggerKey: s.triggerKey } })
-    await prisma.whatsAppMessage.updateMany({ where: { patientId: p.id }, data: { status: "CANCELLED", cancelledAt: new Date() } })
+    await prisma.whatsAppTemplate.updateMany({
+      where: { id: { in: saved.map((s) => s.id) } },
+      data: { triggerKey: null },
+    })
+    for (const s of saved)
+      await prisma.whatsAppTemplate.update({
+        where: { id: s.id },
+        data: { status: s.status, isEnabled: s.isEnabled, triggerKey: s.triggerKey },
+      })
+    await prisma.whatsAppMessage.updateMany({
+      where: { patientId: p.id },
+      data: { status: "CANCELLED", cancelledAt: new Date() },
+    })
   }
 
   console.log(failed ? `\n${failed} failed` : "\nall passed")

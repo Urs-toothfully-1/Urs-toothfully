@@ -200,7 +200,9 @@ test.describe("2. Potential clients (admin)", () => {
 
   test("double-click edits enquiry and last message", async ({ page }) => {
     // Hydrated before double-clicking, or the click lands on server HTML and does nothing.
-    await page.goto(`/admin/potential-clients?q=${encodeURIComponent(names.lead)}`, { waitUntil: "networkidle" })
+    await page.goto(`/admin/potential-clients?q=${encodeURIComponent(names.lead)}`, {
+      waitUntil: "networkidle",
+    })
     await page.getByRole("button", { name: `Enquiry for ${names.lead}` }).dblclick()
     await page.getByRole("combobox", { name: `Enquiry for ${names.lead}` }).fill("Implants") // has a suggestion list
     await page.keyboard.press("Enter")
@@ -353,16 +355,27 @@ test.describe("5. WhatsApp group import from a file (reception)", () => {
   test.use({ storageState: "tests/e2e/.auth/reception.json" })
 
   test("a CSV with names and formatted mobiles adds the matching patient", async ({ page }) => {
-    const reception = await prisma.user.findFirstOrThrow({ where: { email: "reception.outram@toothfully.in" } })
-    const group = await prisma.whatsAppGroup.create({ data: { name: `E2E Import ${stamp}`, createdById: reception.id } })
-    const p = await prisma.patient.findUniqueOrThrow({ where: { id: ids.withConsent }, select: { mobile: true } })
+    const reception = await prisma.user.findFirstOrThrow({
+      where: { email: "reception.outram@toothfully.in" },
+    })
+    const group = await prisma.whatsAppGroup.create({
+      data: { name: `E2E Import ${stamp}`, createdById: reception.id },
+    })
+    const p = await prisma.patient.findUniqueOrThrow({
+      where: { id: ids.withConsent },
+      select: { mobile: true },
+    })
     const csv = `Name,Mobile\n${names.withConsent},+91 ${p.mobile.slice(0, 5)} ${p.mobile.slice(5)}\nStranger,9000000000\n`
     try {
       await page.goto(`/whatsapp/groups/${group.id}`, { waitUntil: "networkidle" })
-      await page.getByLabel("Import patients from file").setInputFiles({ name: "patients.csv", mimeType: "text/csv", buffer: Buffer.from(csv) })
+      await page
+        .getByLabel("Import patients from file")
+        .setInputFiles({ name: "patients.csv", mimeType: "text/csv", buffer: Buffer.from(csv) })
       await expect(page.getByText(/Imported: 1 added/)).toBeVisible()
       await expect(page.getByText(/1 not registered as patients: 9000000000/)).toBeVisible()
-      await expect.poll(() => prisma.whatsAppGroupMember.count({ where: { groupId: group.id } })).toBe(1)
+      await expect
+        .poll(() => prisma.whatsAppGroupMember.count({ where: { groupId: group.id } }))
+        .toBe(1)
     } finally {
       await prisma.whatsAppGroupMember.deleteMany({ where: { groupId: group.id } })
       await prisma.whatsAppGroup.delete({ where: { id: group.id } })
@@ -375,10 +388,30 @@ test.describe("6. Accounting: payment-method filter, select all, export (admin)"
 
   test("filter Cash → select all → export holds only cash rows", async ({ page }) => {
     const ExcelJS = (await import("exceljs")).default
-    const reception = await prisma.user.findFirstOrThrow({ where: { email: "reception.outram@toothfully.in" } })
+    const reception = await prisma.user.findFirstOrThrow({
+      where: { email: "reception.outram@toothfully.in" },
+    })
     const fee = await paymentService.getConsultationFee(OUTRAM)
-    await paymentService.create({ paymentType: "CONSULTATION", patientId: ids.withConsent, branchId: OUTRAM, amount: fee, mode: "CASH" } as any, reception.id)
-    await paymentService.create({ paymentType: "CONSULTATION", patientId: ids.withConsent, branchId: OUTRAM, amount: fee, mode: "UPI" } as any, reception.id)
+    await paymentService.create(
+      {
+        paymentType: "CONSULTATION",
+        patientId: ids.withConsent,
+        branchId: OUTRAM,
+        amount: fee,
+        mode: "CASH",
+      } as any,
+      reception.id
+    )
+    await paymentService.create(
+      {
+        paymentType: "CONSULTATION",
+        patientId: ids.withConsent,
+        branchId: OUTRAM,
+        amount: fee,
+        mode: "UPI",
+      } as any,
+      reception.id
+    )
 
     await page.goto("/admin/accounting")
     await page.locator('select[name="mode"]').selectOption("CASH")
@@ -427,9 +460,20 @@ test.describe("8. Daily Revenue lists who paid (admin)", () => {
   test.use({ storageState: "tests/e2e/.auth/admin.json" })
 
   test("payment rows show the patient and open their payments", async ({ page }) => {
-    const reception = await prisma.user.findFirstOrThrow({ where: { email: "reception.outram@toothfully.in" } })
+    const reception = await prisma.user.findFirstOrThrow({
+      where: { email: "reception.outram@toothfully.in" },
+    })
     const fee = await paymentService.getConsultationFee(OUTRAM)
-    await paymentService.create({ paymentType: "CONSULTATION", patientId: ids.paid, branchId: OUTRAM, amount: fee, mode: "UPI" } as any, reception.id)
+    await paymentService.create(
+      {
+        paymentType: "CONSULTATION",
+        patientId: ids.paid,
+        branchId: OUTRAM,
+        amount: fee,
+        mode: "UPI",
+      } as any,
+      reception.id
+    )
     await page.goto("/admin/reports/daily?basis=entry")
     const link = page.getByRole("link", { name: `E2E Paid ${stamp}` }).first()
     await expect(link).toBeVisible()
@@ -443,19 +487,43 @@ test.describe("9. Invoice with 3 open estimates (admin)", () => {
   const est: string[] = []
 
   test.beforeAll(async () => {
-    const reception = await prisma.user.findFirstOrThrow({ where: { email: "reception.outram@toothfully.in" } })
+    const reception = await prisma.user.findFirstOrThrow({
+      where: { email: "reception.outram@toothfully.in" },
+    })
     const doctor = await prisma.user.findFirstOrThrow({ where: { role: "DOCTOR", isActive: true } })
     for (const [n, name] of ["Scaling", "Root Canal", "Crown"].entries()) {
-      const visit = await directVisitService.start({ patientId: ids.paid, doctorId: doctor.id, branchId: OUTRAM, userId: reception.id })
+      const visit = await directVisitService.start({
+        patientId: ids.paid,
+        doctorId: doctor.id,
+        branchId: OUTRAM,
+        userId: reception.id,
+      })
       const e = await estimateService.create(
-        { patientId: ids.paid, branchId: OUTRAM, visitId: visit.id, items: [{ treatmentName: `${name} ${stamp}`, category: "GENERAL", quantity: 1, unitRate: 1000 * (n + 1), unitRateMax: 2000 * (n + 1), sortOrder: 0 }] } as any,
+        {
+          patientId: ids.paid,
+          branchId: OUTRAM,
+          visitId: visit.id,
+          items: [
+            {
+              treatmentName: `${name} ${stamp}`,
+              category: "GENERAL",
+              quantity: 1,
+              unitRate: 1000 * (n + 1),
+              unitRateMax: 2000 * (n + 1),
+              sortOrder: 0,
+            },
+          ],
+        } as any,
         doctor.id
       )
       est.push(e.id)
     }
   })
 
-  test("the right estimate is billed, and a billed treatment is marked", async ({ page, context }) => {
+  test("the right estimate is billed, and a billed treatment is marked", async ({
+    page,
+    context,
+  }) => {
     await page.goto(`/patients/${ids.paid}/payments`)
     await page.getByTestId("open-invoice-dialog").click()
     const picker = page.getByLabel("Estimate to bill")
@@ -463,9 +531,14 @@ test.describe("9. Invoice with 3 open estimates (admin)", () => {
     await expect(picker.locator("option").first()).toContainText(/· \d{1,2} \w{3} ·/) // number · date · treatments
     await picker.selectOption(est[0]) // the oldest (Scaling)
     await page.getByLabel(`Bill Scaling ${stamp}`).check()
-    const [popup] = await Promise.all([context.waitForEvent("page"), page.getByRole("button", { name: /create invoice/i }).click()])
+    const [popup] = await Promise.all([
+      context.waitForEvent("page"),
+      page.getByRole("button", { name: /create invoice/i }).click(),
+    ])
     await popup.close()
-    await expect.poll(() => prisma.invoice.count({ where: { estimateId: est[0], isDeleted: false } })).toBe(1)
+    await expect
+      .poll(() => prisma.invoice.count({ where: { estimateId: est[0], isDeleted: false } }))
+      .toBe(1)
     expect(await prisma.invoice.count({ where: { estimateId: { in: [est[1], est[2]] } } })).toBe(0)
 
     await page.reload()
@@ -478,7 +551,20 @@ test.describe("9. Invoice with 3 open estimates (admin)", () => {
     const admin = await prisma.user.findFirstOrThrow({ where: { role: "ADMIN" } })
     const other = await prisma.estimateItem.findFirstOrThrow({ where: { estimateId: est[1] } })
     await expect(
-      invoiceService.create({ estimateId: est[2], items: [{ estimateItemId: other.id, treatmentName: other.treatmentName, quantity: 1, unitRate: 100 }] }, admin.id)
+      invoiceService.create(
+        {
+          estimateId: est[2],
+          items: [
+            {
+              estimateItemId: other.id,
+              treatmentName: other.treatmentName,
+              quantity: 1,
+              unitRate: 100,
+            },
+          ],
+        },
+        admin.id
+      )
     ).rejects.toThrow(/different estimate/)
   })
 })
@@ -487,9 +573,13 @@ test.describe("10. Cancel an appointment without messaging the patient (admin)",
   test.use({ storageState: "tests/e2e/.auth/admin.json" })
 
   test("unticked → no WhatsApp; ticked → the cancellation is queued", async ({ page }) => {
-    const reception = await prisma.user.findFirstOrThrow({ where: { email: "reception.outram@toothfully.in" } })
+    const reception = await prisma.user.findFirstOrThrow({
+      where: { email: "reception.outram@toothfully.in" },
+    })
     const doctor = await prisma.user.findFirstOrThrow({ where: { role: "DOCTOR", isActive: true } })
-    const tpl = await prisma.whatsAppTemplate.findUniqueOrThrow({ where: { triggerKey: "APPOINTMENT_CANCELLED" } })
+    const tpl = await prisma.whatsAppTemplate.findUniqueOrThrow({
+      where: { triggerKey: "APPOINTMENT_CANCELLED" },
+    })
     await prisma.whatsAppTemplate.update({ where: { id: tpl.id }, data: { isEnabled: true } })
     // A random far-off day, so runs never collide with each other's slots.
     const day = new Date(Date.now() + (60 + Math.floor(Math.random() * 600)) * 86_400_000)
@@ -497,15 +587,29 @@ test.describe("10. Cancel an appointment without messaging the patient (admin)",
     const booked: string[] = []
     const book = async (h: number) =>
       booked.push(
-        (await appointmentService.create(
-          { patientId: ids.withConsent, doctorId: doctor.id, branchId: OUTRAM, scheduledAt: new Date(`${dayStr}T${String(h).padStart(2, "0")}:00:00+05:30`), skipWhatsappGate: true },
-          reception.id
-        )).id
+        (
+          await appointmentService.create(
+            {
+              patientId: ids.withConsent,
+              doctorId: doctor.id,
+              branchId: OUTRAM,
+              scheduledAt: new Date(`${dayStr}T${String(h).padStart(2, "0")}:00:00+05:30`),
+              skipWhatsappGate: true,
+            },
+            reception.id
+          )
+        ).id
       )
-    const cancelled = () => prisma.whatsAppMessage.count({ where: { patientId: ids.withConsent, triggerKey: "APPOINTMENT_CANCELLED" } })
+    const cancelled = () =>
+      prisma.whatsAppMessage.count({
+        where: { patientId: ids.withConsent, triggerKey: "APPOINTMENT_CANCELLED" },
+      })
     // Only this test patient's cards (other appointments may be listed too).
     const cancelButtons = () =>
-      page.getByTestId("appointment-card").filter({ hasText: names.withConsent }).getByRole("button", { name: "Cancel", exact: true })
+      page
+        .getByTestId("appointment-card")
+        .filter({ hasText: names.withConsent })
+        .getByRole("button", { name: "Cancel", exact: true })
     try {
       await book(11)
       await book(15)
@@ -526,8 +630,14 @@ test.describe("10. Cancel an appointment without messaging the patient (admin)",
       await page.getByRole("button", { name: "Cancel Appointment" }).click()
       await expect.poll(cancelled).toBe(before + 1)
     } finally {
-      await prisma.appointment.updateMany({ where: { id: { in: booked }, status: "SCHEDULED" }, data: { status: "CANCELLED" } })
-      await prisma.whatsAppTemplate.update({ where: { id: tpl.id }, data: { isEnabled: tpl.isEnabled } })
+      await prisma.appointment.updateMany({
+        where: { id: { in: booked }, status: "SCHEDULED" },
+        data: { status: "CANCELLED" },
+      })
+      await prisma.whatsAppTemplate.update({
+        where: { id: tpl.id },
+        data: { isEnabled: tpl.isEnabled },
+      })
     }
   })
 })

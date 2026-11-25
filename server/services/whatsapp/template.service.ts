@@ -1,6 +1,9 @@
 import { z } from "zod"
 import { Prisma, WhatsAppTemplateStatus } from "@prisma/client"
-import { whatsappTemplateRepository, TemplateListFilters } from "@/server/repositories/whatsapp-template.repository"
+import {
+  whatsappTemplateRepository,
+  TemplateListFilters,
+} from "@/server/repositories/whatsapp-template.repository"
 import { metaService } from "@/server/services/whatsapp/meta.service"
 import { DEFAULT_UTILITY_TEMPLATES, countTemplateVariables } from "@/lib/whatsapp/templates"
 import { createAuditLog } from "@/lib/audit"
@@ -11,7 +14,10 @@ export const templateSchema = z.object({
     .string()
     .min(2)
     .max(120)
-    .regex(/^[a-z0-9_]+$/, "Template name must be lowercase letters, numbers and underscores (Meta requirement)"),
+    .regex(
+      /^[a-z0-9_]+$/,
+      "Template name must be lowercase letters, numbers and underscores (Meta requirement)"
+    ),
   displayName: z.string().min(2).max(150),
   category: z.enum(["UTILITY", "MARKETING", "AUTHENTICATION"]),
   language: z.string().min(2).max(10).default("en"),
@@ -54,7 +60,10 @@ export const templateService = {
     if (existing) throw new Error(`A template named "${input.name}" already exists.`)
     if (input.triggerKey) {
       const trigger = await whatsappTemplateRepository.findByTriggerKey(input.triggerKey)
-      if (trigger) throw new Error(`Trigger "${input.triggerKey}" is already linked to "${trigger.displayName}".`)
+      if (trigger)
+        throw new Error(
+          `Trigger "${input.triggerKey}" is already linked to "${trigger.displayName}".`
+        )
     }
 
     const template = await whatsappTemplateRepository.create({
@@ -74,16 +83,22 @@ export const templateService = {
     return template
   },
 
-  async update(id: string, input: Partial<TemplateInput> & { isEnabled?: boolean }, changedById: string) {
+  async update(
+    id: string,
+    input: Partial<TemplateInput> & { isEnabled?: boolean },
+    changedById: string
+  ) {
     const template = await whatsappTemplateRepository.findById(id)
     if (!template) throw new Error("Template not found")
 
     if (input.body !== undefined || input.variables !== undefined) {
       const body = input.body ?? template.body
-      const variables = input.variables ?? ((template.variables as string[] | null) ?? [])
+      const variables = input.variables ?? (template.variables as string[] | null) ?? []
       const placeholders = countTemplateVariables(body)
       if (placeholders !== variables.length) {
-        throw new Error(`Body uses ${placeholders} placeholder(s) but ${variables.length} variable label(s) were provided.`)
+        throw new Error(
+          `Body uses ${placeholders} placeholder(s) but ${variables.length} variable label(s) were provided.`
+        )
       }
     }
 
@@ -98,7 +113,8 @@ export const templateService = {
       ...input,
       variables: input.variables ?? undefined,
       buttons: input.buttons ?? undefined,
-      ...(contentChanged && template.status === "APPROVED" && { status: "DRAFT" as WhatsAppTemplateStatus }),
+      ...(contentChanged &&
+        template.status === "APPROVED" && { status: "DRAFT" as WhatsAppTemplateStatus }),
     })
 
     await createAuditLog({
@@ -127,12 +143,15 @@ export const templateService = {
   async delete(id: string, changedById: string) {
     const template = await whatsappTemplateRepository.findById(id)
     if (!template) throw new Error("Template not found")
-    if (template.isSystem) throw new Error("System default templates cannot be deleted. Disable it instead.")
+    if (template.isSystem)
+      throw new Error("System default templates cannot be deleted. Disable it instead.")
 
     const usedCount = await prisma.whatsAppMessage.count({ where: { templateId: id } })
     if (usedCount > 0) {
       // keep history intact — detach and delete is not allowed; disable instead
-      throw new Error("This template has message history and cannot be deleted. Disable it instead.")
+      throw new Error(
+        "This template has message history and cannot be deleted. Disable it instead."
+      )
     }
 
     await whatsappTemplateRepository.delete(id)
@@ -168,7 +187,10 @@ export const templateService = {
         buttons: def.buttons ? (def.buttons as unknown as Prisma.InputJsonValue) : undefined,
         variables: def.variables,
         // A newer version waits without the trigger while the old one still holds it.
-        triggerKey: (await prisma.whatsAppTemplate.findUnique({ where: { triggerKey: def.triggerKey }, select: { id: true } }))
+        triggerKey: (await prisma.whatsAppTemplate.findUnique({
+          where: { triggerKey: def.triggerKey },
+          select: { id: true },
+        }))
           ? null
           : def.triggerKey,
         isSystem: true,
@@ -191,8 +213,14 @@ export const templateService = {
       const v2 = await whatsappTemplateRepository.findByName(def.name)
       if (v2?.status !== "APPROVED" || !v2.isEnabled || v2.triggerKey === def.triggerKey) continue
       await prisma.$transaction([
-        prisma.whatsAppTemplate.updateMany({ where: { triggerKey: def.triggerKey }, data: { triggerKey: null } }),
-        prisma.whatsAppTemplate.update({ where: { id: v2.id }, data: { triggerKey: def.triggerKey } }),
+        prisma.whatsAppTemplate.updateMany({
+          where: { triggerKey: def.triggerKey },
+          data: { triggerKey: null },
+        }),
+        prisma.whatsAppTemplate.update({
+          where: { id: v2.id },
+          data: { triggerKey: def.triggerKey },
+        }),
       ])
       moved++
     }
@@ -209,10 +237,13 @@ export const templateService = {
       if (!local) continue
 
       const status: WhatsAppTemplateStatus =
-        mt.status === "APPROVED" ? "APPROVED"
-        : mt.status === "REJECTED" ? "REJECTED"
-        : mt.status === "DISABLED" || mt.status === "PAUSED" ? "DISABLED"
-        : "PENDING"
+        mt.status === "APPROVED"
+          ? "APPROVED"
+          : mt.status === "REJECTED"
+            ? "REJECTED"
+            : mt.status === "DISABLED" || mt.status === "PAUSED"
+              ? "DISABLED"
+              : "PENDING"
 
       if (local.metaTemplateId !== mt.id || local.status !== status) {
         await whatsappTemplateRepository.update(local.id, { metaTemplateId: mt.id, status })
@@ -248,7 +279,10 @@ export const templateService = {
     }
 
     const metaTemplateId = await metaService.createTemplateOnMeta(template)
-    const updated = await whatsappTemplateRepository.update(id, { metaTemplateId, status: "PENDING" })
+    const updated = await whatsappTemplateRepository.update(id, {
+      metaTemplateId,
+      status: "PENDING",
+    })
 
     await createAuditLog({
       entityType: "WhatsAppTemplate",
