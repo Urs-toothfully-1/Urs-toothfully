@@ -20,7 +20,7 @@ const PASSWORD = "E2eMatrix@123"
 const stamp = Date.now().toString().slice(-6)
 const DOC = { email: "e2e.matrix.doc@toothfully.in", name: "Dr E2E Matrix" }
 const DESK = { email: "e2e.matrix.desk@toothfully.in", name: "E2E Matrix Desk" }
-const ids = { doc: "", desk: "", today: "", other: "", txQueue: "" }
+const ids = { doc: "", desk: "", today: "", other: "", txQueue: "", queued: "", waiting: "", waitingQueue: "" }
 const names = { today: `E2E Matrix Today ${stamp}`, other: `E2E Matrix Other ${stamp}` }
 
 test.describe.configure({ mode: "serial" })
@@ -105,6 +105,16 @@ test.beforeAll(async () => {
       reception.id
     )
   ).queueEntry.id
+  ids.queued = queued
+
+  // Waiting in Outram's queue with no doctor yet — any doctor there may pick it up.
+  ids.waiting = (await mk(`E2E Matrix Waiting ${stamp}`, `91${stamp}84`)).id
+  const w = await queueService.addToQueue(
+    { patientId: ids.waiting, branchId: OUTRAM, visitType: "CONSULTATION", chiefComplaint: "E2E matrix", doctorId: regularDoctor.id } as any,
+    reception.id
+  )
+  ids.waitingQueue = w.queueEntry.id
+  await prisma.queueEntry.update({ where: { id: w.queueEntry.id }, data: { doctorId: null } })
 })
 
 test.afterAll(async () => {
@@ -113,7 +123,7 @@ test.afterAll(async () => {
     data: { isActive: false },
   })
   await prisma.queueEntry.updateMany({
-    where: { id: ids.txQueue, status: { notIn: ["COMPLETED", "CANCELLED"] } },
+    where: { id: { in: [ids.txQueue, ids.waitingQueue] }, status: { notIn: ["COMPLETED", "CANCELLED"] } },
     data: { status: "CANCELLED" },
   })
   await prisma.$disconnect()
@@ -381,6 +391,15 @@ test.describe("Doctor — each switch", () => {
   }) => {
     await setPerms(ids.doc, ["prices", "payments", "documents", "estimates", "allPatients"])
     await doctorChecks.prescriptions.on(page)
+    await allOn(ids.doc)
+  })
+
+  test("today's-patients doctor also sees the unassigned queue, not other doctors' patients", async ({ page }) => {
+    await setPerms(ids.doc, ["allPatients"])
+    await page.goto(`/patients/${ids.waiting}`)
+    await expect(page.getByText(`E2E Matrix Waiting ${stamp}`).first()).toBeVisible()
+    await page.goto(`/patients/${ids.queued}`) // queued for another doctor
+    await notFound(page)
     await allOn(ids.doc)
   })
 })

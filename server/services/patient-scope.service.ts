@@ -6,7 +6,8 @@ import type { AppSession } from "@/lib/auth"
 
 /**
  * "Today's patients" for users whose admin switched off `allPatients`:
- *  - doctor:    today's appointments, queue entries and visits assigned to them
+ *  - doctor:    today's appointments, queue entries and visits assigned to them,
+ *               plus today's unassigned queue at their branch (they can pick those up)
  *  - reception: today's appointments, queue and visits at their branch
  * Returns null when the user may see everyone. cache() = one lookup per request.
  */
@@ -27,7 +28,11 @@ export const allowedPatientIds = cache(async (session: AppSession): Promise<Set<
     prisma.queueEntry.findMany({
       where: {
         createdAt: { gte: start, lte: end },
-        ...(isDoctor ? { doctorId: session.userId } : { branchId: session.branchId }),
+        // A doctor also sees today's waiting patients at her branch that no doctor
+        // has taken yet — they're on her queue screen to pick up.
+        ...(isDoctor
+          ? { OR: [{ doctorId: session.userId }, { branchId: session.branchId, doctorId: null }] }
+          : { branchId: session.branchId }),
       },
       select: { patientId: true },
     }),
