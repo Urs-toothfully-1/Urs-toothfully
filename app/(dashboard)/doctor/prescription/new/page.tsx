@@ -64,7 +64,7 @@ export default async function NewPrescriptionPage({ searchParams }: Props) {
             canEdit={true}
             initialTemplates={templates}
             treatments={(treatments as any[]).map((t) => ({
-              id: t.id, category: t.category, name: t.name, defaultAmount: Number(t.defaultAmount),
+              id: t.id, category: t.category, name: t.name, defaultAmount: session.perms.prices ? Number(t.defaultAmount) : 0,
             }))}
           />
         </CardContent>

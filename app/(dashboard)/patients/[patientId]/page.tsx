@@ -105,8 +105,17 @@ export default async function PatientOverviewPage({ params }: Props) {
     : [[], null, null]
 
   // Admin, or reception with access: prescription / estimate straight from the profile.
-  const canDirect = session.role === "ADMIN" || (session.role === "RECEPTIONIST" && session.perms.directClinical)
-  const directDoctors = canDirect ? (canAddToQueue ? doctors : await userRepository.findAllActiveDoctors()) : []
+  // Admin / reception pick the doctor; a doctor with "Write prescriptions" starts one as herself.
+  const doctorSelf = session.role === "DOCTOR" && session.perms.prescriptions
+  const canDirect =
+    session.role === "ADMIN" || (session.role === "RECEPTIONIST" && session.perms.directClinical) || doctorSelf
+  const directDoctors = doctorSelf
+    ? [{ id: session.userId, name: session.name }]
+    : canDirect
+      ? canAddToQueue
+        ? doctors
+        : await userRepository.findAllActiveDoctors()
+      : []
 
   const recentVisits = visits.slice(0, 5)
 

@@ -54,7 +54,7 @@ export default async function PrescriptionPage({ params }: Props) {
     id: t.id,
     category: t.category,
     name: t.name,
-    defaultAmount: Number(t.defaultAmount),
+    defaultAmount: session.perms.prices ? Number(t.defaultAmount) : 0,
   }))
 
   return (

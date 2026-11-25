@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireRole } from "@/lib/auth"
+import { gate, requireRole } from "@/lib/auth"
 import { queueService } from "@/server/services/queue.service"
 import { queueRepository } from "@/server/repositories/queue.repository"
 import { z } from "zod"
@@ -19,7 +19,11 @@ const ROLE_ALLOWED_TRANSITIONS: Record<string, string[]> = {
 
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
+    // "Manage the live queue" applies to reception only (gate skips other roles).
     const session = await requireRole(["ADMIN", "DOCTOR", "RECEPTIONIST"])
+      .then(gate("queue"))
+      .catch(() => null)
+    if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const { queueId } = await params
     const body = await request.json()
 

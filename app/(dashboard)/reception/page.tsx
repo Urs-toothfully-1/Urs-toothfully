@@ -26,9 +26,10 @@ interface SectionProps {
   currentUserId: string
   accentColor: string
   emptyText: string
+  readOnly?: boolean
 }
 
-function QueueSection({ title, icon: Icon, entries, role, currentUserId, accentColor, emptyText }: SectionProps) {
+function QueueSection({ title, icon: Icon, entries, role, currentUserId, accentColor, emptyText, readOnly }: SectionProps) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-2">
@@ -53,6 +54,7 @@ function QueueSection({ title, icon: Icon, entries, role, currentUserId, accentC
               entry={entry}
               role={role as any}
               currentUserId={currentUserId}
+              readOnly={readOnly}
             />
           ))}
         </div>
@@ -66,6 +68,8 @@ export default async function ReceptionPage() {
 
   const today = new Date()
   const allEntries = await queueRepository.findByBranchAndDate(session.branchId, today)
+  // "Manage the live queue" off → the queue is shown, without the buttons.
+  const queueReadOnly = session.role === "RECEPTIONIST" && !session.perms.queue
 
   const waiting = allEntries.filter((e: { status: string }) => e.status === "WAITING")
   const withDoctor = allEntries.filter((e: { status: string }) => e.status === "WITH_DOCTOR")
@@ -173,6 +177,7 @@ export default async function ReceptionPage() {
               icon={Clock}
               entries={waiting}
               role={session.role}
+              readOnly={queueReadOnly}
               currentUserId={session.userId}
               accentColor="#B45309"
               emptyText="No patients waiting"
@@ -182,6 +187,7 @@ export default async function ReceptionPage() {
               icon={Stethoscope}
               entries={withDoctor}
               role={session.role}
+              readOnly={queueReadOnly}
               currentUserId={session.userId}
               accentColor="#1D4ED8"
               emptyText="No patients with doctor"
@@ -191,6 +197,7 @@ export default async function ReceptionPage() {
               icon={DollarSign}
               entries={paymentDue}
               role={session.role}
+              readOnly={queueReadOnly}
               currentUserId={session.userId}
               accentColor="#C2410C"
               emptyText="No pending payments"
@@ -200,6 +207,7 @@ export default async function ReceptionPage() {
               icon={CheckCircle2}
               entries={completed}
               role={session.role}
+              readOnly={queueReadOnly}
               currentUserId={session.userId}
               accentColor="#065F46"
               emptyText="No completed visits yet today"

@@ -20,9 +20,15 @@ export async function startDirectVisitAction(
   doctorId: string,
   chiefComplaint?: string
 ) {
-  const session = await profileStaff()
+  // Admin / reception (with access), or a doctor with "Write prescriptions" — as herself.
+  const session =
+    (await profileStaff()) ??
+    (await requireRole(["DOCTOR"])
+      .then(gate("prescriptions"))
+      .catch(() => null))
   if (!session)
     return { error: "You don't have access to create prescriptions from the patient profile." }
+  if (session.role === "DOCTOR") doctorId = session.userId
   try {
     await requirePatientInScope(session, patientId)
     const visit = await directVisitService.start({

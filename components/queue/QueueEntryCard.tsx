@@ -36,6 +36,8 @@ interface TreatmentItem {
 interface Props {
   entry: QueueEntry
   role: Role
+  /** View only: no reception actions (call / complete / cancel). */
+  readOnly?: boolean
   currentUserId: string
   treatmentItems?: TreatmentItem[]
 }
@@ -49,11 +51,12 @@ const TOKEN_COLORS: Record<string, { bg: string; text: string }> = {
   CANCELLED: { bg: "#F2F4F6", text: "#707882" },
 }
 
-export function QueueEntryCard({ entry, role, currentUserId, treatmentItems = [] }: Props) {
+export function QueueEntryCard({ entry, role, currentUserId, treatmentItems = [], readOnly = false }: Props) {
   const [isPending, startTransition] = useTransition()
 
   const isDoctor = role === "DOCTOR"
-  const isReception = role === "RECEPTIONIST" || role === "ADMIN"
+  // Reception without "Manage the live queue" sees the queue but can't act on it.
+  const isReception = !readOnly && (role === "RECEPTIONIST" || role === "ADMIN")
   const isMyPatient = entry.doctorId === currentUserId
   const isActive = !["COMPLETED", "CANCELLED"].includes(entry.status)
   const tokenColors = TOKEN_COLORS[entry.status] ?? TOKEN_COLORS.WAITING
