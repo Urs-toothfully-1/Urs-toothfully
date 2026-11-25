@@ -417,11 +417,16 @@ export const metaService = {
     }
     components.push(bodyComponent)
     if (template.footerText) components.push({ type: "FOOTER", text: template.footerText })
-    const buttons = template.buttons as Array<{ type: string; text: string; url?: string }> | null
+    const buttons = template.buttons as Array<{ type: string; text: string; url?: string; phone_number?: string }> | null
     if (buttons?.length) {
       components.push({
         type: "BUTTONS",
-        buttons: buttons.map((b) => ({ type: b.type, text: b.text, ...(b.url && { url: b.url }) })),
+        buttons: buttons.map((b) => ({
+          type: b.type,
+          text: b.text,
+          ...(b.url && { url: b.url }),
+          ...(b.phone_number && { phone_number: b.phone_number }),
+        })),
       })
     }
 

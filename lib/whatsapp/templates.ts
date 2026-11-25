@@ -37,6 +37,13 @@ export const WHATSAPP_TRIGGERS = {
 
 export type WhatsAppTriggerKey = (typeof WHATSAPP_TRIGGERS)[keyof typeof WHATSAPP_TRIGGERS]
 
+export interface TemplateButton {
+  type: "PHONE_NUMBER" | "URL" | "QUICK_REPLY"
+  text: string
+  url?: string
+  phone_number?: string
+}
+
 export interface DefaultTemplateDef {
   name: string
   displayName: string
@@ -44,9 +51,23 @@ export interface DefaultTemplateDef {
   variables: string[]
   body: string
   footerText?: string
+  /** Static text heading shown in bold above the body. */
+  headerText?: string
+  buttons?: TemplateButton[]
+  /**
+   * Newer version of an existing template. Created without the trigger; the daily
+   * Meta sync hands it the trigger once Meta approves it, so sending never stops.
+   */
+  replaces?: string
 }
 
 const FOOTER = "Ur's Toothfully — Full Mouth Rehabilitation & Implant Centre"
+
+/** Call + website buttons on the appointment messages. */
+const CLINIC_BUTTONS: TemplateButton[] = [
+  { type: "PHONE_NUMBER", text: "Call clinic", phone_number: "+917890008331" },
+  { type: "URL", text: "Visit website", url: "https://urstoothfully.com" },
+]
 
 export const DEFAULT_UTILITY_TEMPLATES: DefaultTemplateDef[] = [
   {
@@ -208,6 +229,50 @@ export const DEFAULT_UTILITY_TEMPLATES: DefaultTemplateDef[] = [
     variables: ["Patient Name"],
     body: "Thank you, {{1}}, for trusting Ur's Toothfully with your smile! We're always here for your dental care. Mon–Sat 10:30 AM–8:30 PM, Sun 10 AM–2:30 PM (Thu off) · 7890008331.",
     footerText: FOOTER,
+  },
+  // ── Professional appointment messages (v2): heading, details, buttons ──
+  // Extra details are appended at the END of the old variable order, so the
+  // same values work for the old (approved) and new templates during switchover.
+  {
+    name: "appointment_confirmed_v2",
+    displayName: "Appointment Confirmed (professional)",
+    triggerKey: WHATSAPP_TRIGGERS.APPOINTMENT_CONFIRMATION,
+    replaces: "appointment_confirmation",
+    variables: ["Patient Name", "Date", "Time", "Branch", "Doctor"],
+    headerText: "Appointment Confirmed",
+    body:
+      "Dear {{1}},\n\nYour appointment at *Ur's Toothfully* is confirmed.\n\n" +
+      "📅 *Date:* {{2}}\n⏰ *Time:* {{3}}\n📍 *Clinic:* {{4}}\n🩺 *Doctor:* {{5}}\n\n" +
+      "Please arrive 10 minutes early and bring any previous dental reports or X-rays. Need to reschedule? Tap *Call clinic* below.",
+    footerText: FOOTER,
+    buttons: CLINIC_BUTTONS,
+  },
+  {
+    name: "appointment_reminder_v2",
+    displayName: "Appointment Reminder (professional)",
+    triggerKey: WHATSAPP_TRIGGERS.APPOINTMENT_REMINDER,
+    replaces: "appointment_reminder",
+    variables: ["Patient Name", "Date", "Time", "Branch", "Doctor"],
+    headerText: "Appointment Reminder",
+    body:
+      "Dear {{1}},\n\nThis is a friendly reminder of your dental appointment at *Ur's Toothfully* tomorrow.\n\n" +
+      "📅 *Date:* {{2}}\n⏰ *Time:* {{3}}\n📍 *Clinic:* {{4}}\n🩺 *Doctor:* {{5}}\n\n" +
+      "Please arrive 10 minutes early. If you can't make it, kindly call us so we can offer the slot to another patient.",
+    footerText: FOOTER,
+    buttons: CLINIC_BUTTONS,
+  },
+  {
+    name: "appointment_cancelled_v2",
+    displayName: "Appointment Cancelled (professional)",
+    triggerKey: WHATSAPP_TRIGGERS.APPOINTMENT_CANCELLED,
+    replaces: "appointment_cancelled",
+    variables: ["Patient Name", "Date and Time", "Branch"],
+    headerText: "Appointment Cancelled",
+    body:
+      "Dear {{1}},\n\nYour appointment at *Ur's Toothfully* on *{{2}}* at our {{3}} clinic has been cancelled.\n\n" +
+      "We'd be happy to find you a new time — tap *Call clinic* below or reply to this message to book again.",
+    footerText: FOOTER,
+    buttons: CLINIC_BUTTONS,
   },
   {
     name: "referral_recorded_referrer",

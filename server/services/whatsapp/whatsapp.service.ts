@@ -3,7 +3,7 @@ import { whatsappSettingsRepository } from "@/server/repositories/whatsapp-setti
 import { whatsappMessageRepository } from "@/server/repositories/whatsapp-message.repository"
 import { whatsappTemplateRepository } from "@/server/repositories/whatsapp-template.repository"
 import { whatsappQueueService } from "@/server/services/whatsapp/queue.service"
-import { WHATSAPP_TRIGGERS, WHATSAPP_CONSENT_VERSION, type WhatsAppTriggerKey } from "@/lib/whatsapp/templates"
+import { WHATSAPP_TRIGGERS, WHATSAPP_CONSENT_VERSION, countTemplateVariables, type WhatsAppTriggerKey } from "@/lib/whatsapp/templates"
 import { encryptSecret, maskSecret } from "@/lib/whatsapp/crypto"
 import { createAuditLog } from "@/lib/audit"
 
@@ -94,7 +94,10 @@ export const whatsappService = {
         branchId: opts.branchId,
         templateId: template.id,
         toPhone: patient.mobile,
-        variables: opts.variables,
+        // Meta rejects a send whose value count differs from the template's, so
+        // send only as many as this template uses (callers may pass extras for
+        // a newer template version).
+        variables: opts.variables.slice(0, countTemplateVariables(template.body)),
         triggerKey: opts.triggerKey,
         createdById: opts.createdById,
       })

@@ -19,7 +19,9 @@ import { toothLabel } from "@/lib/teeth"
 export interface BillableEstimate {
   id: string
   estimateNo: string
+  createdAt: string
   items: {
+    billedOn: string[] // invoice numbers this treatment is already on
     id: string
     treatmentName: string
     toothNumber: string | null
@@ -39,6 +41,7 @@ export interface AvailableReward {
 
 interface PlannedLine {
   estimateItemId: string
+  billedOn: string[]
   checked: boolean
   treatmentName: string
   toothNumber: string | null
@@ -55,12 +58,21 @@ interface ExtraLine {
   unitRate: number
 }
 
+/** "EST-2026-00012 · 3 Nov · Root Canal, Crown +2" — tells several open estimates apart. */
+function estimateLabel(e: BillableEstimate) {
+  const date = new Date(e.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })
+  const names = e.items.map((i) => i.treatmentName)
+  const shown = names.slice(0, 2).join(", ") || "no treatments"
+  return `${e.estimateNo} · ${date} · ${shown}${names.length > 2 ? ` +${names.length - 2}` : ""}`
+}
+
 const inputCls =
   "h-8 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
 
 function linesFor(est: BillableEstimate | undefined): PlannedLine[] {
   return (est?.items ?? []).map((i) => ({
     estimateItemId: i.id,
+    billedOn: i.billedOn,
     checked: false,
     treatmentName: i.treatmentName,
     toothNumber: i.toothNumber,
@@ -106,6 +118,16 @@ export function CreateInvoiceButton({
 
   if (estimates.length === 0) return null
 
+  // The list can change while the page is open (an invoice created, an estimate
+  // added or closed). Re-pick from the current list every time the dialog opens,
+  // so it never bills a stale estimate or another estimate's treatments.
+  function openDialog() {
+    const current = estimates.find((e) => e.id === estimateId) ?? estimates[0]
+    setEstimateId(current.id)
+    setPlanned(linesFor(current))
+    setOpen(true)
+  }
+
   function pickEstimate(id: string) {
     setEstimateId(id)
     setPlanned(linesFor(estimates.find((e) => e.id === id)))
@@ -150,6 +172,14 @@ export function CreateInvoiceButton({
       toast.error("Tick at least one treatment (or add one) to bill.")
       return
     }
+    const again = planned.filter((l) => l.checked && l.billedOn.length > 0)
+    if (
+      again.length > 0 &&
+      !window.confirm(
+        `${again.map((l) => `${l.treatmentName} (already on ${l.billedOn.join(", ")})`).join("\n")}\n\nBill ${again.length === 1 ? "it" : "them"} again?`
+      )
+    )
+      return
     startSaving(async () => {
       const res = await createInvoiceAction({
         estimateId,
@@ -182,7 +212,7 @@ export function CreateInvoiceButton({
       <Button
         type="button"
         size={size}
-        onClick={() => setOpen(true)}
+        onClick={openDialog}
         className="gap-1.5 text-white"
         style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
         data-testid="open-invoice-dialog"
@@ -202,10 +232,10 @@ export function CreateInvoiceButton({
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
             {estimates.length > 1 && (
               <div className="space-y-1">
-                <Label className="text-xs">Treatment plan</Label>
-                <select value={estimateId} onChange={(e) => pickEstimate(e.target.value)} className="w-full h-9 border rounded px-2 text-sm">
+                <Label className="text-xs">Treatment plan ({estimates.length} open estimates)</Label>
+                <select value={estimateId} onChange={(e) => pickEstimate(e.target.value)} className="w-full h-9 border rounded px-2 text-sm" aria-label="Estimate to bill">
                   {estimates.map((e) => (
-                    <option key={e.id} value={e.id}>{e.estimateNo}</option>
+                    <option key={e.id} value={e.id}>{estimateLabel(e)}</option>
                   ))}
                 </select>
               </div>
@@ -241,6 +271,11 @@ export function CreateInvoiceButton({
                       <td className="px-2 py-2">
                         <span className="font-medium" style={{ color: BRAND_COLORS.bodyText }}>{l.treatmentName}</span>
                         {l.toothNumber && <span className="text-xs ml-1" style={{ color: BRAND_COLORS.borderDivider }}>· {toothLabel(l.toothNumber)}</span>}
+                        {l.billedOn.length > 0 && (
+                          <span className="ml-2 text-[11px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>
+                            Billed on {l.billedOn.join(", ")}
+                          </span>
+                        )}
                       </td>
                       <td className="px-2 py-2 text-xs" style={{ color: BRAND_COLORS.borderDivider }}>{formatRange(l.quoteMin, l.quoteMax)}</td>
                       <td className="px-2 py-1">

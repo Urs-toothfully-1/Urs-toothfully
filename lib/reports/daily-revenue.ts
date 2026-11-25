@@ -8,6 +8,19 @@ export interface DailyRevenueRow {
   total: number
 }
 
+/** One payment counted in the day's total — with who paid, for the report's list. */
+export interface DailyPayment {
+  id: string
+  patientRef: string // Patient.id (for the link)
+  patientName: string
+  patientId: string // PAT-…
+  paymentType: string
+  paymentMode: string
+  amount: number
+  receiptNo: string | null
+  enteredAt: string // ISO
+}
+
 /** A payment whose receipt date and entry date fall on different days. */
 export interface DatedElsewhere {
   id: string
@@ -33,6 +46,8 @@ export interface DailySummary {
   basis: RevenueBasis
   branchId?: string
   rows: DailyRevenueRow[]
+  /** Every payment in the totals, newest first. */
+  payments: DailyPayment[]
   consultationTotal: number
   treatmentTotal: number
   advanceTotal: number
@@ -57,18 +72,48 @@ export async function getDailyRevenue(date: string, branchId?: string, basis: Re
   const receiptDay = new Date(`${date}T00:00:00Z`) // AccountingEntry.entryDate is a @db.Date
   const branch = branchId ? { branchId } : {}
 
-  const groups = await prisma.accountingEntry.groupBy({
-    by: ["paymentType", "paymentMode"],
-    where: {
-      isDeleted: false,
-      ...branch,
-      ...(basis === "receipt"
-        ? { entryDate: receiptDay }
-        : { payment: { createdAt: { gte: start, lte: end } } }),
-    },
-    _sum: { amount: true },
-    _count: true,
-  })
+  const dayWhere = {
+    isDeleted: false,
+    ...branch,
+    ...(basis === "receipt"
+      ? { entryDate: receiptDay }
+      : { payment: { createdAt: { gte: start, lte: end } } }),
+  }
+  const [groups, entries] = await Promise.all([
+    prisma.accountingEntry.groupBy({
+      by: ["paymentType", "paymentMode"],
+      where: dayWhere,
+      _sum: { amount: true },
+      _count: true,
+    }),
+    // Same filter as the totals, so the list always adds up to the grand total.
+    prisma.accountingEntry.findMany({
+      where: dayWhere,
+      orderBy: { createdAt: "desc" },
+      take: 1000, // ponytail: one clinic-day; paginate if a day ever exceeds this
+      select: {
+        id: true, paymentType: true, paymentMode: true, amount: true,
+        payment: {
+          select: {
+            createdAt: true,
+            receipt: { select: { receiptNo: true } },
+            patient: { select: { id: true, fullName: true, patientId: true } },
+          },
+        },
+      },
+    }),
+  ])
+  const payments: DailyPayment[] = entries.map((e) => ({
+    id: e.id,
+    patientRef: e.payment.patient.id,
+    patientName: e.payment.patient.fullName,
+    patientId: e.payment.patient.patientId,
+    paymentType: e.paymentType,
+    paymentMode: e.paymentMode,
+    amount: Number(e.amount),
+    receiptNo: e.payment.receipt?.receiptNo ?? null,
+    enteredAt: e.payment.createdAt.toISOString(),
+  }))
 
   const rows: DailyRevenueRow[] = groups
     .map((g) => ({ paymentType: g.paymentType, paymentMode: g.paymentMode, count: g._count, total: Number(g._sum.amount ?? 0) }))
@@ -110,6 +155,7 @@ export async function getDailyRevenue(date: string, branchId?: string, basis: Re
     basis,
     branchId,
     rows,
+    payments,
     consultationTotal: sum("CONSULTATION"),
     treatmentTotal: sum("TREATMENT"),
     advanceTotal: sum("ADVANCE"),

@@ -46,6 +46,7 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
   const [isPending, startTransition] = useTransition()
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelReason, setCancelReason] = useState("")
+  const [notifyPatient, setNotifyPatient] = useState(true)
 
   const time = new Date(a.scheduledAt)
   const style = STATUS_STYLE[a.status]
@@ -55,9 +56,9 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
   const [rDate, setRDate] = useState(istDayKey(time))
   const [rTime, setRTime] = useState(istTimeValue(time))
 
-  function update(status: AppointmentStatus, reason?: string) {
+  function update(status: AppointmentStatus, reason?: string, notify = true) {
     startTransition(async () => {
-      const result = await updateAppointmentStatusAction(a.id, status, reason)
+      const result = await updateAppointmentStatusAction(a.id, status, reason, notify)
       if (result.success) {
         toast.success(`Appointment ${STATUS_STYLE[status].label.toLowerCase()}`)
         setCancelOpen(false)
@@ -82,7 +83,7 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
   }
 
   return (
-    <Card className="border-[#E0E3E5]">
+    <Card className="border-[#E0E3E5]" data-testid="appointment-card">
       <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
         <div className="flex items-center gap-4 min-w-0">
           {/* Time block */}
@@ -179,6 +180,20 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
             placeholder="Reason for cancellation (optional)"
             maxLength={300}
           />
+          <label className="flex items-start gap-2 text-sm cursor-pointer" style={{ color: BRAND_COLORS.bodyText }}>
+            <input
+              type="checkbox"
+              checked={notifyPatient}
+              onChange={(e) => setNotifyPatient(e.target.checked)}
+              className="mt-0.5 h-4 w-4"
+            />
+            <span>
+              Send cancellation message to the patient on WhatsApp
+              <span className="block text-xs" style={{ color: BRAND_COLORS.sidebarMuted }}>
+                Untick for a booking made by mistake or a test.
+              </span>
+            </span>
+          </label>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCancelOpen(false)} disabled={isPending}>
               Keep
@@ -186,7 +201,7 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
             <Button
               variant="destructive"
               disabled={isPending}
-              onClick={() => update("CANCELLED", cancelReason.trim() || undefined)}
+              onClick={() => update("CANCELLED", cancelReason.trim() || undefined, notifyPatient)}
             >
               {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Cancel Appointment

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { WhatsAppTemplateStatus } from "@prisma/client"
+import { Prisma, WhatsAppTemplateStatus } from "@prisma/client"
 import { whatsappTemplateRepository, TemplateListFilters } from "@/server/repositories/whatsapp-template.repository"
 import { metaService } from "@/server/services/whatsapp/meta.service"
 import { DEFAULT_UTILITY_TEMPLATES, countTemplateVariables } from "@/lib/whatsapp/templates"
@@ -163,14 +163,40 @@ export const templateService = {
         status: "DRAFT",
         body: def.body,
         footerText: def.footerText,
+        headerType: def.headerText ? "TEXT" : undefined,
+        headerText: def.headerText,
+        buttons: def.buttons ? (def.buttons as unknown as Prisma.InputJsonValue) : undefined,
         variables: def.variables,
-        triggerKey: def.triggerKey,
+        // A newer version waits without the trigger while the old one still holds it.
+        triggerKey: (await prisma.whatsAppTemplate.findUnique({ where: { triggerKey: def.triggerKey }, select: { id: true } }))
+          ? null
+          : def.triggerKey,
         isSystem: true,
         createdById,
       })
       created++
     }
     return { created }
+  },
+
+  /**
+   * Hand each trigger to its newer template (e.g. appointment_confirmed_v2) once
+   * Meta has approved it. Until then the old approved template keeps sending.
+   * Returns how many triggers moved.
+   */
+  async switchToApprovedVersions(): Promise<number> {
+    let moved = 0
+    for (const def of DEFAULT_UTILITY_TEMPLATES) {
+      if (!def.replaces) continue
+      const v2 = await whatsappTemplateRepository.findByName(def.name)
+      if (v2?.status !== "APPROVED" || !v2.isEnabled || v2.triggerKey === def.triggerKey) continue
+      await prisma.$transaction([
+        prisma.whatsAppTemplate.updateMany({ where: { triggerKey: def.triggerKey }, data: { triggerKey: null } }),
+        prisma.whatsAppTemplate.update({ where: { id: v2.id }, data: { triggerKey: def.triggerKey } }),
+      ])
+      moved++
+    }
+    return moved
   },
 
   /** Pulls template status/ids from Meta and updates matching local templates. */
@@ -193,6 +219,8 @@ export const templateService = {
         updated++
       }
     }
+
+    updated += await templateService.switchToApprovedVersions()
 
     await prisma.whatsAppSettings.updateMany({ data: { lastSyncAt: new Date() } })
     await createAuditLog({

@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma"
 import { patientService } from "@/server/services/patient.service"
 import { directVisitService } from "@/server/services/direct-visit.service"
 import { paymentService } from "@/server/services/payment.service"
+import { estimateService } from "@/server/services/estimate.service"
+import { invoiceService } from "@/server/services/invoice.service"
+import { appointmentService } from "@/server/services/appointment.service"
 
 /**
  * Nov-17 features, against the LOCAL database:
@@ -196,7 +199,8 @@ test.describe("2. Potential clients (admin)", () => {
   test.use({ storageState: "tests/e2e/.auth/admin.json" })
 
   test("double-click edits enquiry and last message", async ({ page }) => {
-    await page.goto(`/admin/potential-clients?q=${encodeURIComponent(names.lead)}`)
+    // Hydrated before double-clicking, or the click lands on server HTML and does nothing.
+    await page.goto(`/admin/potential-clients?q=${encodeURIComponent(names.lead)}`, { waitUntil: "networkidle" })
     await page.getByRole("button", { name: `Enquiry for ${names.lead}` }).dblclick()
     await page.getByRole("combobox", { name: `Enquiry for ${names.lead}` }).fill("Implants") // has a suggestion list
     await page.keyboard.press("Enter")
@@ -414,5 +418,116 @@ test.describe("7. Rewards catalogue (admin)", () => {
     const item = await prisma.rewardItem.findFirstOrThrow({ where: { name } })
     expect(item.points).toBe(1000)
     await prisma.rewardItem.delete({ where: { id: item.id } })
+  })
+})
+
+// ─── Nov-25 fixes ────────────────────────────────────────────────────────────
+
+test.describe("8. Daily Revenue lists who paid (admin)", () => {
+  test.use({ storageState: "tests/e2e/.auth/admin.json" })
+
+  test("payment rows show the patient and open their payments", async ({ page }) => {
+    const reception = await prisma.user.findFirstOrThrow({ where: { email: "reception.outram@toothfully.in" } })
+    const fee = await paymentService.getConsultationFee(OUTRAM)
+    await paymentService.create({ paymentType: "CONSULTATION", patientId: ids.paid, branchId: OUTRAM, amount: fee, mode: "UPI" } as any, reception.id)
+    await page.goto("/admin/reports/daily?basis=entry")
+    const link = page.getByRole("link", { name: `E2E Paid ${stamp}` }).first()
+    await expect(link).toBeVisible()
+    await link.click()
+    await expect(page).toHaveURL(new RegExp(`/patients/${ids.paid}/payments$`))
+  })
+})
+
+test.describe("9. Invoice with 3 open estimates (admin)", () => {
+  test.use({ storageState: "tests/e2e/.auth/admin.json" })
+  const est: string[] = []
+
+  test.beforeAll(async () => {
+    const reception = await prisma.user.findFirstOrThrow({ where: { email: "reception.outram@toothfully.in" } })
+    const doctor = await prisma.user.findFirstOrThrow({ where: { role: "DOCTOR", isActive: true } })
+    for (const [n, name] of ["Scaling", "Root Canal", "Crown"].entries()) {
+      const visit = await directVisitService.start({ patientId: ids.paid, doctorId: doctor.id, branchId: OUTRAM, userId: reception.id })
+      const e = await estimateService.create(
+        { patientId: ids.paid, branchId: OUTRAM, visitId: visit.id, items: [{ treatmentName: `${name} ${stamp}`, category: "GENERAL", quantity: 1, unitRate: 1000 * (n + 1), unitRateMax: 2000 * (n + 1), sortOrder: 0 }] } as any,
+        doctor.id
+      )
+      est.push(e.id)
+    }
+  })
+
+  test("the right estimate is billed, and a billed treatment is marked", async ({ page, context }) => {
+    await page.goto(`/patients/${ids.paid}/payments`)
+    await page.getByTestId("open-invoice-dialog").click()
+    const picker = page.getByLabel("Estimate to bill")
+    await expect(picker.locator("option")).toHaveCount(3)
+    await expect(picker.locator("option").first()).toContainText(/· \d{1,2} \w{3} ·/) // number · date · treatments
+    await picker.selectOption(est[0]) // the oldest (Scaling)
+    await page.getByLabel(`Bill Scaling ${stamp}`).check()
+    const [popup] = await Promise.all([context.waitForEvent("page"), page.getByRole("button", { name: /create invoice/i }).click()])
+    await popup.close()
+    await expect.poll(() => prisma.invoice.count({ where: { estimateId: est[0], isDeleted: false } })).toBe(1)
+    expect(await prisma.invoice.count({ where: { estimateId: { in: [est[1], est[2]] } } })).toBe(0)
+
+    await page.reload()
+    await page.getByTestId("open-invoice-dialog").click()
+    await page.getByLabel("Estimate to bill").selectOption(est[0])
+    await expect(page.getByText(/Billed on INV-/)).toBeVisible()
+  })
+
+  test("server refuses treatments from another estimate", async () => {
+    const admin = await prisma.user.findFirstOrThrow({ where: { role: "ADMIN" } })
+    const other = await prisma.estimateItem.findFirstOrThrow({ where: { estimateId: est[1] } })
+    await expect(
+      invoiceService.create({ estimateId: est[2], items: [{ estimateItemId: other.id, treatmentName: other.treatmentName, quantity: 1, unitRate: 100 }] }, admin.id)
+    ).rejects.toThrow(/different estimate/)
+  })
+})
+
+test.describe("10. Cancel an appointment without messaging the patient (admin)", () => {
+  test.use({ storageState: "tests/e2e/.auth/admin.json" })
+
+  test("unticked → no WhatsApp; ticked → the cancellation is queued", async ({ page }) => {
+    const reception = await prisma.user.findFirstOrThrow({ where: { email: "reception.outram@toothfully.in" } })
+    const doctor = await prisma.user.findFirstOrThrow({ where: { role: "DOCTOR", isActive: true } })
+    const tpl = await prisma.whatsAppTemplate.findUniqueOrThrow({ where: { triggerKey: "APPOINTMENT_CANCELLED" } })
+    await prisma.whatsAppTemplate.update({ where: { id: tpl.id }, data: { isEnabled: true } })
+    // A random far-off day, so runs never collide with each other's slots.
+    const day = new Date(Date.now() + (60 + Math.floor(Math.random() * 600)) * 86_400_000)
+    const dayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(day)
+    const booked: string[] = []
+    const book = async (h: number) =>
+      booked.push(
+        (await appointmentService.create(
+          { patientId: ids.withConsent, doctorId: doctor.id, branchId: OUTRAM, scheduledAt: new Date(`${dayStr}T${String(h).padStart(2, "0")}:00:00+05:30`), skipWhatsappGate: true },
+          reception.id
+        )).id
+      )
+    const cancelled = () => prisma.whatsAppMessage.count({ where: { patientId: ids.withConsent, triggerKey: "APPOINTMENT_CANCELLED" } })
+    // Only this test patient's cards (other appointments may be listed too).
+    const cancelButtons = () =>
+      page.getByTestId("appointment-card").filter({ hasText: names.withConsent }).getByRole("button", { name: "Cancel", exact: true })
+    try {
+      await book(11)
+      await book(15)
+      const before = await cancelled()
+      await page.goto(`/appointments?date=${dayStr}`, { waitUntil: "networkidle" })
+
+      await expect(cancelButtons()).toHaveCount(2)
+      await cancelButtons().first().click()
+      await page.getByLabel(/Send cancellation message/).uncheck()
+      await page.getByRole("button", { name: "Cancel Appointment" }).click()
+      await expect(page.getByText(/Appointment cancelled/i).first()).toBeVisible()
+      expect(await cancelled()).toBe(before)
+
+      // Wait for the refresh: only the second appointment still has a Cancel button.
+      await expect(cancelButtons()).toHaveCount(1)
+      await cancelButtons().click()
+      await expect(page.getByLabel(/Send cancellation message/)).toBeChecked()
+      await page.getByRole("button", { name: "Cancel Appointment" }).click()
+      await expect.poll(cancelled).toBe(before + 1)
+    } finally {
+      await prisma.appointment.updateMany({ where: { id: { in: booked }, status: "SCHEDULED" }, data: { status: "CANCELLED" } })
+      await prisma.whatsAppTemplate.update({ where: { id: tpl.id }, data: { isEnabled: tpl.isEnabled } })
+    }
   })
 })

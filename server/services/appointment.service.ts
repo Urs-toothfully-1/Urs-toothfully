@@ -192,6 +192,7 @@ export const appointmentService = {
           formatApptDate(appointment.scheduledAt),
           formatApptTime(appointment.scheduledAt),
           appointment.branch.name,
+          appointment.doctor.name,
         ],
         branchId: appointment.branchId,
         createdById,
@@ -321,6 +322,7 @@ export const appointmentService = {
         formatApptDate(appointment.scheduledAt),
         formatApptTime(appointment.scheduledAt),
         appointment.branch.name,
+        appointment.doctor.name,
       ],
       branchId: appointment.branchId,
       createdById: changedById,
@@ -342,7 +344,9 @@ export const appointmentService = {
     id: string,
     status: AppointmentStatus,
     changedById: string,
-    cancellationReason?: string
+    cancellationReason?: string,
+    /** Cancelling a booking made by mistake / a test: don't WhatsApp the patient. */
+    notifyPatient = true
   ): Promise<AppointmentWithRelations> {
     const existing = await prisma.appointment.findUnique({
       where: { id },
@@ -371,17 +375,21 @@ export const appointmentService = {
       branchId: existing.branchId,
     })
 
-    if (status === "CANCELLED") {
+    if (status === "CANCELLED" && notifyPatient) {
       void whatsappService.sendTrigger({
         triggerKey: WHATSAPP_TRIGGERS.APPOINTMENT_CANCELLED,
         patientId: appointment.patientId,
-        // The approved template has 2 params: name, "on {{2}}" — Meta rejects any other count.
+        // Old template: name, "on {{2}}". v2 adds the branch. sendTrigger trims to the template's count.
         variables: [
           appointment.patient.fullName,
           `${formatApptDate(appointment.scheduledAt)} at ${formatApptTime(appointment.scheduledAt)}`,
+          appointment.branch.name,
         ],
         branchId: appointment.branchId,
         createdById: changedById,
+        // Like the confirmation and reminder: the booking is reason enough to tell
+        // them (online bookings haven't paid a fee yet). Consent is still enforced.
+        skipConsultationGate: true,
       })
     }
 
@@ -413,6 +421,7 @@ export const appointmentService = {
           formatApptDate(appt.scheduledAt),
           formatApptTime(appt.scheduledAt),
           appt.branch.name,
+          appt.doctor.name,
         ],
         branchId: appt.branchId,
         // A booked appointment is reason enough to remind — online bookings

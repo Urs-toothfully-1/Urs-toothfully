@@ -167,13 +167,14 @@ export async function declineAppointmentRequestAction(
 export async function updateAppointmentStatusAction(
   appointmentId: string,
   status: AppointmentStatus,
-  cancellationReason?: string
+  cancellationReason?: string,
+  notifyPatient = true
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getSession()
   if (!session || !session.perms.appointments) return { success: false, error: "Unauthorized" }
 
   try {
-    await appointmentService.updateStatus(appointmentId, status, session.userId, cancellationReason)
+    await appointmentService.updateStatus(appointmentId, status, session.userId, cancellationReason, notifyPatient)
     revalidatePath("/appointments", "page")
     return { success: true }
   } catch (err) {

@@ -65,6 +65,16 @@ export const invoiceService = {
     }
     if (estimate.status !== "ACTIVE") throw new Error("This estimate is no longer active.")
 
+    // Every planned line must belong to THIS estimate — otherwise the bill lands on
+    // the wrong estimate and both estimates' "owed" figures go wrong.
+    const planned = [...new Set(input.items.map((i) => i.estimateItemId).filter((x): x is string => !!x))]
+    if (planned.length) {
+      const own = await prisma.estimateItem.count({ where: { id: { in: planned }, estimateId: estimate.id } })
+      if (own !== planned.length) {
+        throw new Error("Some ticked treatments belong to a different estimate. Close the dialog, reopen it and try again.")
+      }
+    }
+
     const totals = computeInvoiceTotals(input.items, input.discountValue, input.discountIsPercent)
 
     const invoice = await prisma.$transaction(async (tx) => {
@@ -154,6 +164,7 @@ export const invoiceService = {
       select: {
         id: true,
         estimateNo: true,
+        createdAt: true,
         items: {
           where: { status: { not: "CANCELLED" } },
           orderBy: { sortOrder: "asc" },
@@ -161,10 +172,19 @@ export const invoiceService = {
         },
       },
     })
+    // Which planned treatments are already on a live invoice (so the dialog can warn).
+    const billed = await prisma.invoiceItem.findMany({
+      where: { estimateItemId: { in: rows.flatMap((e) => e.items.map((i) => i.id)) }, invoice: { isDeleted: false } },
+      select: { estimateItemId: true, invoice: { select: { invoiceNo: true } } },
+    })
+    const billedOn = new Map<string, string[]>()
+    for (const b of billed) billedOn.set(b.estimateItemId!, [...(billedOn.get(b.estimateItemId!) ?? []), b.invoice.invoiceNo])
     return rows.map((e) => ({
       id: e.id,
       estimateNo: e.estimateNo,
+      createdAt: e.createdAt.toISOString(),
       items: e.items.map((i) => ({
+        billedOn: billedOn.get(i.id) ?? [],
         id: i.id,
         treatmentName: i.treatmentName,
         toothNumber: i.toothNumber,

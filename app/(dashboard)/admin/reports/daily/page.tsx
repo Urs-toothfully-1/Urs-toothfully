@@ -149,6 +149,49 @@ export default async function DailyRevenueReportPage({ searchParams }: Props) {
         </Card>
       )}
 
+      {/* Every payment, with who paid -> their Payments tab */}
+      {data.payments.length > 0 && (
+        <Card className="border-[#E0E3E5] bg-white overflow-hidden">
+          <CardHeader className="pb-3 border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
+            <CardTitle className="text-sm" style={{ color: BRAND_COLORS.bodyText }}>
+              Payments ({data.payments.length})
+            </CardTitle>
+            <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>Click a patient to open their payments.</p>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-sm min-w-[620px]">
+              <thead>
+                <tr style={{ backgroundColor: BRAND_COLORS.lightBackground }}>
+                  {["Time", "Patient", "Type", "Mode", "Receipt", "Amount"].map((h) => (
+                    <th key={h} className={`px-4 py-2.5 text-xs font-semibold ${h === "Amount" ? "text-right" : "text-left"}`}
+                      style={{ color: BRAND_COLORS.borderDivider }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.payments.map((p) => (
+                  <tr key={p.id} className="border-b hover:bg-gray-50" style={{ borderColor: BRAND_COLORS.lightBackground }}>
+                    <td className="px-4 py-2.5 text-xs whitespace-nowrap" style={{ color: BRAND_COLORS.borderDivider }}>
+                      {new Date(p.enteredAt).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit" })}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <Link href={`/patients/${p.patientRef}/payments`} className="font-medium hover:underline" style={{ color: BRAND_COLORS.primaryTeal }}>
+                        {p.patientName}
+                      </Link>
+                      <span className="ml-1.5 text-[11px] font-mono" style={{ color: BRAND_COLORS.borderDivider }}>{p.patientId}</span>
+                    </td>
+                    <td className="px-4 py-2.5 text-xs" style={{ color: BRAND_COLORS.bodyText }}>{p.paymentType}</td>
+                    <td className="px-4 py-2.5 text-xs" style={{ color: BRAND_COLORS.bodyText }}>{MODE_LABELS[p.paymentMode] ?? p.paymentMode}</td>
+                    <td className="px-4 py-2.5 text-xs font-mono" style={{ color: BRAND_COLORS.borderDivider }}>{p.receiptNo ?? "—"}</td>
+                    <td className="px-4 py-2.5 text-right font-semibold" style={{ color: BRAND_COLORS.bodyText }}>{formatCurrency(p.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Breakdown Table */}
       {data.rows.length > 0 ? (
         <Card className="border-[#E0E3E5] bg-white overflow-hidden">
