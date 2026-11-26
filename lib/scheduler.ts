@@ -1,6 +1,6 @@
 /**
  * In-app scheduler for Railway (an always-on server), replacing vercel.json's
- * crons. Started from instrumentation.ts only when RAILWAY_ENVIRONMENT is set.
+ * crons. Started from instrumentation.ts on Fly.io (FLY_APP_NAME) or Railway.
  * Calls the app's own cron endpoints over localhost with CRON_SECRET, so the
  * jobs run exactly the code Vercel Cron ran.
  *

@@ -21,12 +21,8 @@ const nextConfig: NextConfig = {
   ...(process.env.NODE_ENV === "development" && {
     allowedDevOrigins: ["192.168.29.158"],
   }),
-  // Edge Runtime (proxy.ts / middleware) cannot read process.env at runtime in
-  // the same way Node.js can. Declaring vars here inlines them at build time so
-  // the Edge bundle always has the correct value.
-  env: {
-    JWT_SECRET: process.env.JWT_SECRET ?? "",
-  },
+  // No build-time `env` inlining: in Next 16 proxy.ts runs on the Node.js runtime and
+  // reads JWT_SECRET at request time (hosts like Fly.io don't expose secrets to the build).
   // Security headers applied to every response. HSTS is already added by
   // Vercel; these cover clickjacking, MIME-sniffing, referrer leakage and
   // browser feature access for a patient-data app.

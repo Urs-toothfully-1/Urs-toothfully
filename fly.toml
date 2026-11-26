@@ -1,0 +1,53 @@
+# Fly.io — Ur's Toothfully (Mumbai, next to the Supabase database).
+# Secrets (DATABASE_URL, DIRECT_URL, JWT_SECRET, CRON_SECRET, …) are set with
+# `fly secrets set`, never in this file. Vercel ignores this file.
+
+app = "urstoothfully"
+primary_region = "bom" # Mumbai
+
+[build]
+  dockerfile = "Dockerfile"
+
+  # NEXT_PUBLIC_* values are baked into the browser bundle at build time.
+  [build.args]
+    NEXT_PUBLIC_APP_URL = "https://urstoothfully.org"
+    NEXT_PUBLIC_SITE_URL = "https://urstoothfully.org"
+    NEXT_PUBLIC_CLINIC_NAME = "Ur's Toothfully"
+
+[deploy]
+  # Apply database migrations before the new version takes traffic.
+  release_command = "npx prisma migrate deploy"
+
+[env]
+  PORT = "3000"
+  APP_TIMEZONE = "Asia/Kolkata"
+  SECURE_COOKIES = "true"
+  WHATSAPP_PROVIDER = "share"
+  SMTP_FROM_NAME = "Ur's Toothfully"
+  NEXT_PUBLIC_APP_URL = "https://urstoothfully.org"
+  NEXT_PUBLIC_SITE_URL = "https://urstoothfully.org"
+  NEXT_PUBLIC_CLINIC_NAME = "Ur's Toothfully"
+  # Vercel still runs the 21:00 / 01:30 jobs until the domain moves here.
+  # Delete this line (and disable Vercel's crons) on switch day.
+  SCHEDULER = "off"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  # Always on: the scheduler and WhatsApp queue live in this process.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "60s"
+    interval = "30s"
+    method = "GET"
+    path = "/login"
+    timeout = "10s"
+
+[[vm]]
+  # Chromium (PDFs) + Next.js need headroom; 1gb risks out-of-memory on big PDFs.
+  memory = "2gb"
+  cpu_kind = "shared"
+  cpus = 1
