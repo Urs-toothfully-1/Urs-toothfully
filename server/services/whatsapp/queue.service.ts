@@ -2,7 +2,7 @@ import { whatsappMessageRepository } from "@/server/repositories/whatsapp-messag
 import { whatsappSettingsRepository } from "@/server/repositories/whatsapp-settings.repository"
 import { metaService } from "@/server/services/whatsapp/meta.service"
 import { validateMobile } from "@/lib/whatsapp/phone"
-import { renderTemplateBody } from "@/lib/whatsapp/templates"
+import { mayMessage, renderTemplateBody } from "@/lib/whatsapp/templates"
 import { whatsappTemplateRepository } from "@/server/repositories/whatsapp-template.repository"
 import { prisma } from "@/lib/prisma"
 import { createAuditLog } from "@/lib/audit"
@@ -65,11 +65,15 @@ export const whatsappQueueService = {
     if (!template) throw new Error("Template not found")
     if (!template.isEnabled) throw new Error(`Template "${template.displayName}" is disabled.`)
 
-    // Consent — never message a patient who has not opted in
+    // Consent — opted-in patients only, except booking messages (never after STOP)
     if (input.patientId) {
       const consent = await prisma.whatsAppConsent.findUnique({ where: { patientId: input.patientId } })
-      if (!consent?.consented || consent.revokedAt) {
-        throw new Error("Patient has not consented to WhatsApp updates.")
+      if (!mayMessage(consent, input.triggerKey)) {
+        throw new Error(
+          consent?.revokedAt
+            ? "Patient opted out of WhatsApp messages (replied STOP)."
+            : "Patient has not consented to WhatsApp updates."
+        )
       }
     }
 

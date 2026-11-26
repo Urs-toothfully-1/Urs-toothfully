@@ -38,6 +38,27 @@ export const WHATSAPP_TRIGGERS = {
 
 export type WhatsAppTriggerKey = (typeof WHATSAPP_TRIGGERS)[keyof typeof WHATSAPP_TRIGGERS]
 
+/**
+ * Messages about a booking the patient made. They gave their number to get that
+ * appointment, so these go without a separate WhatsApp opt-in — but never to
+ * someone who replied STOP.
+ */
+export const BOOKING_TRIGGERS: ReadonlySet<string> = new Set([
+  WHATSAPP_TRIGGERS.APPOINTMENT_CONFIRMATION,
+  WHATSAPP_TRIGGERS.APPOINTMENT_REMINDER,
+  WHATSAPP_TRIGGERS.APPOINTMENT_RESCHEDULED,
+  WHATSAPP_TRIGGERS.APPOINTMENT_CANCELLED,
+])
+
+/** May this patient get this message? Opted in, or a booking message and they never said STOP. */
+export function mayMessage(
+  consent: { consented: boolean; revokedAt: Date | null } | null,
+  triggerKey?: string | null
+): boolean {
+  if (consent?.revokedAt) return false
+  return Boolean(consent?.consented) || (!!triggerKey && BOOKING_TRIGGERS.has(triggerKey))
+}
+
 export interface TemplateButton {
   type: "PHONE_NUMBER" | "URL" | "QUICK_REPLY"
   text: string

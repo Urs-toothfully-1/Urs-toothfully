@@ -9,6 +9,7 @@ import {
   type FlowData,
 } from "@/lib/whatsapp/chat-flow"
 import { aiReplyService } from "@/server/services/whatsapp/ai-reply.service"
+import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
 
 const GREETING = /^(hi+|hello|hey|hlo|namaste|namaskar|start|menu|0|ok|okay|thanks?|thank you)\b/i
 
@@ -17,6 +18,12 @@ const CLOSED_NOTE =
   "You can still use the menu — our team will follow up during working hours. For emergencies call 7890008331."
 
 const STATE_TTL_MS = 24 * 60 * 60 * 1000 // reset a conversation after 24h idle
+
+const OPT_OUT = /^(stop|stop all|stop messages|unsubscribe|opt ?out)[\s!.]*$/i
+const OPT_IN = /^(start|unstop|subscribe|opt ?in)[\s!.]*$/i
+const OPT_OUT_REPLY =
+  "✅ Done — you won't receive any more automatic messages from Ur's Toothfully. " +
+  "You can still message us anytime. Reply *START* to turn them back on."
 
 /**
  * Questionnaire chatbot for inbound patient WhatsApp messages. Drives the
@@ -50,6 +57,36 @@ export const chatbotService = {
           select: { id: true },
         })
       : null
+
+    // Consent by message, for every patient on this number (families share one).
+    // Writing to the clinic is an opt-in — unless they said STOP before, which
+    // only START undoes. STOP opts out and gets a confirmation, nothing else.
+    const onThisNumber = last10
+      ? await prisma.patient.findMany({
+          where: { mobile: { contains: last10 }, isDeleted: false },
+          select: { id: true, whatsappConsent: { select: { consented: true, revokedAt: true } } },
+        })
+      : []
+    const word = text.trim()
+    if (!replyId && OPT_OUT.test(word)) {
+      for (const p of onThisNumber) await whatsappService.setConsent(p.id, false)
+      await prisma.whatsAppInbound.create({
+        data: { direction: "IN", fromPhone, patientId: patient?.id, wamid, text: word, botAction: "OPT_OUT" },
+      })
+      const res = await metaService.sendTextMessage(fromPhone, OPT_OUT_REPLY).catch(() => null)
+      if (res?.success) {
+        const { whatsappInboxService } = await import("@/server/services/whatsapp/inbox.service")
+        await whatsappInboxService
+          .logOutbound({ phone: fromPhone, text: OPT_OUT_REPLY, botAction: "BOT_REPLY", patientId: patient?.id })
+          .catch(() => null)
+      }
+      return
+    }
+    const resume = !replyId && OPT_IN.test(word)
+    for (const p of onThisNumber) {
+      const c = p.whatsappConsent
+      if (!c?.consented && (!c?.revokedAt || resume)) await whatsappService.setConsent(p.id, true)
+    }
 
     // Load / reset conversation state.
     const existing = await prisma.whatsAppChatState.findUnique({ where: { phone: fromPhone } })

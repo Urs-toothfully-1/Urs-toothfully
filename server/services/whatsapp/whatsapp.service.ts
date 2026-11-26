@@ -3,7 +3,13 @@ import { whatsappSettingsRepository } from "@/server/repositories/whatsapp-setti
 import { whatsappMessageRepository } from "@/server/repositories/whatsapp-message.repository"
 import { whatsappTemplateRepository } from "@/server/repositories/whatsapp-template.repository"
 import { whatsappQueueService } from "@/server/services/whatsapp/queue.service"
-import { WHATSAPP_TRIGGERS, WHATSAPP_CONSENT_VERSION, countTemplateVariables, type WhatsAppTriggerKey } from "@/lib/whatsapp/templates"
+import {
+  BOOKING_TRIGGERS,
+  WHATSAPP_TRIGGERS,
+  WHATSAPP_CONSENT_VERSION,
+  countTemplateVariables,
+  type WhatsAppTriggerKey,
+} from "@/lib/whatsapp/templates"
 import { encryptSecret, maskSecret } from "@/lib/whatsapp/crypto"
 import { createAuditLog } from "@/lib/audit"
 
@@ -45,6 +51,8 @@ export const whatsappService = {
         consentAt: consented ? new Date() : null,
         consentIp: ip,
         consentVersion: WHATSAPP_CONSENT_VERSION,
+        // A first-ever "no" (e.g. STOP) is still an opt-out booking messages must respect.
+        revokedAt: consented ? null : new Date(),
       },
     })
   },
@@ -79,7 +87,9 @@ export const whatsappService = {
       const template = await whatsappTemplateRepository.findByTriggerKey(opts.triggerKey)
       if (!template || !template.isEnabled) return { queued: false, reason: "No enabled template for trigger" }
 
-      if (!opts.skipConsultationGate && !(await this.hasPaidConsultation(opts.patientId))) {
+      // Booking messages go to everyone who books (online bookings haven't paid yet).
+      const gated = !opts.skipConsultationGate && !BOOKING_TRIGGERS.has(opts.triggerKey)
+      if (gated && !(await this.hasPaidConsultation(opts.patientId))) {
         return { queued: false, reason: "Consultation fee not paid yet" }
       }
 
