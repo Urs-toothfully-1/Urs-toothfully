@@ -42,23 +42,47 @@ export function LiveOfferStrip({
   const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0")
   const ss = String(s % 60).padStart(2, "0")
   const short = s < 3600
-  const until = new Date(endsAt).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit" })
+  const until = new Date(endsAt).toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    hour: "numeric",
+    minute: "2-digit",
+  })
 
   return (
-    <section className="relative overflow-hidden border-y" style={{ backgroundColor: C.ink2, color: C.cream, borderColor: "rgba(183,154,115,.35)" }}>
-      <div className="px-[6vw] py-12 sm:py-16 max-w-[1500px] mx-auto grid gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-end">
+    // Sits at the very top of /rewards and stays pinned while scrolling.
+    <section
+      className="sticky top-0 z-30 overflow-hidden border-b shadow-[0_8px_24px_-12px_rgba(0,0,0,.5)]"
+      style={{ backgroundColor: C.ink2, color: C.cream, borderColor: "rgba(183,154,115,.45)" }}
+    >
+      <div className="mx-auto grid max-w-[1500px] gap-4 px-[6vw] py-4 sm:py-5 lg:grid-cols-[1fr_auto] lg:items-center">
         <div>
-          <span className="flex items-center gap-2.5 text-[11px] sm:text-[12px] font-medium uppercase tracking-[0.16em]" style={{ color: C.gold }}>
-            <i className="inline-block h-1.5 w-1.5 rounded-full animate-pulse" style={{ backgroundColor: C.gold }} />
+          <span
+            className="flex items-center gap-2.5 text-[11px] font-medium tracking-[0.16em] uppercase sm:text-[12px]"
+            style={{ color: C.gold }}
+          >
+            <i
+              className="inline-block h-1.5 w-1.5 animate-pulse rounded-full"
+              style={{ backgroundColor: C.gold }}
+            />
             {eventName} · Live now
           </span>
-          <h2 className="mt-5 text-[34px] sm:text-[52px] leading-[1.08] font-medium tracking-[-0.03em]">
+          <h2 className="mt-2 text-[22px] leading-[1.15] font-medium tracking-[-0.02em] sm:text-[32px]">
             {short ? "Book in the next " : "Book today, "}
-            {short && <span className="tabular-nums" style={{ color: C.gold }}>{h > 0 ? `${h}:` : ""}{mm}:{ss}</span>}
-            <br />
-            <em className="not-italic" style={serif}>get {offer}.</em>
+            {short && (
+              <span className="tabular-nums" style={{ color: C.gold }}>
+                {h > 0 ? `${h}:` : ""}
+                {mm}:{ss}
+              </span>
+            )}
+            {" — "}
+            <em className="not-italic" style={serif}>
+              get {offer}.
+            </em>
           </h2>
-          <p className="mt-5 max-w-[560px] text-[15px] leading-[1.8]" style={{ color: "rgba(246,241,232,.78)" }}>
+          <p
+            className="mt-1.5 max-w-[760px] text-[13px] leading-[1.6]"
+            style={{ color: "rgba(246,241,232,.78)" }}
+          >
             {short ? "" : `Offer ends at ${until}. `}
             {nextOffer ? `After that: ${nextOffer}.` : "Your offer is saved the moment you book."}
             {terms ? ` ${terms}` : ""}

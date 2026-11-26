@@ -25,6 +25,17 @@ export default async function RewardsLandingPage({ searchParams }: { searchParam
 
   return (
     <main>
+      {/* ── Live time-based event (e.g. Black Friday): first thing on the page ── */}
+      {live && (
+        <LiveOfferStrip
+          eventName={live.event.name}
+          offer={live.tier.offer}
+          endsAt={live.tier.endsAt.toISOString()}
+          nextOffer={live.tier.nextOffer}
+          terms={live.event.terms}
+        />
+      )}
+
       {/* ── Hero ───────────────────────────────────────── */}
       <section className="relative overflow-hidden" style={{ backgroundColor: C.ink, color: C.cream }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -66,17 +77,6 @@ export default async function RewardsLandingPage({ searchParams }: { searchParam
           ))}
         </div>
       </section>
-
-      {/* ── Live time-based event (e.g. Black Friday) → straight to booking ── */}
-      {live && (
-        <LiveOfferStrip
-          eventName={live.event.name}
-          offer={live.tier.offer}
-          endsAt={live.tier.endsAt.toISOString()}
-          nextOffer={live.tier.nextOffer}
-          terms={live.event.terms}
-        />
-      )}
 
       {/* ── How it works ───────────────────────────────── */}
       <section className="px-[6vw] py-20 sm:py-28 max-w-[1500px] mx-auto">

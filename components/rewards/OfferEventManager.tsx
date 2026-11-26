@@ -89,6 +89,9 @@ function NewEventForm({ onDone }: { onDone: () => void }) {
   ])
   const [terms, setTerms] = useState("Choose your appointment date within the next 30 days.")
   const [pending, start] = useTransition()
+  // The start defaults to now; make "this goes live the moment you save" obvious.
+  const now = useNow(5000)
+  const goesLiveNow = new Date(startsAt).getTime() <= now
 
   const setTier = (i: number, k: "minutes" | "offer", v: string) =>
     setTiers((t) => t.map((x, j) => (j === i ? { ...x, [k]: v } : x)))
@@ -223,9 +226,13 @@ function NewEventForm({ onDone }: { onDone: () => void }) {
           type="button"
           onClick={save}
           disabled={pending}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#8A5A12] px-4 text-sm font-semibold text-white disabled:opacity-60"
+          className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-4 text-sm font-semibold text-white disabled:opacity-60 ${
+            goesLiveNow ? "bg-red-600" : "bg-[#8A5A12]"
+          }`}
+          title={goesLiveNow ? "The start time is now or past — patients will see it immediately" : undefined}
         >
-          {pending && <Loader2 className="h-4 w-4 animate-spin" />} Save event
+          {pending && <Loader2 className="h-4 w-4 animate-spin" />}{" "}
+          {goesLiveNow ? "Save & go live NOW" : "Save event"}
         </button>
       </div>
     </div>
@@ -360,11 +367,14 @@ export function OfferEventManager({ events }: { events: OfferEventView[] }) {
                       run(() => deleteOfferEventAction(e.id), `${e.name} deleted`)
                     }}
                     className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium ${
-                      armed === e.id ? "border-red-600 bg-red-600 text-white" : "border-gray-300 bg-white text-red-600"
+                      armed === e.id
+                        ? "border-red-600 bg-red-600 text-white"
+                        : "border-gray-300 bg-white text-red-600"
                     }`}
                     title="Deletes the event and its patient tags"
                   >
-                    <Trash2 className="h-3.5 w-3.5" /> {armed === e.id ? "Click again to delete" : "Delete"}
+                    <Trash2 className="h-3.5 w-3.5" />{" "}
+                    {armed === e.id ? "Click again to delete" : "Delete"}
                   </button>
                 </div>
               </div>
