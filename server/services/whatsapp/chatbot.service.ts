@@ -20,6 +20,15 @@ const CLOSED_NOTE =
 
 const STATE_TTL_MS = 24 * 60 * 60 * 1000 // reset a conversation after 24h idle
 
+/** "ok", "Okk", "thanks", "👍" — a reply to our message, not a request. */
+const ACK = /^(o+k+a*y*|k+|okie|fine|done|noted|sure|great|cool|alright|got it|yes|yep|ji|haan|theek hai|thik hai|thanks?|thank ?(you|u)|thanku|thnx|thx|ty|dhanyavad|shukriya|[👍🙏✅👌😊🙂❤️ ]+)[\s!.]*$/iu
+const ACK_REPLY = "You're welcome! 😊 If you need anything, just type *menu*."
+/** A real typed message (a sentence, not "abc" or "5"). */
+const isRealMessage = (t: string) => t.trim().split(/\s+/).length >= 4 || t.trim().length > 25
+const STAFF_NOTE =
+  "Thank you for your message! 🙏 I've passed it to our team — they'll reply here during working hours. " +
+  "Meanwhile, you can also tap an option below 👇"
+
 const OPT_OUT = /^(stop|stop all|stop messages|unsubscribe|opt ?out)[\s!.]*$/i
 const OPT_IN = /^(start|unstop|subscribe|opt ?in)[\s!.]*$/i
 const OPT_OUT_REPLY =
@@ -93,8 +102,32 @@ export const chatbotService = {
     const existing = await prisma.whatsAppChatState.findUnique({ where: { phone: fromPhone } })
     const stale = existing ? Date.now() - existing.updatedAt.getTime() > STATE_TTL_MS : true
 
+    // "Okk" / "thanks" (e.g. to a reminder): a short reply, no menu, no state change.
+    if (!replyId && ACK.test(word)) {
+      await prisma.whatsAppInbound.create({
+        data: { direction: "IN", fromPhone, patientId: patient?.id, wamid, text: word, botAction: "ACK" },
+      })
+      const res = await metaService.sendTextMessage(fromPhone, ACK_REPLY).catch(() => null)
+      if (res?.success) {
+        const { whatsappInboxService } = await import("@/server/services/whatsapp/inbox.service")
+        await whatsappInboxService
+          .logOutbound({ phone: fromPhone, text: ACK_REPLY, botAction: "BOT_REPLY", patientId: patient?.id })
+          .catch(() => null)
+      }
+      return
+    }
+
+    // A tap on an old menu (chat idle past 24h, or no state yet): honour it if it
+    // still means something, instead of answering with the welcome menu again.
+    const resumed =
+      replyId && (!existing || stale)
+        ? stepFlow(existing?.node ?? "root", (existing?.data as FlowData) ?? {}, text, replyId)
+        : null
+
     let step
-    if (!existing || stale) {
+    if (resumed && !resumed.missed) {
+      step = resumed
+    } else if (!existing || stale) {
       // Brand-new (or expired) chat → greet with the menu; don't treat the first
       // message as a selection.
       step = startFlow()
@@ -121,6 +154,12 @@ export const chatbotService = {
         step.messages = [{ text: ai.reply }, ...step.messages]
         step.handoff = step.handoff || ai.needs_staff
         usedAi = true
+      } else if (isRealMessage(text)) {
+        // No AI answer for a real message (a question, a complaint, a business
+        // enquiry): don't brush it off — tell them a person will reply, and flag it.
+        if (step.unmatched) step = renderStep(step.node, step.data)
+        step.messages = [{ text: STAFF_NOTE }, ...step.messages]
+        step.handoff = true
       }
     }
 

@@ -76,6 +76,8 @@ export interface FlowStep {
   handoff: boolean
   /** Typed text that matched no option on a menu step — a question the AI may answer. */
   unmatched?: boolean
+  /** The input (typed or tapped) matched nothing on this step. */
+  missed?: boolean
 }
 
 const BACK = "__back"
@@ -661,6 +663,7 @@ export function stepFlow(
   // A typed message (not a stray tap) that isn't an option: chatbot.service may
   // answer it with AI and then re-show this step's options.
   if (!replyId && input.length > 0) r.unmatched = true
+  r.missed = true
   return r
 }
 
@@ -826,6 +829,8 @@ if (typeof module !== "undefined" && require.main === module) {
     "typed question flagged for AI"
   )
   ok(!stepFlow("patient_menu", {}, "1").unmatched, "menu number not flagged")
+  ok(!stepFlow("root", {}, "🧑 I'm a Patient", "patient").missed, "root tap matches")
+  ok(stepFlow("root", {}, "Book", "unknown-id").missed === true, "stray tap is a miss")
   ok(!stepFlow("patient_menu", {}, "Book", "unknown-id").unmatched, "stray tap not flagged")
   ok(
     !stepFlow("book_name", { day: "Mon, 12 Oct 2026", slot: "Morning" }, "123").unmatched,

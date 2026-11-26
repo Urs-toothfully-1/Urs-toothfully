@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { renderTemplateBody } from "@/lib/whatsapp/templates"
 
 /**
  * WhatsApp inbox: builds staff-facing conversation views from the WhatsAppInbound
@@ -81,7 +82,14 @@ export const whatsappInboxService = {
       prisma.whatsAppMessage.findMany({
         where: { toPhone: phone },
         orderBy: { createdAt: "asc" },
-        select: { id: true, templateName: true, variables: true, status: true, createdAt: true },
+        select: {
+          id: true,
+          templateName: true,
+          variables: true,
+          status: true,
+          createdAt: true,
+          template: { select: { body: true, headerText: true } },
+        },
       }),
     ])
 
@@ -97,12 +105,18 @@ export const whatsappInboxService = {
       })
     }
     for (const t of templates) {
+      // PDF sends are already in the thread as a "📄 file" row (logged when sent).
+      if (t.templateName === "document" || t.templateName === "document_share") continue
       const vars = (t.variables as string[] | null) ?? []
+      // The message as the patient saw it; the old "name — values" if the template is gone.
+      const body = t.template
+        ? `${t.template.headerText ? `*${t.template.headerText}*\n` : ""}${renderTemplateBody(t.template.body, vars)}`
+        : `📄 ${t.templateName}${vars.length ? ` — ${vars.join(" · ")}` : ""}`
       out.push({
         id: t.id,
         direction: "OUT",
         kind: "template",
-        body: `📄 ${t.templateName}${vars.length ? ` — ${vars.join(" · ")}` : ""}`,
+        body,
         at: t.createdAt.toISOString(),
         meta: t.status,
       })
