@@ -172,16 +172,31 @@ export const offerService = {
       .catch(() => null)
   },
 
-  async listEvents() {
+  async listEvents(take = 20) {
     const rows = await prisma.offerEvent.findMany({
       orderBy: { startsAt: "desc" },
-      take: 20,
+      take,
       include: {
         claims: { orderBy: { at: "asc" } },
         patientOffers: { select: { id: true, patientId: true, givenAt: true, givenBy: { select: { name: true } } } },
       },
     })
     return rows.map((r) => ({ ...r, tiers: parseTiers(r.tiers) }))
+  },
+
+  /** One event with its full booking log, for the event log page. */
+  async getEvent(id: string) {
+    const row = await prisma.offerEvent.findUnique({
+      where: { id },
+      include: {
+        createdBy: { select: { name: true } },
+        claims: { orderBy: { at: "asc" } },
+        patientOffers: {
+          select: { id: true, patientId: true, givenAt: true, givenBy: { select: { name: true } } },
+        },
+      },
+    })
+    return row ? { ...row, tiers: parseTiers(row.tiers) } : null
   },
 
   async create(

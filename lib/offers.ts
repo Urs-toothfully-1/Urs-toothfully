@@ -39,7 +39,10 @@ export function parseTiers(json: unknown): OfferTier[] {
   if (!Array.isArray(json)) return []
   const posInt = (v: unknown) => (typeof v === "number" && v > 0 ? Math.round(v) : null)
   return json
-    .filter((t): t is { minutes?: unknown; limit?: unknown; offer?: unknown } => !!t && typeof t === "object")
+    .filter(
+      (t): t is { minutes?: unknown; limit?: unknown; offer?: unknown } =>
+        !!t && typeof t === "object"
+    )
     .map((t) => ({
       minutes: posInt(t.minutes),
       limit: posInt(t.limit),
@@ -62,7 +65,8 @@ export function tierAt(e: OfferWindow, at: Date, claims: Date[][] = []): TierHit
     const tier = e.tiers[i]
     const timeEnd = tier.minutes == null ? end : Math.min(start + tier.minutes * 60_000, end)
     const taken = (claims[i] ?? []).filter((c) => c.getTime() <= t)
-    const fullAt = tier.limit != null && taken.length >= tier.limit ? taken[tier.limit - 1].getTime() : Infinity
+    const fullAt =
+      tier.limit != null && taken.length >= tier.limit ? taken[tier.limit - 1].getTime() : Infinity
     const tierEnd = Math.min(timeEnd, fullAt)
     if (t < tierEnd)
       return {
@@ -78,6 +82,64 @@ export function tierAt(e: OfferWindow, at: Date, claims: Date[][] = []): TierHit
     start = tierEnd
   }
   return null
+}
+
+export type TierWindow = {
+  index: number
+  offer: string
+  /** When this offer opened (null = never reached). */
+  start: Date | null
+  /** When it closed (null = still open at `now`, or never reached). */
+  end: Date | null
+  /** Why it closed. */
+  endedBy: "time" | "places" | "event end" | null
+  taken: number
+}
+
+/**
+ * The event's timeline: when each offer opened and closed, and why — for the
+ * event log page. Same rule as tierAt, walked over every tier.
+ */
+export function tierWindows(e: OfferWindow, claims: Date[][], now: Date): TierWindow[] {
+  const end = e.endsAt.getTime()
+  const cap = Math.min(end, now.getTime())
+  let start: number | null = e.startsAt.getTime()
+  return e.tiers.map((tier, i) => {
+    const taken = claims[i] ?? []
+    if (start == null || start >= cap)
+      // Not reached yet (or never: an earlier offer runs to the end).
+      return { index: i, offer: tier.offer, start: null, end: null, endedBy: null, taken: taken.length }
+    const timeEnd = tier.minutes == null ? end : Math.min(start + tier.minutes * 60_000, end)
+    const fullAt = tier.limit != null && taken.length >= tier.limit ? taken[tier.limit - 1].getTime() : Infinity
+    const close = Math.min(timeEnd, fullAt)
+    const w: TierWindow = {
+      index: i,
+      offer: tier.offer,
+      start: new Date(start),
+      end: close <= cap ? new Date(close) : null,
+      endedBy: close > cap ? null : fullAt <= timeEnd ? "places" : close >= end ? "event end" : "time",
+      taken: taken.length,
+    }
+    start = close < end ? close : null
+    return w
+  })
+}
+
+export type EventStatus = "Off" | "Scheduled" | "Live" | "Full" | "Ended"
+
+/** Off / Scheduled / Live / Full (all places gone) / Ended. */
+export function eventStatus(e: OfferWindow, claims: Date[][], now: Date): EventStatus {
+  if (!e.isActive) return "Off"
+  if (now < e.startsAt) return "Scheduled"
+  if (now >= e.endsAt) return "Ended"
+  return tierAt(e, now, claims) ? "Live" : "Full"
+}
+
+/** Claim times grouped by tier, oldest first (what tierAt / tierWindows take). */
+export function groupClaims(rows: { tierIndex: number; at: Date }[]): Date[][] {
+  const out: Date[][] = []
+  for (const r of [...rows].sort((a, b) => a.at.getTime() - b.at.getTime())) (out[r.tierIndex] ??= []).push(r.at)
+  return out
 }
 
 /** First event with a tier live at `at`. `claimsFor` gives each event's claims by tier. */

@@ -11,7 +11,7 @@ import {
   startOfferEventNowAction,
 } from "@/actions/offers"
 import { OFFER_SOURCE_LABEL, tierAt, tierRule, type OfferTier } from "@/lib/offers"
-import { Check, Gift, Loader2, Play, Plus, Power, Timer, Trash2, Undo2, Users } from "lucide-react"
+import { Check, Gift, Loader2, Play, Plus, Power, ScrollText, Timer, Trash2, Undo2, Users } from "lucide-react"
 
 /** One row of an event's booking log (saved when the person qualified). */
 export interface OfferLogEntry {
@@ -79,7 +79,9 @@ function statusOf(e: OfferEventView, now: number) {
   if (now >= ev.endsAt.getTime()) return { label: "Ended", color: "#6B7280", tier: null }
   const tier = tierAt(ev, new Date(now), claimsByTier(e))
   // All places taken and nothing after: the event is effectively over.
-  return tier ? { label: "LIVE", color: "#047857", tier } : { label: "Full", color: "#B45309", tier: null }
+  return tier
+    ? { label: "LIVE", color: "#047857", tier }
+    : { label: "Full", color: "#B45309", tier: null }
 }
 
 function left(ms: number) {
@@ -116,7 +118,11 @@ function NewEventForm({ onDone }: { onDone: () => void }) {
         name,
         startsAt: new Date(startsAt).toISOString(),
         endsAt: new Date(endsAt).toISOString(),
-        tiers: tiers.map((t) => ({ minutes: num(t.minutes), limit: num(t.limit), offer: t.offer.trim() })),
+        tiers: tiers.map((t) => ({
+          minutes: num(t.minutes),
+          limit: num(t.limit),
+          offer: t.offer.trim(),
+        })),
         terms: terms.trim() || undefined,
       })
       if (res.error) {
@@ -136,26 +142,43 @@ function NewEventForm({ onDone }: { onDone: () => void }) {
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="space-y-1 text-xs font-medium text-gray-600">
           Event name{" "}
-          <input className={input} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
+          <input
+            className={input}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={120}
+          />
         </label>
         <label className="space-y-1 text-xs font-medium text-gray-600">
           Countdown starts{" "}
-          <input type="datetime-local" className={input} value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+          <input
+            type="datetime-local"
+            className={input}
+            value={startsAt}
+            onChange={(e) => setStartsAt(e.target.value)}
+          />
         </label>
         <label className="space-y-1 text-xs font-medium text-gray-600">
           Offer ends (then regular pricing){" "}
-          <input type="datetime-local" className={input} value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
+          <input
+            type="datetime-local"
+            className={input}
+            value={endsAt}
+            onChange={(e) => setEndsAt(e.target.value)}
+          />
         </label>
       </div>
 
       <div className="space-y-2">
         <p className="text-xs font-medium text-gray-600">
-          Offers, in order. Each lasts for its minutes <em>or</em> until its places are taken, whichever comes
-          first — then the next one starts.
+          Offers, in order. Each lasts for its minutes <em>or</em> until its places are taken,
+          whichever comes first — then the next one starts.
         </p>
         {tiers.map((t, i) => (
           <div key={i} className="flex flex-wrap items-center gap-2 rounded-lg bg-white/60 p-2">
-            <span className="w-10 text-xs font-semibold text-gray-500">{i === 0 ? "First" : "Then"}</span>
+            <span className="w-10 text-xs font-semibold text-gray-500">
+              {i === 0 ? "First" : "Then"}
+            </span>
             <input
               className={`${box} w-20`}
               inputMode="numeric"
@@ -208,19 +231,28 @@ function NewEventForm({ onDone }: { onDone: () => void }) {
           </button>
         )}
         <p className="text-[11px] text-gray-500">
-          Examples: <strong>10</strong> min → first 10 minutes · <strong>1000</strong> patients → first 1000
-          bookings · <strong>60</strong> min or <strong>100</strong> patients → whichever comes first. Leave both
-          empty to run until the end time.
+          Examples: <strong>10</strong> min → first 10 minutes · <strong>1000</strong> patients →
+          first 1000 bookings · <strong>60</strong> min or <strong>100</strong> patients → whichever
+          comes first. Leave both empty to run until the end time.
         </p>
       </div>
 
       <label className="block space-y-1 text-xs font-medium text-gray-600">
         Terms (shown on the booking page)
-        <input className={input} value={terms} onChange={(e) => setTerms(e.target.value)} maxLength={1000} />
+        <input
+          className={input}
+          value={terms}
+          onChange={(e) => setTerms(e.target.value)}
+          maxLength={1000}
+        />
       </label>
 
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onDone} className="h-9 rounded-lg border border-gray-200 px-3 text-sm">
+        <button
+          type="button"
+          onClick={onDone}
+          className="h-9 rounded-lg border border-gray-200 px-3 text-sm"
+        >
           Cancel
         </button>
         <button
@@ -230,7 +262,11 @@ function NewEventForm({ onDone }: { onDone: () => void }) {
           className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-4 text-sm font-semibold text-white disabled:opacity-60 ${
             goesLiveNow ? "bg-red-600" : "bg-[#8A5A12]"
           }`}
-          title={goesLiveNow ? "The start time is now or past — patients will see it immediately" : undefined}
+          title={
+            goesLiveNow
+              ? "The start time is now or past — patients will see it immediately"
+              : undefined
+          }
         >
           {pending && <Loader2 className="h-4 w-4 animate-spin" />}{" "}
           {goesLiveNow ? "Save & go live NOW" : "Save event"}
@@ -267,10 +303,18 @@ export function OfferEventManager({ events }: { events: OfferEventView[] }) {
             <Gift className="h-4 w-4 text-[#B7791F]" /> Event offers
           </h2>
           <p className="mt-0.5 text-xs text-gray-500">
-            Time- or place-limited offers like Black Friday. Everyone who books online, registers, or books on
-            WhatsApp during an offer is saved in the event&apos;s log and tagged with it until marked given.
+            Time- or place-limited offers like Black Friday. Everyone who books online, registers,
+            or books on WhatsApp during an offer is saved in the event&apos;s log and tagged with it
+            until marked given.
           </p>
         </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/events"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#E2B04A] bg-[#FFFBF2] px-3 text-sm font-semibold text-[#8A5A12] hover:bg-[#FDF3DC]"
+          >
+            <ScrollText className="h-4 w-4" /> Event logs
+          </Link>
         {!creating && (
           <button
             type="button"
@@ -280,6 +324,7 @@ export function OfferEventManager({ events }: { events: OfferEventView[] }) {
             <Plus className="h-4 w-4" /> New event
           </button>
         )}
+        </div>
       </div>
 
       {creating && <NewEventForm onDone={() => setCreating(false)} />}
@@ -299,12 +344,19 @@ export function OfferEventManager({ events }: { events: OfferEventView[] }) {
               >
                 <div className={live ? "text-white" : "text-gray-900"}>
                   <p className="flex items-center gap-2 font-semibold">
-                    {e.name}
+                    <Link href={`/admin/events/${e.id}`} className="hover:underline" title="Open this event's log">
+                      {e.name}
+                    </Link>
                     <span
                       className="rounded-full px-2 py-0.5 text-[11px] font-bold"
-                      style={{ backgroundColor: `${st.color}22`, color: live ? "#6EE7B7" : st.color }}
+                      style={{
+                        backgroundColor: `${st.color}22`,
+                        color: live ? "#6EE7B7" : st.color,
+                      }}
                     >
-                      {live && <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />}
+                      {live && (
+                        <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
+                      )}
                       {st.label}
                     </span>
                   </p>
@@ -317,7 +369,8 @@ export function OfferEventManager({ events }: { events: OfferEventView[] }) {
                       Now: <strong className="text-[#F5CE6B]">{st.tier.offer}</strong>
                       <span className="text-white/70">
                         · {left(st.tier.endsAt.getTime() - now)} left
-                        {st.tier.remaining != null && ` · ${st.tier.remaining} of ${st.tier.limit} places left`}
+                        {st.tier.remaining != null &&
+                          ` · ${st.tier.remaining} of ${st.tier.limit} places left`}
                       </span>
                     </p>
                   )}
@@ -325,11 +378,17 @@ export function OfferEventManager({ events }: { events: OfferEventView[] }) {
 
                 {/* Counter */}
                 <div className="flex items-center gap-3">
-                  <div className={`rounded-xl px-3 py-1.5 text-right ${live ? "bg-white/10" : "bg-white ring-1 ring-gray-200"}`}>
-                    <p className={`flex items-center justify-end gap-1 text-[11px] ${live ? "text-white/70" : "text-gray-500"}`}>
+                  <div
+                    className={`rounded-xl px-3 py-1.5 text-right ${live ? "bg-white/10" : "bg-white ring-1 ring-gray-200"}`}
+                  >
+                    <p
+                      className={`flex items-center justify-end gap-1 text-[11px] ${live ? "text-white/70" : "text-gray-500"}`}
+                    >
                       <Users className="h-3 w-3" /> Booked
                     </p>
-                    <p className={`text-2xl font-bold tabular-nums ${live ? "text-[#F5CE6B]" : "text-gray-900"}`}>
+                    <p
+                      className={`text-2xl font-bold tabular-nums ${live ? "text-[#F5CE6B]" : "text-gray-900"}`}
+                    >
                       {e.log.length}
                     </p>
                   </div>
@@ -338,7 +397,12 @@ export function OfferEventManager({ events }: { events: OfferEventView[] }) {
                       <button
                         type="button"
                         disabled={pending}
-                        onClick={() => run(() => startOfferEventNowAction(e.id), `${e.name} started — the countdown is running`)}
+                        onClick={() =>
+                          run(
+                            () => startOfferEventNowAction(e.id),
+                            `${e.name} started — the countdown is running`
+                          )
+                        }
                         className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white disabled:opacity-60"
                         title="Starts the first offer's countdown right now, e.g. when you post the flyer"
                       >
@@ -349,7 +413,10 @@ export function OfferEventManager({ events }: { events: OfferEventView[] }) {
                       type="button"
                       disabled={pending}
                       onClick={() =>
-                        run(() => setOfferEventActiveAction(e.id, !e.isActive), e.isActive ? "Event switched off" : "Event switched on")
+                        run(
+                          () => setOfferEventActiveAction(e.id, !e.isActive),
+                          e.isActive ? "Event switched off" : "Event switched on"
+                        )
                       }
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-xs font-medium text-gray-700"
                     >
@@ -364,11 +431,14 @@ export function OfferEventManager({ events }: { events: OfferEventView[] }) {
                         run(() => deleteOfferEventAction(e.id), `${e.name} deleted`)
                       }}
                       className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium ${
-                        armed === e.id ? "border-red-600 bg-red-600 text-white" : "border-gray-300 bg-white text-red-600"
+                        armed === e.id
+                          ? "border-red-600 bg-red-600 text-white"
+                          : "border-gray-300 bg-white text-red-600"
                       }`}
                       title="Deletes the event, its booking log and its patient tags"
                     >
-                      <Trash2 className="h-3.5 w-3.5" /> {armed === e.id ? "Click again to delete" : "Delete"}
+                      <Trash2 className="h-3.5 w-3.5" />{" "}
+                      {armed === e.id ? "Click again to delete" : "Delete"}
                     </button>
                   </div>
                 </div>
@@ -389,7 +459,9 @@ export function OfferEventManager({ events }: { events: OfferEventView[] }) {
                       </span>
                     </li>
                   ))}
-                  <li className="rounded-full bg-gray-50 px-2.5 py-1 text-gray-400">After: regular pricing</li>
+                  <li className="rounded-full bg-gray-50 px-2.5 py-1 text-gray-400">
+                    After: regular pricing
+                  </li>
                 </ol>
               </div>
 
@@ -397,8 +469,12 @@ export function OfferEventManager({ events }: { events: OfferEventView[] }) {
               <div className="border-t border-gray-100">
                 <p className="px-4 pt-3 text-xs font-semibold text-gray-700">
                   Booking log · {e.log.length}
-                  {awaiting > 0 && <span className="ml-1 text-amber-700">· {awaiting} awaiting confirmation</span>}
-                  {toGive > 0 && <span className="ml-1 text-[#8A5A12]">· {toGive} still to give</span>}
+                  {awaiting > 0 && (
+                    <span className="ml-1 text-amber-700">· {awaiting} awaiting confirmation</span>
+                  )}
+                  {toGive > 0 && (
+                    <span className="ml-1 text-[#8A5A12]">· {toGive} still to give</span>
+                  )}
                 </p>
                 {e.log.length === 0 ? (
                   <p className="px-4 py-4 text-xs text-gray-500">Nobody yet.</p>
@@ -407,11 +483,19 @@ export function OfferEventManager({ events }: { events: OfferEventView[] }) {
                     <table className="mt-2 w-full text-sm">
                       <tbody>
                         {e.log.map((r, n) => (
-                          <tr key={r.id} className={`border-t border-gray-50 ${!r.patientId ? "bg-amber-50/40" : ""}`}>
-                            <td className="w-8 py-2 pl-4 text-[11px] text-gray-400 tabular-nums">{n + 1}</td>
+                          <tr
+                            key={r.id}
+                            className={`border-t border-gray-50 ${!r.patientId ? "bg-amber-50/40" : ""}`}
+                          >
+                            <td className="w-8 py-2 pl-4 text-[11px] text-gray-400 tabular-nums">
+                              {n + 1}
+                            </td>
                             <td className="py-2 pr-2">
                               {r.patientId ? (
-                                <Link href={`/patients/${r.patientId}`} className="font-medium text-gray-900 hover:underline">
+                                <Link
+                                  href={`/patients/${r.patientId}`}
+                                  className="font-medium text-gray-900 hover:underline"
+                                >
                                   {r.name}
                                 </Link>
                               ) : (
@@ -419,30 +503,46 @@ export function OfferEventManager({ events }: { events: OfferEventView[] }) {
                               )}
                               <span className="block text-[11px] text-gray-400">{r.mobile}</span>
                             </td>
-                            <td className="px-2 py-2 text-xs font-semibold text-[#7A4E0B]">🎁 {r.offer}</td>
+                            <td className="px-2 py-2 text-xs font-semibold text-[#7A4E0B]">
+                              🎁 {r.offer}
+                            </td>
                             <td className="px-2 py-2 text-xs whitespace-nowrap text-gray-500">
                               {fmt(r.at)} · {OFFER_SOURCE_LABEL[r.source] ?? r.source}
                             </td>
                             <td className="py-2 pr-4 pl-2 text-right">
                               {!r.patientId ? (
-                                <Link href="/appointments" className="text-[11px] font-semibold text-amber-700 hover:underline">
+                                <Link
+                                  href="/appointments"
+                                  className="text-[11px] font-semibold text-amber-700 hover:underline"
+                                >
                                   Awaiting confirmation →
                                 </Link>
                               ) : !r.patientOfferId ? null : r.givenAt ? (
                                 <button
                                   type="button"
                                   disabled={pending}
-                                  onClick={() => run(() => markOfferGivenAction(r.patientOfferId!, false), "Marked as not given")}
+                                  onClick={() =>
+                                    run(
+                                      () => markOfferGivenAction(r.patientOfferId!, false),
+                                      "Marked as not given"
+                                    )
+                                  }
                                   className="inline-flex items-center gap-1 text-xs text-gray-500"
                                   title={r.givenBy ? `Given by ${r.givenBy}` : undefined}
                                 >
-                                  <Check className="h-3.5 w-3.5 text-emerald-600" /> Given <Undo2 className="h-3 w-3" />
+                                  <Check className="h-3.5 w-3.5 text-emerald-600" /> Given{" "}
+                                  <Undo2 className="h-3 w-3" />
                                 </button>
                               ) : (
                                 <button
                                   type="button"
                                   disabled={pending}
-                                  onClick={() => run(() => markOfferGivenAction(r.patientOfferId!, true), `${r.offer} given to ${r.name}`)}
+                                  onClick={() =>
+                                    run(
+                                      () => markOfferGivenAction(r.patientOfferId!, true),
+                                      `${r.offer} given to ${r.name}`
+                                    )
+                                  }
                                   className="inline-flex h-7 items-center gap-1 rounded-full bg-[#8A5A12] px-2.5 text-[11px] font-semibold text-white"
                                 >
                                   <Check className="h-3 w-3" /> Mark given
