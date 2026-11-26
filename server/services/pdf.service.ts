@@ -173,7 +173,11 @@ export async function generateDocumentPdf(opts: {
   let buffer: Buffer
   try {
     await page.setExtraHTTPHeaders({ cookie: cookieHeader })
-    await page.goto(`${baseUrl}${printPath}`, { waitUntil: "networkidle0", timeout: 30000 })
+    // Behind a reverse proxy (Caddy on the VPS) the request origin is https://localhost:3000,
+    // which the plain-HTTP app can't answer, so render straight from the local server.
+    // Vercel has no local server and keeps the public origin.
+    const origin = process.env.VERCEL ? baseUrl : `http://127.0.0.1:${process.env.PORT ?? 3000}`
+    await page.goto(`${origin}${printPath}`, { waitUntil: "networkidle0", timeout: 30000 })
     const margin = type === "prescription" ? "6mm" : "8mm"
     buffer = Buffer.from(
       await page.pdf({
