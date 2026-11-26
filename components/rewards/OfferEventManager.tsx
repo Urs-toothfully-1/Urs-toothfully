@@ -104,7 +104,9 @@ function NewEventForm({ onDone }: { onDone: () => void }) {
     })
   }
 
-  const input = "h-9 w-full rounded-lg border border-gray-200 bg-white px-2.5 text-sm"
+  // `box` has no width so the tier row can size its fields; `input` fills its cell.
+  const box = "h-9 rounded-lg border border-gray-200 bg-white px-2.5 text-sm"
+  const input = `${box} w-full`
   return (
     <div className="mt-4 rounded-2xl border border-[#E2B04A]/50 bg-[#FFFBF2] p-4 space-y-3">
       <div className="grid gap-3 sm:grid-cols-3">
@@ -124,10 +126,10 @@ function NewEventForm({ onDone }: { onDone: () => void }) {
         {tiers.map((t, i) => (
           <div key={i} className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-gray-500 w-14">{i === 0 ? "First" : "Then"}</span>
-            <input className={`${input} w-24`} inputMode="numeric" placeholder="rest" value={t.minutes}
+            <input className={`${box} w-20`} inputMode="numeric" placeholder="rest" value={t.minutes}
               onChange={(e) => setTier(i, "minutes", e.target.value.replace(/\D/g, ""))} aria-label="Minutes" />
-            <span className="text-xs text-gray-500">{t.minutes ? "minutes →" : "until the end →"}</span>
-            <input className={`${input} flex-1 min-w-[12rem]`} value={t.offer} maxLength={200}
+            <span className="text-xs text-gray-500 w-24">{t.minutes ? "minutes →" : "until the end →"}</span>
+            <input className={`${box} flex-1 min-w-[12rem]`} value={t.offer} maxLength={200}
               onChange={(e) => setTier(i, "offer", e.target.value)} placeholder="What they get" aria-label="Offer" />
             {tiers.length > 1 && (
               <button type="button" onClick={() => setTiers((x) => x.filter((_, j) => j !== i))} className="p-1.5 text-gray-400 hover:text-red-600" aria-label="Remove offer">

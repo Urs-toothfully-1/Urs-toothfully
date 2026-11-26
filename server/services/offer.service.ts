@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { createAuditLog } from "@/lib/audit"
 import { liveOffer, parseTiers, tierAt, type OfferTier } from "@/lib/offers"
+import { istDayRange, istTodayStr } from "@/lib/ist"
 import type { Prisma } from "@prisma/client"
 
 export type OfferSource = "BOOKING" | "INTAKE" | "DESK" | "WHATSAPP"
@@ -118,20 +119,24 @@ export const offerService = {
     return event
   },
 
-  /** Starts the countdown now (e.g. the moment the flyer is posted). Keeps the end time. */
+  /**
+   * Starts the countdown now (e.g. the moment the flyer is posted). An end time
+   * that has already passed (event saved the night before) moves to the end of
+   * today, so "Start now" always works on the day.
+   */
   async startNow(id: string, changedById: string) {
     const event = await prisma.offerEvent.findUnique({ where: { id } })
     if (!event) throw new Error("Event not found")
     const now = new Date()
-    if (event.endsAt <= now) throw new Error("This event has already ended. Change its end time first.")
-    await prisma.offerEvent.update({ where: { id }, data: { startsAt: now, isActive: true } })
+    const endsAt = event.endsAt > now ? event.endsAt : istDayRange(istTodayStr()).end
+    await prisma.offerEvent.update({ where: { id }, data: { startsAt: now, endsAt, isActive: true } })
     await createAuditLog({
       entityType: "OfferEvent",
       entityId: id,
       action: "STATUS_CHANGE",
       changedById,
       previousValues: { startsAt: event.startsAt },
-      newValues: { startsAt: now, startedNow: true },
+      newValues: { startsAt: now, endsAt, startedNow: true },
     })
   },
 
