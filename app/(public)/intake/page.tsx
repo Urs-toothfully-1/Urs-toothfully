@@ -28,7 +28,7 @@ export default async function IntakePage({ searchParams }: { searchParams: Promi
       {/* Header */}
       <header className="bg-white border-b" style={{ borderColor: BRAND_COLORS.lightBackground }}>
         <div className="max-w-2xl mx-auto px-4 py-5 flex items-center justify-center gap-3">
-          <Logo className="h-11 w-11" rounded="rounded-xl" />
+          <Logo className="h-11 w-11" rounded="rounded-xl" variant="gold" />
           <div className="text-center sm:text-left">
             <h1 className="text-2xl font-bold" style={{ color: BRAND_COLORS.primaryTeal }}>
               {APP_NAME}

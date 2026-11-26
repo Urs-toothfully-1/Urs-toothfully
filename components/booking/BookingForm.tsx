@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom"
 import { submitAppointmentRequestAction, BookingFormState } from "@/actions/appointment-request"
 import { TurnstileWidget } from "@/components/intake/TurnstileWidget"
 import { BotGuardFields } from "@/components/shared/BotGuardFields"
+import { WhatsAppConsentCard } from "@/components/shared/WhatsAppConsentCard"
 import { branchColor } from "@/lib/branch-colors"
 import { AlertCircle, Loader2, CalendarCheck, Check } from "lucide-react"
 
@@ -164,19 +165,9 @@ export function BookingForm({ branches, referralCode, editorial = false }: { bra
       </div>
 
       {/* WhatsApp opt-in — without this we cannot message the patient at all */}
-      <label className={editorial ? "flex items-start gap-3 p-3.5 rounded-[2px] border border-[#342822]/15 bg-white/70 cursor-pointer" : "flex items-start gap-2.5 p-3 rounded-xl border border-[#E0E3E5] bg-white cursor-pointer"}>
-        <input
-          type="checkbox"
-          name="whatsappConsent"
-          defaultChecked={f.whatsappConsent !== "off"}
-          className={`mt-0.5 h-4 w-4 ${editorial ? "accent-[#342822]" : "accent-[#005E97]"}`}
-        />
-        <span className={`text-[13px] ${editorial ? "text-[#766b61]" : "text-[#404751]"}`}>
-          <strong className={editorial ? "font-medium text-[#342822]" : "text-[#191C1E]"}>Confirm my appointment on WhatsApp</strong>
-          <br />
-          I agree to receive my appointment confirmation and reminders from Ur&apos;s Toothfully on WhatsApp.
-        </span>
-      </label>
+      {/* Appointment confirmations/reminders go to everyone who books; this is the
+          opt-in for everything else (PDFs, offers). Never pre-ticked. */}
+      <WhatsAppConsentCard defaultChecked={f.whatsappConsent === "on"} />
 
       <BotGuardFields />
 

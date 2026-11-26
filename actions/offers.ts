@@ -62,6 +62,20 @@ export async function setOfferEventActiveAction(id: string, isActive: boolean): 
   return { success: true }
 }
 
+export async function deleteOfferEventAction(id: string): Promise<Result> {
+  const session = await requireRole(["ADMIN"]).catch(() => null)
+  if (!session) return { error: "Only admins can delete events." }
+  try {
+    await offerService.remove(id, session.userId)
+  } catch {
+    return { error: "Could not delete the event." }
+  }
+  revalidatePath("/admin/referrals")
+  revalidatePath("/book")
+  revalidatePath("/rewards")
+  return { success: true }
+}
+
 /** Reception/doctor marks a patient's event offer as given (or undoes it). */
 export async function markOfferGivenAction(patientOfferId: string, given: boolean): Promise<Result> {
   const session = await requireRole(["ADMIN", "RECEPTIONIST", "DOCTOR"]).catch(() => null)

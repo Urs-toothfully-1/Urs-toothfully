@@ -39,7 +39,7 @@ export default async function ReviewPage({ params }: Props) {
     >
       <div className="w-full max-w-md rounded-2xl border bg-white p-8 text-center shadow-sm" style={{ borderColor: "#E0E3E5" }}>
         <div className="flex flex-col items-center gap-2">
-          <Logo className="h-14 w-14" rounded="rounded-2xl" />
+          <Logo className="h-14 w-14" rounded="rounded-2xl" variant="gold" />
           <p className="text-lg font-bold" style={{ color: BRAND_COLORS.bodyText }}>{APP_NAME}</p>
           <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>{branch.name} Branch · {APP_TAGLINE}</p>
         </div>

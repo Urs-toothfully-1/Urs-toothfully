@@ -53,7 +53,13 @@ export const offerService = {
       if (!hit) return null
       await prisma.patientOffer.upsert({
         where: { patientId_eventId: { patientId, eventId: hit.event.id } },
-        create: { patientId, eventId: hit.event.id, offer: hit.tier.offer, qualifiedAt: at, source },
+        create: {
+          patientId,
+          eventId: hit.event.id,
+          offer: hit.tier.offer,
+          qualifiedAt: at,
+          source,
+        },
         update: {},
       })
       return hit
@@ -81,19 +87,33 @@ export const offerService = {
   },
 
   /** Booking requests made during an event that reception hasn't confirmed yet. */
-  async pendingRequests(event: { startsAt: Date; endsAt: Date; tiers: OfferTier[]; isActive: boolean }) {
+  async pendingRequests(event: {
+    startsAt: Date
+    endsAt: Date
+    tiers: OfferTier[]
+    isActive: boolean
+  }) {
     const rows = await prisma.appointmentRequest.findMany({
       where: { status: "PENDING", createdAt: { gte: event.startsAt, lt: event.endsAt } },
       orderBy: { createdAt: "asc" },
       select: { id: true, fullName: true, mobile: true, createdAt: true },
     })
     return rows
-      .map((r) => ({ ...r, offer: tierAt({ ...event, isActive: true }, r.createdAt)?.offer ?? null }))
+      .map((r) => ({
+        ...r,
+        offer: tierAt({ ...event, isActive: true }, r.createdAt)?.offer ?? null,
+      }))
       .filter((r) => r.offer)
   },
 
   async create(
-    input: { name: string; startsAt: Date; endsAt: Date; tiers: OfferTier[]; terms?: string | null },
+    input: {
+      name: string
+      startsAt: Date
+      endsAt: Date
+      tiers: OfferTier[]
+      terms?: string | null
+    },
     createdById: string
   ) {
     if (!input.name.trim()) throw new Error("Give the event a name.")
@@ -114,7 +134,12 @@ export const offerService = {
       entityId: event.id,
       action: "CREATE",
       changedById: createdById,
-      newValues: { name: event.name, startsAt: event.startsAt, endsAt: event.endsAt, tiers: input.tiers },
+      newValues: {
+        name: event.name,
+        startsAt: event.startsAt,
+        endsAt: event.endsAt,
+        tiers: input.tiers,
+      },
     })
     return event
   },
@@ -129,7 +154,10 @@ export const offerService = {
     if (!event) throw new Error("Event not found")
     const now = new Date()
     const endsAt = event.endsAt > now ? event.endsAt : istDayRange(istTodayStr()).end
-    await prisma.offerEvent.update({ where: { id }, data: { startsAt: now, endsAt, isActive: true } })
+    await prisma.offerEvent.update({
+      where: { id },
+      data: { startsAt: now, endsAt, isActive: true },
+    })
     await createAuditLog({
       entityType: "OfferEvent",
       entityId: id,
@@ -137,6 +165,18 @@ export const offerService = {
       changedById,
       previousValues: { startsAt: event.startsAt },
       newValues: { startsAt: now, endsAt, startedNow: true },
+    })
+  },
+
+  /** Deletes an event and the offer tags it gave patients (e.g. a test run). */
+  async remove(id: string, changedById: string) {
+    const event = await prisma.offerEvent.delete({ where: { id } })
+    await createAuditLog({
+      entityType: "OfferEvent",
+      entityId: id,
+      action: "DELETE",
+      changedById,
+      previousValues: { name: event.name, startsAt: event.startsAt, endsAt: event.endsAt },
     })
   },
 
@@ -165,7 +205,9 @@ export const offerService = {
   async markGiven(id: string, given: boolean, changedById: string) {
     const row = await prisma.patientOffer.update({
       where: { id },
-      data: given ? { givenAt: new Date(), givenById: changedById } : { givenAt: null, givenById: null },
+      data: given
+        ? { givenAt: new Date(), givenById: changedById }
+        : { givenAt: null, givenById: null },
     })
     await createAuditLog({
       entityType: "PatientOffer",

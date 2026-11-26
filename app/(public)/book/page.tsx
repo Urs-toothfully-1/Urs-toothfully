@@ -53,7 +53,7 @@ export default async function BookPage() {
 
         <div className="relative">
           <div className="flex items-center gap-3">
-            <Logo className="h-11 w-11" rounded="rounded-xl" />
+            <Logo className="h-11 w-11" rounded="rounded-xl" variant="gold" />
             <div>
               <p className="text-lg font-bold leading-tight">{APP_NAME}</p>
               <p className="text-xs text-white/70">{APP_TAGLINE}</p>

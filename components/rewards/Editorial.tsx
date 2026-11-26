@@ -45,7 +45,7 @@ export function SiteBar({ light = true }: { light?: boolean }) {
     <header className="relative z-10 flex items-center justify-between gap-4 px-[6vw] py-5 border-b" style={{ borderColor: light ? "rgba(246,241,232,.18)" : "rgba(52,40,34,.15)", color: fg }}>
       <a href="https://urstoothfully.org" className="flex items-center gap-2.5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/rewards/mark.png" alt="" className="h-9 w-9 object-contain" />
+        <img src="/logo-gold.png" alt="" className="h-10 w-10 object-contain" style={{ filter: light ? "brightness(1.35)" : undefined }} />
         <span className="text-[22px] sm:text-[24px] tracking-[-0.02em]" style={serif}>
           Ur&rsquo;s <em className="italic">Toothfully</em>
         </span>
