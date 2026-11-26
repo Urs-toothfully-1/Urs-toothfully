@@ -21,6 +21,7 @@ import {
   fetchConversationsAction,
 } from "@/actions/whatsapp-inbox"
 import type { ConversationSummary, ThreadMessage } from "@/server/services/whatsapp/inbox.service"
+import { WaText } from "@/components/whatsapp/WaText"
 
 function fmtPhone(p: string): string {
   if (p.length === 12 && p.startsWith("91")) return `+91 ${p.slice(2, 7)} ${p.slice(7)}`
@@ -349,7 +350,7 @@ export function WhatsAppInbox({
                         className={`max-w-[85%] rounded-lg px-2.5 pt-1.5 pb-1 text-[14px] leading-snug shadow-sm sm:max-w-[70%] ${it.m.direction === "OUT" ? "rounded-tr-none bg-[#D9FDD3]" : "rounded-tl-none bg-white"}`}
                       >
                         <span className="break-words whitespace-pre-wrap text-gray-900">
-                          {it.m.body}
+                          <WaText text={it.m.body} />
                         </span>
                         <span className="float-right mt-1.5 ml-2 flex items-center gap-0.5 text-[10px] text-gray-500">
                           {it.m.meta && it.m.meta !== "you"
