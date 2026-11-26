@@ -511,11 +511,17 @@ export const metaService = {
   },
 
   /** Submits a local template to Meta for approval. Returns the Meta template id. */
-  async createTemplateOnMeta(template: WhatsAppTemplate): Promise<string> {
+  /**
+   * Submits a local template to Meta for approval. With `editId` (a REJECTED
+   * template's Meta id) it edits that template in place instead — Meta won't let
+   * a deleted template's name be reused for 30 days.
+   */
+  async createTemplateOnMeta(template: WhatsAppTemplate, editId?: string): Promise<string> {
     const config = await loadConfig()
 
     const components: Array<Record<string, unknown>> = []
-    if (template.headerType === "TEXT" && template.headerText) {
+    // Header text from the editor counts as a text header (it doesn't set headerType).
+    if ((template.headerType === "TEXT" || !template.headerType) && template.headerText) {
       components.push({ type: "HEADER", format: "TEXT", text: template.headerText })
     } else if (template.headerType === "DOCUMENT") {
       const handle = await uploadExampleHandle(config, samplePdf(), "sample.pdf")
@@ -541,17 +547,22 @@ export const metaService = {
       })
     }
 
-    const { ok, data } = await graphFetch(config, `${config.businessAccountId}/message_templates`, {
-      method: "POST",
-      body: JSON.stringify({
-        name: template.name,
-        category: template.category,
-        language: template.language,
-        components,
-      }),
-    })
+    const { ok, data } = editId
+      ? await graphFetch(config, editId, {
+          method: "POST",
+          body: JSON.stringify({ category: template.category, components }),
+        })
+      : await graphFetch(config, `${config.businessAccountId}/message_templates`, {
+          method: "POST",
+          body: JSON.stringify({
+            name: template.name,
+            category: template.category,
+            language: template.language,
+            components,
+          }),
+        })
     if (!ok) throw new Error(graphErrorMessage(data))
-    return String(data.id)
+    return editId ?? String(data.id)
   },
 
   /**
