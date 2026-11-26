@@ -4,6 +4,8 @@ import { APP_NAME } from "@/lib/constants"
 import { normalizeReferralCode } from "@/lib/referral-code"
 import { rewardService } from "@/server/services/reward.service"
 import { ArrowButton, C, Eyebrow, LineArt, SiteBar, SiteFooter, serif } from "@/components/rewards/Editorial"
+import { LiveOfferStrip } from "@/components/rewards/LiveOfferStrip"
+import { offerService } from "@/server/services/offer.service"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
@@ -19,7 +21,7 @@ export default async function RewardsLandingPage({ searchParams }: { searchParam
   const { code } = await searchParams
   const typed = code ? normalizeReferralCode(code) : ""
   if (typed && /^[A-Z0-9]{4,12}$/.test(typed)) redirect(`/rewards/${typed}`)
-  const campaigns = await rewardService.liveCampaigns()
+  const [campaigns, live] = await Promise.all([rewardService.liveCampaigns(), offerService.live()])
 
   return (
     <main>
@@ -64,6 +66,17 @@ export default async function RewardsLandingPage({ searchParams }: { searchParam
           ))}
         </div>
       </section>
+
+      {/* ── Live time-based event (e.g. Black Friday) → straight to booking ── */}
+      {live && (
+        <LiveOfferStrip
+          eventName={live.event.name}
+          offer={live.tier.offer}
+          endsAt={live.tier.endsAt.toISOString()}
+          nextOffer={live.tier.nextOffer}
+          terms={live.event.terms}
+        />
+      )}
 
       {/* ── How it works ───────────────────────────────── */}
       <section className="px-[6vw] py-20 sm:py-28 max-w-[1500px] mx-auto">
