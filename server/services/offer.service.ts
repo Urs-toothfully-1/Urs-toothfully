@@ -168,6 +168,20 @@ export const offerService = {
     })
   },
 
+  /** Offers not yet given, per patient — shown on their appointment cards. */
+  async openByPatient(patientIds: string[]): Promise<Map<string, string[]>> {
+    const out = new Map<string, string[]>()
+    if (patientIds.length === 0) return out
+    const rows = await prisma.patientOffer
+      .findMany({
+        where: { patientId: { in: [...new Set(patientIds)] }, givenAt: null },
+        select: { patientId: true, offer: true, event: { select: { name: true } } },
+      })
+      .catch(() => []) // never break the appointments page over a promotion
+    for (const r of rows) out.set(r.patientId, [...(out.get(r.patientId) ?? []), `${r.event.name}: ${r.offer}`])
+    return out
+  },
+
   /** Deletes an event and the offer tags it gave patients (e.g. a test run). */
   async remove(id: string, changedById: string) {
     const event = await prisma.offerEvent.delete({ where: { id } })

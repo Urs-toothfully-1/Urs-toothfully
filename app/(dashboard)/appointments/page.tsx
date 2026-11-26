@@ -101,7 +101,11 @@ export default async function AppointmentsPage({ searchParams }: Props) {
     branch: { id: r.branch.id, name: r.branch.name },
   }))
 
+  const openOffers = await offerService.openByPatient(
+    [...appointments, ...weekAppointments, ...overdue].map((a) => a.patient.id)
+  )
   const toView = (a: (typeof appointments)[number]): AppointmentView => ({
+    offers: openOffers.get(a.patient.id),
     id: a.id,
     scheduledAt: a.scheduledAt.toISOString(),
     durationMins: a.durationMins,

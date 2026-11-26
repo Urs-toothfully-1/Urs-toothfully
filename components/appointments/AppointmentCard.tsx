@@ -38,6 +38,8 @@ export interface AppointmentView {
   patient: { id: string; patientId: string; fullName: string; mobile: string }
   doctor: { id: string; name: string }
   branch: { id: string; name: string }
+  /** Event offers not yet given, e.g. "Black Friday: FREE teeth cleaning". */
+  offers?: string[]
 }
 
 interface Props {
@@ -119,6 +121,15 @@ export function AppointmentCard({ appointment: a, canManage }: Props) {
               >
                 {style.label}
               </span>
+              {a.offers?.map((o) => (
+                <span
+                  key={o}
+                  className="flex-shrink-0 rounded-full border border-[#E2B04A] bg-[#FDF3DC] px-2 py-0.5 text-[11px] font-semibold text-[#7A4E0B]"
+                  title="Event offer to give at this visit — mark it given on the patient's profile"
+                >
+                  🎁 {o}
+                </span>
+              ))}
             </div>
             <p
               className="mt-0.5 flex items-center gap-1.5 truncate text-xs"
