@@ -251,6 +251,16 @@ export const templateService = {
       }
     }
 
+    // A template we think is pending/approved but Meta doesn't have (deleted, or a
+    // submit that never landed) would silently never send: put it back to DRAFT
+    // so it shows up for resubmission.
+    const onMeta = new Set(metaTemplates.map((m) => m.name))
+    const lost = await prisma.whatsAppTemplate.updateMany({
+      where: { status: { in: ["PENDING", "APPROVED"] }, name: { notIn: [...onMeta] } },
+      data: { status: "DRAFT", metaTemplateId: null },
+    })
+    updated += lost.count
+
     updated += await templateService.switchToApprovedVersions()
 
     await prisma.whatsAppSettings.updateMany({ data: { lastSyncAt: new Date() } })

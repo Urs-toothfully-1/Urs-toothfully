@@ -290,15 +290,18 @@ export function ShareActions({
           {waInfo && (
             // min-w-0: a grid item defaults to its content width and would overflow the dialog
             <div className="min-w-0 space-y-3">
-              <WhatsAppPreview info={waInfo} viaTemplate={!waInfo.windowOpen} />
+              {/* Same rule as the server: the approved template (with buttons) whenever it's approved. */}
+              <WhatsAppPreview info={waInfo} viaTemplate={waInfo.templateApproved} />
 
               {blocker ? (
                 <p className="rounded-md bg-amber-50 p-2.5 text-xs text-amber-800">{blocker}</p>
               ) : (
                 <p className="rounded-md bg-emerald-50 p-2.5 text-xs text-emerald-800">
-                  {waInfo.windowOpen
-                    ? "Sent from the clinic number. Free — the patient messaged the clinic in the last 24 hours."
-                    : "Sent from the clinic number as an approved WhatsApp message."}
+                  {waInfo.templateApproved
+                    ? `Sent from the clinic number with Call clinic & Visit website buttons${
+                        waInfo.windowOpen ? " — free, the patient messaged in the last 24 hours." : "."
+                      }`
+                    : "Sent from the clinic number. Free — the patient messaged the clinic in the last 24 hours."}
                 </p>
               )}
 

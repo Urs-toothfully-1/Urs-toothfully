@@ -288,7 +288,11 @@ export async function sendDocumentWhatsAppAction(input: {
         "The PDF message template is still waiting for Meta approval. Use “Share from this device” for now, or send once the patient has messaged the clinic.",
     }
   }
-  const viaTemplate = inWindow ? null : c.template
+  // Prefer the approved template even inside the 24h window: it carries the
+  // Call clinic / Visit website buttons the text refers to, and Meta doesn't
+  // charge for utility templates while the chat window is open. The plain
+  // document message is only the fallback before the template is approved.
+  const viaTemplate = c.templateApproved ? c.template : null
 
   const hdrs = await headers()
   try {
@@ -311,7 +315,8 @@ export async function sendDocumentWhatsAppAction(input: {
       : await metaService.sendDocumentMessage(phone, {
           id: mediaId,
           filename: c.fileName,
-          caption: c.caption,
+          // No buttons on a plain document message — point to the number instead.
+          caption: c.caption.replace(/tap \*Call clinic\* below/i, "call us on 7890008331"),
         })
 
     await prisma.whatsAppMessage.create({
