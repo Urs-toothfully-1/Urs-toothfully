@@ -3,7 +3,7 @@ export const APP_TAGLINE = "Full Mouth Rehabilitation & Implant Centre"
 export const EMERGENCY_CONTACT = "7890008331"
 
 export const CLINIC_HOURS = {
-  weekday: "Mon–Sat: 10:30 AM – 8:30 PM",
+  weekday: "Mon–Sat: 10:00 AM – 8:00 PM",
   sunday: "Sun: 10:00 AM – 2:30 PM",
   closed: "Thursday: Day Off",
 } as const

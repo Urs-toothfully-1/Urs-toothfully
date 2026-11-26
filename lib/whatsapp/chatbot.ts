@@ -19,7 +19,7 @@ export interface BotDecision {
   needsStaff: boolean // true = surface to reception to take over
 }
 
-/** Clinic hours in IST: Mon–Sat 10:30–20:30, Sun 10:00–14:30, Thursday off. */
+/** Clinic hours in IST: Mon–Sat 10:00–20:00, Sun 10:00–14:30, Thursday off. */
 export function isClinicOpen(now: Date): boolean {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Kolkata",
@@ -34,11 +34,11 @@ export function isClinicOpen(now: Date): boolean {
   const mins = hh * 60 + mm
   if (wd === "Thu") return false
   if (wd === "Sun") return mins >= 10 * 60 && mins <= 14 * 60 + 30
-  return mins >= 10 * 60 + 30 && mins <= 20 * 60 + 30 // Mon,Tue,Wed,Fri,Sat
+  return mins >= 10 * 60 && mins <= 20 * 60 // Mon,Tue,Wed,Fri,Sat
 }
 
 const CLOSED_NOTE =
-  `🕙 We're currently closed. Timings: Mon–Sat 10:30 AM–8:30 PM · Sun 10 AM–2:30 PM (Thursday off). ` +
+  `🕙 We're currently closed. Timings: Mon–Sat 10 AM–8 PM · Sun 10 AM–2:30 PM (Thursday off). ` +
   `We'll reply during working hours. For emergencies call ${EMERGENCY}.`
 
 function menu(firstName?: string, open = true): string {
@@ -57,7 +57,7 @@ const ANSWER_BOOK =
   `📅 To book, reply with your preferred day & time and your concern — our reception will confirm. ` +
   `You can also call ${EMERGENCY}.`
 const ANSWER_INFO =
-  `🕙 Timings: Mon–Sat 10:30 AM–8:30 PM · Sun 10 AM–2:30 PM · Thursday off.\n` +
+  `🕙 Timings: Mon–Sat 10 AM–8 PM · Sun 10 AM–2:30 PM · Thursday off.\n` +
   `📍 Branches: Salt Lake · New Alipore · Outram. Call ${EMERGENCY} for directions.`
 const ANSWER_RECEPTION =
   `🙏 Thanks — our reception team will get back to you shortly during working hours. For urgent matters call ${EMERGENCY}.`

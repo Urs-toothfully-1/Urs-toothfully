@@ -444,9 +444,9 @@ export const FLOW: Record<string, FlowNode> = {
       {
         id: "s_evening",
         title: "Evening",
-        description: "4 PM – 7:30 PM",
+        description: "4 PM – 8 PM",
         next: "book_name",
-        set: { slot: "Evening (4–7:30 PM)" },
+        set: { slot: "Evening (4–8 PM)" },
         when: (d) => !isSunday(d),
       },
       BACK_OPT,
@@ -498,7 +498,7 @@ export const FLOW: Record<string, FlowNode> = {
     message:
       `📞 *Contact us:* +91 ${PHONE1} / ${PHONE2}\n\n` +
       "📍 *Locations:* New Alipore · Park Street · Salt Lake\n" +
-      "🕙 *Hours:* Mon–Sat 10 AM–7:30 PM (Thu closed) · Sun 10 AM–2:30 PM",
+      "🕙 *Hours:* Mon–Sat 10 AM–8 PM (Thu closed) · Sun 10 AM–2:30 PM",
     ui: "buttons",
     options: [
       {
@@ -521,7 +521,7 @@ export const FLOW: Record<string, FlowNode> = {
     ],
   },
   faq_hours: {
-    message: "🕙 Mon–Sat 10 AM–7:30 PM (closed Thursday) · Sun 10 AM–2:30 PM.",
+    message: "🕙 Mon–Sat 10 AM–8 PM (closed Thursday) · Sun 10 AM–2:30 PM.",
     ui: "buttons",
     options: [{ id: "faqs", title: "❓ More FAQs", next: "faqs" }, MENU],
   },
@@ -714,7 +714,7 @@ if (typeof module !== "undefined" && require.main === module) {
   s = stepFlow(s.node, s.data, "Tomorrow", "d_tomorrow")
   ok(s.node === "book_slot" && s.data.day === "Tomorrow", "tap Tomorrow")
   s = stepFlow(s.node, s.data, "Evening", "s_evening")
-  ok(s.node === "book_name" && s.data.slot === "Evening (4–7:30 PM)", "tap Evening")
+  ok(s.node === "book_name" && s.data.slot === "Evening (4–8 PM)", "tap Evening")
 
   const backTap = stepFlow(s.node, s.data, "⬅️ Back", "back")
   ok(backTap.node === "book_slot", "tap Back on name step → time step")

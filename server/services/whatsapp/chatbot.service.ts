@@ -13,7 +13,7 @@ import { aiReplyService } from "@/server/services/whatsapp/ai-reply.service"
 const GREETING = /^(hi+|hello|hey|hlo|namaste|namaskar|start|menu|0|ok|okay|thanks?|thank you)\b/i
 
 const CLOSED_NOTE =
-  "🕙 We're currently closed (Mon–Sat 10 AM–7:30 PM, Sun 10 AM–2:30 PM, Thu off). " +
+  "🕙 We're currently closed (Mon–Sat 10 AM–8 PM, Sun 10 AM–2:30 PM, Thu off). " +
   "You can still use the menu — our team will follow up during working hours. For emergencies call 7890008331."
 
 const STATE_TTL_MS = 24 * 60 * 60 * 1000 // reset a conversation after 24h idle

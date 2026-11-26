@@ -278,6 +278,16 @@ export const DEFAULT_UTILITY_TEMPLATES: DefaultTemplateDef[] = [
     buttons: CLINIC_BUTTONS,
   },
   {
+    name: "thank_you_v2",
+    displayName: "Thank You (correct hours)",
+    triggerKey: WHATSAPP_TRIGGERS.THANK_YOU,
+    replaces: "thank_you",
+    variables: ["Patient Name"],
+    body: "Thank you, {{1}}, for trusting Ur's Toothfully with your smile! We're always here for your dental care. Mon–Sat 10 AM–8 PM, Sun 10 AM–2:30 PM (Thu off) · 7890008331.",
+    footerText: FOOTER,
+    buttons: CLINIC_BUTTONS,
+  },
+  {
     name: "referral_recorded_referrer",
     displayName: "Referral Recorded (to referrer)",
     triggerKey: WHATSAPP_TRIGGERS.REFERRAL_RECORDED_REFERRER,
