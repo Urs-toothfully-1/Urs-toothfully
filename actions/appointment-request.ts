@@ -103,7 +103,7 @@ export async function submitAppointmentRequestAction(
   }
 
   try {
-    await prisma.appointmentRequest.create({
+    const created = await prisma.appointmentRequest.create({
       data: {
         branchId: parsed.data.branchId,
         fullName: parsed.data.fullName.trim(),
@@ -115,9 +115,10 @@ export async function submitAppointmentRequestAction(
         consentIp: whatsappConsent ? clientIp || undefined : undefined,
         referralCode,
       },
+      select: { createdAt: true },
     })
     await recordIntakeAttempt(clientIp, true)
-    const nameQs = `name=${encodeURIComponent(parsed.data.fullName.trim())}`
+    const nameQs = `name=${encodeURIComponent(parsed.data.fullName.trim())}&at=${created.createdAt.getTime()}`
     redirect(referralCode ? `/rewards/${referralCode}/booked?${nameQs}` : `/book/success?${nameQs}`)
   } catch (err) {
     if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) throw err

@@ -14,6 +14,8 @@ export interface RequestView {
   problem: string | null
   /** Booked from a friend's /rewards/<code> invite. */
   referralCode?: string | null
+  /** Event offer they booked in, e.g. "Black Friday: FREE teeth cleaning". */
+  offer?: string | null
   preferredDate: string // yyyy-mm-dd
   createdAt: string
   branch: { id: string; name: string }
@@ -65,6 +67,11 @@ function ConfirmRow({ req, doctors }: { req: RequestView; doctors: Props["doctor
             {req.referralCode && (
               <span className="px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: "#E6F4F2", color: "#006B5F" }}>
                 🎁 Referral invite · {req.referralCode}
+              </span>
+            )}
+            {req.offer && (
+              <span className="px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: "#FDF3DC", color: "#8A5A12" }}>
+                🎁 {req.offer}
               </span>
             )}
           </div>

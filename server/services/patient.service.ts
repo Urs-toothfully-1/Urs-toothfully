@@ -3,6 +3,7 @@ import { generateReferralCode } from "@/lib/referral-code"
 import { prisma } from "@/lib/prisma"
 import { patientRepository } from "@/server/repositories/patient.repository"
 import { createAuditLog } from "@/lib/audit"
+import { offerService } from "@/server/services/offer.service"
 import type { DentalHistoryData } from "@/lib/dental-history-form"
 import { z } from "zod"
 
@@ -169,6 +170,7 @@ export const patientService = {
       newValues: { patientId, fullName: patient.fullName, withDentalHistory: true },
       branchId: input.registrationBranchId,
     })
+    await offerService.qualify(patient.id, patient.createdAt, "DESK")
 
     return patient
   },

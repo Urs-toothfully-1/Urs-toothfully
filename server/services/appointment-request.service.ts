@@ -3,6 +3,7 @@ import { generateReferralCode } from "@/lib/referral-code"
 import { appointmentService } from "@/server/services/appointment.service"
 import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
 import { referralService } from "@/server/services/referral.service"
+import { offerService } from "@/server/services/offer.service"
 
 import { UNKNOWN_DOB } from "@/lib/patient-dob"
 
@@ -109,6 +110,10 @@ export const appointmentRequestService = {
         .setConsent(patient.id, true, request.consentIp ?? undefined)
         .catch(() => null)
     }
+
+    // Booked during an event offer (e.g. Black Friday's first 10 minutes) →
+    // tag the patient with that offer, timed by when they submitted.
+    await offerService.qualify(patient.id, request.createdAt, "BOOKING")
 
     // Booked from a friend's /rewards link → record who referred them. Only for
     // someone genuinely new: an existing patient who has already paid isn't a

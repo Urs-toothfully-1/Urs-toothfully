@@ -233,6 +233,8 @@ model User {
   createdCampaigns        RewardCampaign[]       @relation("RewardCampaignCreatedBy")
   createdRedemptions      ReferralRedemption[]   @relation("RedemptionCreatedBy")
   createdRewardItems      RewardItem[]           @relation("RewardItemCreatedBy")
+  createdOfferEvents      OfferEvent[]           @relation("OfferEventCreatedBy")
+  offersGiven             PatientOffer[]         @relation("PatientOfferGivenBy")
   createdPotentialClients PotentialClient[]      @relation("PotentialClientCreatedBy")
   exportBatches           ExportBatch[]
   settings                SystemSetting[]
@@ -319,6 +321,7 @@ model Patient {
   referredBy         Referral?            @relation("ReferredBy")
   invoices           Invoice[]
   rewardRedemptions  ReferralRedemption[]
+  eventOffers        PatientOffer[]
 
   @@index([mobile])
   @@index([registrationBranchId, createdAt])
@@ -1489,4 +1492,45 @@ model WhatsAppGroupMember {
 
   @@unique([groupId, patientId])
   @@index([patientId])
+}
+
+// ─── EVENT OFFERS ────────────────────────────────────────────────────────
+// A time-boxed promotion (e.g. Black Friday). Tiers run back to back from
+// startsAt: whoever books or registers inside a tier gets that tier's offer;
+// a tier without minutes lasts until endsAt. After endsAt: regular pricing.
+model OfferEvent {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(120)
+  startsAt    DateTime
+  endsAt      DateTime
+  tiers       Json // [{ "minutes": 10, "offer": "FREE teeth cleaning" }, { "minutes": null, "offer": "…" }]
+  terms       String?  @db.VarChar(1000)
+  isActive    Boolean  @default(true)
+  createdById String
+  createdBy   User     @relation("OfferEventCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  patientOffers PatientOffer[]
+
+  @@index([isActive, startsAt])
+}
+
+// A patient who qualified for an event offer, and whether the clinic gave it.
+model PatientOffer {
+  id          String     @id @default(uuid())
+  patientId   String
+  patient     Patient    @relation(fields: [patientId], references: [id])
+  eventId     String
+  event       OfferEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  offer       String     @db.VarChar(200) // the tier's offer when they qualified
+  qualifiedAt DateTime // when they booked / registered
+  source      String     @db.VarChar(20) // BOOKING | INTAKE | DESK | WHATSAPP
+  givenAt     DateTime?
+  givenById   String?
+  givenBy     User?      @relation("PatientOfferGivenBy", fields: [givenById], references: [id])
+  createdAt   DateTime   @default(now())
+
+  @@unique([patientId, eventId])
+  @@index([eventId, givenAt])
 }

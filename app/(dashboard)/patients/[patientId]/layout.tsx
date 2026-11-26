@@ -14,6 +14,8 @@ import { getPatientBalance, getPatientTabCounts } from "@/server/services/patien
 import { formatAge, isUnknownDob } from "@/lib/patient-dob"
 import { ChevronRight } from "lucide-react"
 import { assertPatientInScope } from "@/server/services/patient-scope.service"
+import { offerService } from "@/server/services/offer.service"
+import { PatientOfferBadges } from "@/components/rewards/PatientOfferBadges"
 
 type Props = {
   children: React.ReactNode
@@ -31,12 +33,13 @@ export default async function PatientProfileLayout({ children, params }: Props) 
   const { patientId } = await params
   await assertPatientInScope(session, patientId)
 
-  const [patient, dentalHistory, branches, balance, tabCounts] = await Promise.all([
+  const [patient, dentalHistory, branches, balance, tabCounts, eventOffers] = await Promise.all([
     patientRepository.findById(patientId),
     dentalHistoryRepository.findLatestByPatient(patientId),
     prisma.branch.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getPatientBalance(patientId),
     getPatientTabCounts(patientId),
+    offerService.forPatient(patientId),
   ])
 
   if (!patient) notFound()
@@ -154,6 +157,17 @@ export default async function PatientProfileLayout({ children, params }: Props) 
                 )}
               </div>
               )}
+              {/* Event offers (e.g. Black Friday) — what this patient is owed, until marked given */}
+              <PatientOfferBadges
+                offers={eventOffers.map((o) => ({
+                  id: o.id,
+                  eventName: o.event.name,
+                  offer: o.offer,
+                  qualifiedAt: o.qualifiedAt.toISOString(),
+                  givenAt: o.givenAt?.toISOString() ?? null,
+                  givenBy: o.givenBy?.name ?? null,
+                }))}
+              />
               <HealthAlertBadges history={dentalHistory as any} />
               {(session.role === "ADMIN" || (session.role === "RECEPTIONIST" && session.perms.editPatients)) && (
                 <div className="flex md:justify-end items-center gap-2">

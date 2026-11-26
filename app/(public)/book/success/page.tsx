@@ -5,13 +5,27 @@ import { prisma } from "@/lib/prisma"
 import { normalizeReferralCode } from "@/lib/referral-code"
 import { publicName } from "@/lib/rewards"
 import { CalendarCheck, Gift, Phone } from "lucide-react"
+import { offerService } from "@/server/services/offer.service"
 
 export const metadata: Metadata = { title: "Booking Complete", robots: { index: false, follow: false } }
 
-type Props = { searchParams: Promise<{ name?: string; ref?: string }> }
+type Props = { searchParams: Promise<{ name?: string; ref?: string; at?: string }> }
+
+/**
+ * Display only (reception sees the offer from the request's own timestamp):
+ * the offer live when they submitted, if that was within the last hour.
+ */
+async function offerWonAt(at?: string) {
+  const submittedAt = Number(at)
+  const age = Date.now() - submittedAt
+  return Number.isFinite(submittedAt) && age >= 0 && age < 3_600_000
+    ? offerService.live(new Date(submittedAt))
+    : null
+}
 
 export default async function BookSuccessPage({ searchParams }: Props) {
-  const { name, ref } = await searchParams
+  const { name, ref, at } = await searchParams
+  const won = await offerWonAt(at)
   const code = ref ? normalizeReferralCode(ref) : ""
   const referrer = /^[A-Z0-9]{4,12}$/.test(code)
     ? await prisma.patient.findFirst({ where: { referralCode: code, isDeleted: false }, select: { fullName: true } })
@@ -30,6 +44,18 @@ export default async function BookSuccessPage({ searchParams }: Props) {
             Our team at {APP_NAME} will call or WhatsApp you shortly to confirm your appointment date and time.
           </p>
         </div>
+
+        {won && (
+          <div className="mx-6 mb-4 rounded-xl p-4 text-left flex gap-3 text-white" style={{ background: "linear-gradient(135deg, #16120C, #4A3517)" }}>
+            <Gift className="h-5 w-5 flex-shrink-0 text-[#E2B04A]" />
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-[#E2B04A]">{won.event.name}</p>
+              <p className="mt-0.5 text-sm">
+                🎉 You&apos;ve unlocked <strong className="text-[#F5CE6B]">{won.tier.offer}</strong>. We&apos;ve saved it — just come for your visit.
+              </p>
+            </div>
+          </div>
+        )}
 
         {referrer && (
           <div className="mx-6 mb-4 rounded-xl p-4 text-left flex gap-3" style={{ background: "linear-gradient(135deg, #E6F4F2, #EEF6FB)" }}>

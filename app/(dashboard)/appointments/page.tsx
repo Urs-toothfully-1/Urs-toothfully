@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { requireSession } from "@/lib/auth"
 import { appointmentService } from "@/server/services/appointment.service"
 import { appointmentRequestService } from "@/server/services/appointment-request.service"
+import { offerService } from "@/server/services/offer.service"
 import { userRepository } from "@/server/repositories/user.repository"
 import { NewAppointmentDialog } from "@/components/appointments/NewAppointmentDialog"
 import { WeekCalendar } from "@/components/appointments/WeekCalendar"
@@ -86,12 +87,15 @@ export default async function AppointmentsPage({ searchParams }: Props) {
     appointmentService.listOverdue({ branchId: branchFilter, doctorId: doctorFilter }),
   ])
 
-  const requestViews = pendingRequests.map((r) => ({
+  // Which event offer (e.g. Black Friday's first 10 minutes) each request was made in.
+  const requestOffers = await offerService.offersFor(pendingRequests.map((r) => r.createdAt))
+  const requestViews = pendingRequests.map((r, i) => ({
     id: r.id,
     fullName: r.fullName,
     mobile: r.mobile,
     problem: r.problem,
     referralCode: r.referralCode,
+    offer: requestOffers[i],
     preferredDate: toDayString(r.preferredDate),
     createdAt: r.createdAt.toISOString(),
     branch: { id: r.branch.id, name: r.branch.name },

@@ -2,6 +2,8 @@ import { Metadata } from "next"
 import { prisma } from "@/lib/prisma"
 import { APP_NAME, APP_TAGLINE, CLINIC_HOURS, EMERGENCY_CONTACT } from "@/lib/constants"
 import { BookingForm } from "@/components/booking/BookingForm"
+import { OfferCountdownBanner } from "@/components/booking/OfferCountdownBanner"
+import { offerService } from "@/server/services/offer.service"
 import { Logo } from "@/components/shared/Logo"
 import { Clock, Phone, ShieldCheck, Star } from "lucide-react"
 
@@ -29,11 +31,14 @@ export const metadata: Metadata = {
 }
 
 export default async function BookPage() {
-  const branches = await prisma.branch.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true, address: true },
-    orderBy: { name: "asc" },
-  })
+  const [branches, live] = await Promise.all([
+    prisma.branch.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, address: true },
+      orderBy: { name: "asc" },
+    }),
+    offerService.live(),
+  ])
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
@@ -87,6 +92,15 @@ export default async function BookPage() {
       {/* Form panel */}
       <main className="flex items-center justify-center px-4 py-10 lg:px-12" style={{ backgroundColor: "#F7F9FB" }}>
         <div className="w-full max-w-lg">
+          {live && (
+            <OfferCountdownBanner
+              eventName={live.event.name}
+              offer={live.tier.offer}
+              endsAt={live.tier.endsAt.toISOString()}
+              nextOffer={live.tier.nextOffer}
+              terms={live.event.terms}
+            />
+          )}
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-[#191C1E]">Request an appointment</h2>
             <p className="text-sm text-[#707882] mt-1">Fill in your details below — it only takes a moment.</p>

@@ -9,6 +9,8 @@ import { referralService } from "@/server/services/referral.service"
 import { rewardService } from "@/server/services/reward.service"
 import { CampaignManager, type CampaignView } from "@/components/referrals/CampaignManager"
 import { RewardCatalogManager } from "@/components/referrals/RewardCatalogManager"
+import { OfferEventManager } from "@/components/rewards/OfferEventManager"
+import { offerService } from "@/server/services/offer.service"
 import { Award, Crown, Gift, Sparkles, Users } from "lucide-react"
 
 export const metadata: Metadata = { title: "Rewards & Referrals" }
@@ -30,7 +32,7 @@ export default async function RewardsPage({ searchParams }: Props) {
   const sp = await searchParams
   const status = STATUSES.some((s) => s.key === sp.status) ? (sp.status as Status) : undefined
 
-  const [campaigns, referrals, totals, earned, spent, rewardsGiven, top, recent, catalogue] = await Promise.all([
+  const [campaigns, referrals, totals, earned, spent, rewardsGiven, top, recent, catalogue, offerEvents] = await Promise.all([
     rewardService.listCampaigns(),
     referralService.list({ status }),
     prisma.referral.count({ where: { status: { not: "CANCELLED" } } }),
@@ -43,8 +45,10 @@ export default async function RewardsPage({ searchParams }: Props) {
       include: { patient: { select: { id: true, fullName: true } }, campaign: { select: { name: true } }, rewardItem: { select: { name: true } }, createdBy: { select: { name: true } } },
     }),
     rewardService.listItems(),
+    offerService.listEvents(),
   ])
   const topPatients = await prisma.patient.findMany({ where: { id: { in: top.map((t) => t.referrerId) } }, select: { id: true, fullName: true, patientId: true } })
+  const pendingByEvent = await Promise.all(offerEvents.map((e) => offerService.pendingRequests(e)))
   const today = istTodayStr()
   const views: CampaignView[] = campaigns.map((c) => ({
     id: c.id, name: c.name, tagline: c.tagline, referrerOffer: c.referrerOffer, refereeOffer: c.refereeOffer,
@@ -93,6 +97,21 @@ export default async function RewardsPage({ searchParams }: Props) {
           ))}
         </div>
       </div>
+
+      <OfferEventManager
+        events={offerEvents.map((e, i) => ({
+          id: e.id, name: e.name, startsAt: e.startsAt.toISOString(), endsAt: e.endsAt.toISOString(),
+          tiers: e.tiers, terms: e.terms, isActive: e.isActive,
+          qualified: e.patientOffers.map((q) => ({
+            id: q.id, patientId: q.patient.id, name: q.patient.fullName, code: q.patient.patientId, mobile: q.patient.mobile,
+            offer: q.offer, qualifiedAt: q.qualifiedAt.toISOString(), source: q.source,
+            givenAt: q.givenAt?.toISOString() ?? null, givenBy: q.givenBy?.name ?? null,
+          })),
+          pending: pendingByEvent[i].map((r) => ({
+            id: r.id, name: r.fullName, mobile: r.mobile, offer: r.offer ?? "", createdAt: r.createdAt.toISOString(),
+          })),
+        }))}
+      />
 
       <RewardCatalogManager
         items={catalogue.map((i) => ({

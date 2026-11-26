@@ -10,6 +10,7 @@ import {
 } from "@/lib/whatsapp/chat-flow"
 import { aiReplyService } from "@/server/services/whatsapp/ai-reply.service"
 import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
+import { offerService } from "@/server/services/offer.service"
 
 const GREETING = /^(hi+|hello|hey|hlo|namaste|namaskar|start|menu|0|ok|okay|thanks?|thank you)\b/i
 
@@ -141,6 +142,8 @@ export const chatbotService = {
         needsStaff: step.handoff,
       },
     })
+    if (step.handoff && step.node === "book_confirm" && patient)
+      await offerService.qualify(patient.id, new Date(), "WHATSAPP")
 
     // Send the bot's reply(ies) and log them to the inbox thread. Non-fatal.
     const { whatsappInboxService } = await import("@/server/services/whatsapp/inbox.service")

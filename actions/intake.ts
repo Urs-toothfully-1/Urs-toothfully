@@ -15,6 +15,7 @@ import { validateMobile } from "@/lib/whatsapp/phone"
 import { whatsappService } from "@/server/services/whatsapp/whatsapp.service"
 import { WHATSAPP_TRIGGERS } from "@/lib/whatsapp/templates"
 import { referralService } from "@/server/services/referral.service"
+import { offerService } from "@/server/services/offer.service"
 
 export type IntakeFormState = {
   error?: string
@@ -161,6 +162,8 @@ export async function submitIntakeAction(
         createdById: creator.id,
       },
     })
+
+    await offerService.qualify(patient.id, patient.createdAt, "INTAKE")
 
     // Link a referral if a valid ?ref= code was carried through. Non-blocking;
     // invalid codes are ignored.
