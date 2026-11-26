@@ -29,7 +29,9 @@ ARG NEXT_PUBLIC_CLINIC_NAME
 ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
 COPY . .
-RUN npm run build
+# Small servers (1 GB RAM + swap): let the build's Node heap use the swap instead
+# of aborting at V8's default limit (~half of RAM). Build-time only.
+RUN NODE_OPTIONS=--max-old-space-size=2048 npm run build
 
 ENV NODE_ENV=production
 EXPOSE 3000
