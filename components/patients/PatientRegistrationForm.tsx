@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { AlertCircle, AlertTriangle, ArrowLeft, ArrowRight, Loader2, UserSearch } from "lucide-react"
 import { ReferrerPicker } from "@/components/referrals/ReferrerPicker"
+import { WhatsAppConsentCard } from "@/components/shared/WhatsAppConsentCard"
 import { BRAND_COLORS } from "@/lib/constants"
 import { DentalHistoryFields } from "@/components/patients/dental-history/DentalHistoryFields"
 import { LEAD_SOURCES } from "@/lib/lead-sources"
@@ -389,19 +390,11 @@ export function PatientRegistrationForm({ branches, defaultBranchId, isAdmin, pr
             </div>
 
             {/* WhatsApp consent */}
-            <label className="md:col-span-2 flex items-start gap-2.5 p-3 rounded-md border border-[#E0E3E5] bg-white cursor-pointer">
-              <input
-                type="checkbox"
-                name="whatsappConsent"
-                defaultChecked={f.whatsappConsent === "on"}
-                className="mt-0.5 h-4 w-4 accent-[#005E97]"
-              />
-              <span className="text-sm" style={{ color: BRAND_COLORS.secondaryText }}>
-                <strong style={{ color: BRAND_COLORS.bodyText }}>Receive WhatsApp Updates</strong>
-                {" — "}patient agrees to receive appointment reminders, receipts and treatment
-                updates on WhatsApp.
-              </span>
-            </label>
+            <WhatsAppConsentCard
+              staff
+              defaultChecked={f.whatsappConsent === "on"}
+              className="md:col-span-2"
+            />
           </div>
         </section>
       </div>

@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom"
 import { submitIntakeAction, IntakeFormState } from "@/actions/intake"
 import { TurnstileWidget } from "@/components/intake/TurnstileWidget"
 import { BotGuardFields } from "@/components/shared/BotGuardFields"
+import { WhatsAppConsentCard } from "@/components/shared/WhatsAppConsentCard"
 import { BRAND_COLORS } from "@/lib/constants"
 import { AlertCircle, Loader2, Send } from "lucide-react"
 import { LEAD_SOURCES } from "@/lib/lead-sources"
@@ -201,20 +202,7 @@ export function IntakeForm({ branches, defaultReferralCode = "", referrerFirstNa
       </div>
 
       {/* WhatsApp consent */}
-      <label className="flex items-start gap-2.5 p-3 rounded-lg border border-[#E0E3E5] bg-white cursor-pointer">
-        <input
-          type="checkbox"
-          name="whatsappConsent"
-          defaultChecked={f.whatsappConsent === "on"}
-          className="mt-0.5 h-4 w-4 accent-[#005E97]"
-        />
-        <span className="text-sm" style={{ color: BRAND_COLORS.secondaryText }}>
-          <strong style={{ color: BRAND_COLORS.bodyText }}>Receive WhatsApp Updates</strong>
-          <br />
-          I agree to receive appointment reminders, receipts and treatment updates from
-          Ur&apos;s Toothfully on WhatsApp.
-        </span>
-      </label>
+      <WhatsAppConsentCard defaultChecked={f.whatsappConsent === "on"} />
 
       {/* Privacy note */}
       <p className="text-xs" style={{ color: BRAND_COLORS.borderDivider }}>
