@@ -4,6 +4,7 @@
 
 app = "urstoothfully"
 primary_region = "bom" # Mumbai
+swap_size_mb = 512 # disk-backed overflow for PDF rendering peaks
 
 [build]
   dockerfile = "Dockerfile"
@@ -47,7 +48,8 @@ primary_region = "bom" # Mumbai
     timeout = "10s"
 
 [[vm]]
-  # Chromium (PDFs) + Next.js need headroom; 1gb risks out-of-memory on big PDFs.
-  memory = "2gb"
+  # 1 GB (~$6.70/mo) + swap below covers Next.js + Chromium PDF spikes.
+  # If logs show out-of-memory kills, raise to "2gb" (~$12.70/mo).
+  memory = "1gb"
   cpu_kind = "shared"
   cpus = 1
