@@ -170,7 +170,12 @@ export const patientService = {
       newValues: { patientId, fullName: patient.fullName, withDentalHistory: true },
       branchId: input.registrationBranchId,
     })
-    await offerService.qualify(patient.id, patient.createdAt, "DESK")
+    await offerService.claim({
+      name: patient.fullName,
+      mobile: patient.mobile,
+      source: "DESK",
+      patientId: patient.id,
+    })
 
     return patient
   },

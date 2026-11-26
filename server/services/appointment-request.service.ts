@@ -113,7 +113,7 @@ export const appointmentRequestService = {
 
     // Booked during an event offer (e.g. Black Friday's first 10 minutes) →
     // tag the patient with that offer, timed by when they submitted.
-    await offerService.qualify(patient.id, request.createdAt, "BOOKING")
+    await offerService.attachPatient(request.id, patient.id)
 
     // Booked from a friend's /rewards link → record who referred them. Only for
     // someone genuinely new: an existing patient who has already paid isn't a

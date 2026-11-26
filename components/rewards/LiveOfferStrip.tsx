@@ -15,12 +15,15 @@ export function LiveOfferStrip({
   endsAt,
   nextOffer,
   terms,
+  limit = null,
 }: {
   eventName: string
   offer: string
   endsAt: string // ISO
   nextOffer: string | null
   terms: string | null
+  /** "First N patients" offers: patients see the total only, never places left. */
+  limit?: number | null
 }) {
   const router = useRouter()
   const [left, setLeft] = useState(() => new Date(endsAt).getTime() - Date.now())
@@ -83,6 +86,7 @@ export function LiveOfferStrip({
             className="mt-1.5 max-w-[760px] text-[13px] leading-[1.6]"
             style={{ color: "rgba(246,241,232,.78)" }}
           >
+            {limit != null && <strong style={{ color: C.gold }}>🔥 For the first {limit} patients only. </strong>}
             {short ? "" : `Offer ends at ${until}. `}
             {nextOffer ? `After that: ${nextOffer}.` : "Your offer is saved the moment you book."}
             {terms ? ` ${terms}` : ""}

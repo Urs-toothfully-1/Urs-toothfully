@@ -48,7 +48,6 @@ export default async function RewardsPage({ searchParams }: Props) {
     offerService.listEvents(),
   ])
   const topPatients = await prisma.patient.findMany({ where: { id: { in: top.map((t) => t.referrerId) } }, select: { id: true, fullName: true, patientId: true } })
-  const pendingByEvent = await Promise.all(offerEvents.map((e) => offerService.pendingRequests(e)))
   const today = istTodayStr()
   const views: CampaignView[] = campaigns.map((c) => ({
     id: c.id, name: c.name, tagline: c.tagline, referrerOffer: c.referrerOffer, refereeOffer: c.refereeOffer,
@@ -99,18 +98,22 @@ export default async function RewardsPage({ searchParams }: Props) {
       </div>
 
       <OfferEventManager
-        events={offerEvents.map((e, i) => ({
-          id: e.id, name: e.name, startsAt: e.startsAt.toISOString(), endsAt: e.endsAt.toISOString(),
-          tiers: e.tiers, terms: e.terms, isActive: e.isActive,
-          qualified: e.patientOffers.map((q) => ({
-            id: q.id, patientId: q.patient.id, name: q.patient.fullName, code: q.patient.patientId, mobile: q.patient.mobile,
-            offer: q.offer, qualifiedAt: q.qualifiedAt.toISOString(), source: q.source,
-            givenAt: q.givenAt?.toISOString() ?? null, givenBy: q.givenBy?.name ?? null,
-          })),
-          pending: pendingByEvent[i].map((r) => ({
-            id: r.id, name: r.fullName, mobile: r.mobile, offer: r.offer ?? "", createdAt: r.createdAt.toISOString(),
-          })),
-        }))}
+        events={offerEvents.map((e) => {
+          // The saved booking log, joined to the offer each patient is owed (given or not).
+          const owed = new Map(e.patientOffers.map((q) => [q.patientId, q]))
+          return {
+            id: e.id, name: e.name, startsAt: e.startsAt.toISOString(), endsAt: e.endsAt.toISOString(),
+            tiers: e.tiers, terms: e.terms, isActive: e.isActive,
+            log: e.claims.map((c) => {
+              const po = c.patientId ? owed.get(c.patientId) : undefined
+              return {
+                id: c.id, name: c.name, mobile: c.mobile, offer: c.offer, tierIndex: c.tierIndex,
+                at: c.at.toISOString(), source: c.source, patientId: c.patientId,
+                patientOfferId: po?.id ?? null, givenAt: po?.givenAt?.toISOString() ?? null, givenBy: po?.givenBy?.name ?? null,
+              }
+            }),
+          }
+        })}
       />
 
       <RewardCatalogManager

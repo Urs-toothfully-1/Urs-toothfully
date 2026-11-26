@@ -1512,6 +1512,7 @@ model OfferEvent {
   updatedAt   DateTime @updatedAt
 
   patientOffers PatientOffer[]
+  claims        OfferClaim[]
 
   @@index([isActive, startsAt])
 }
@@ -1533,4 +1534,23 @@ model PatientOffer {
 
   @@unique([patientId, eventId])
   @@index([eventId, givenAt])
+}
+
+// The event log: one row per person who qualified (booked / registered) during
+// an event, saved at that moment. Drives the counter and "first N patients".
+model OfferClaim {
+  id        String     @id @default(uuid())
+  eventId   String
+  event     OfferEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tierIndex Int
+  offer     String     @db.VarChar(200)
+  at        DateTime   @default(now())
+  source    String     @db.VarChar(20) // BOOKING | INTAKE | DESK | WHATSAPP
+  name      String     @db.VarChar(200)
+  mobile    String     @db.VarChar(15) // last 10 digits — one place per person
+  requestId String?    @unique // online booking (until reception confirms it)
+  patientId String? // set once the patient record exists
+
+  @@index([eventId, at])
+  @@index([eventId, mobile])
 }

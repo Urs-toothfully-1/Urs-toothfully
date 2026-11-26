@@ -99,6 +99,7 @@ export default async function BookPage() {
               endsAt={live.tier.endsAt.toISOString()}
               nextOffer={live.tier.nextOffer}
               terms={live.event.terms}
+              limit={live.tier.limit}
             />
           )}
           <div className="mb-6">

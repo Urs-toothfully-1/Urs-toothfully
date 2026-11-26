@@ -9,23 +9,12 @@ import { offerService } from "@/server/services/offer.service"
 
 export const metadata: Metadata = { title: "Booking Complete", robots: { index: false, follow: false } }
 
-type Props = { searchParams: Promise<{ name?: string; ref?: string; at?: string }> }
-
-/**
- * Display only (reception sees the offer from the request's own timestamp):
- * the offer live when they submitted, if that was within the last hour.
- */
-async function offerWonAt(at?: string) {
-  const submittedAt = Number(at)
-  const age = Date.now() - submittedAt
-  return Number.isFinite(submittedAt) && age >= 0 && age < 3_600_000
-    ? offerService.live(new Date(submittedAt))
-    : null
-}
+type Props = { searchParams: Promise<{ name?: string; ref?: string; c?: string }> }
 
 export default async function BookSuccessPage({ searchParams }: Props) {
-  const { name, ref, at } = await searchParams
-  const won = await offerWonAt(at)
+  const { name, ref, c } = await searchParams
+  // The place the booking took in a live event (saved at submit).
+  const won = c && /^[0-9a-f-]{36}$/.test(c) ? await offerService.claimById(c) : null
   const code = ref ? normalizeReferralCode(ref) : ""
   const referrer = /^[A-Z0-9]{4,12}$/.test(code)
     ? await prisma.patient.findFirst({ where: { referralCode: code, isDeleted: false }, select: { fullName: true } })
@@ -51,7 +40,7 @@ export default async function BookSuccessPage({ searchParams }: Props) {
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-[#E2B04A]">{won.event.name}</p>
               <p className="mt-0.5 text-sm">
-                🎉 You&apos;ve unlocked <strong className="text-[#F5CE6B]">{won.tier.offer}</strong>. We&apos;ve saved it — just come for your visit.
+                🎉 You&apos;ve unlocked <strong className="text-[#F5CE6B]">{won.offer}</strong>. We&apos;ve saved it — just come for your visit.
               </p>
             </div>
           </div>

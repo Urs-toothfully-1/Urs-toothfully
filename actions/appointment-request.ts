@@ -9,6 +9,7 @@ import { checkBotSignals, warnIfTurnstileMissing } from "@/lib/bot-guard"
 import { checkIntakeRateLimit, recordIntakeAttempt, getClientIp } from "@/lib/rate-limit"
 import { validateMobile } from "@/lib/whatsapp/phone"
 import { normalizeReferralCode } from "@/lib/referral-code"
+import { offerService } from "@/server/services/offer.service"
 
 export type BookingFormState = {
   error?: string
@@ -115,10 +116,16 @@ export async function submitAppointmentRequestAction(
         consentIp: whatsappConsent ? clientIp || undefined : undefined,
         referralCode,
       },
-      select: { createdAt: true },
+      select: { id: true },
     })
     await recordIntakeAttempt(clientIp, true)
-    const nameQs = `name=${encodeURIComponent(parsed.data.fullName.trim())}&at=${created.createdAt.getTime()}`
+    const won = await offerService.claim({
+      name: parsed.data.fullName,
+      mobile: phone.normalized ?? parsed.data.mobile,
+      source: "BOOKING",
+      requestId: created.id,
+    })
+    const nameQs = `name=${encodeURIComponent(parsed.data.fullName.trim())}${won ? `&c=${won.claimId}` : ""}`
     redirect(referralCode ? `/rewards/${referralCode}/booked?${nameQs}` : `/book/success?${nameQs}`)
   } catch (err) {
     if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) throw err

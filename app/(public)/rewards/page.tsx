@@ -33,6 +33,7 @@ export default async function RewardsLandingPage({ searchParams }: { searchParam
           endsAt={live.tier.endsAt.toISOString()}
           nextOffer={live.tier.nextOffer}
           terms={live.event.terms}
+              limit={live.tier.limit}
         />
       )}
 

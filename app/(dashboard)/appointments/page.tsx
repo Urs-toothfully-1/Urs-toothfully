@@ -88,14 +88,14 @@ export default async function AppointmentsPage({ searchParams }: Props) {
   ])
 
   // Which event offer (e.g. Black Friday's first 10 minutes) each request was made in.
-  const requestOffers = await offerService.offersFor(pendingRequests.map((r) => r.createdAt))
+  const requestOffers = await offerService.offersForRequests(pendingRequests.map((r) => r.id))
   const requestViews = pendingRequests.map((r, i) => ({
     id: r.id,
     fullName: r.fullName,
     mobile: r.mobile,
     problem: r.problem,
     referralCode: r.referralCode,
-    offer: requestOffers[i],
+    offer: requestOffers.get(r.id) ?? null,
     preferredDate: toDayString(r.preferredDate),
     createdAt: r.createdAt.toISOString(),
     branch: { id: r.branch.id, name: r.branch.name },

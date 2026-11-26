@@ -14,7 +14,13 @@ const eventSchema = z.object({
   startsAt: z.string().datetime(),
   endsAt: z.string().datetime(),
   tiers: z
-    .array(z.object({ minutes: z.number().int().positive().max(100_000).nullable(), offer: z.string().min(2).max(200) }))
+    .array(
+      z.object({
+        minutes: z.number().int().positive().max(100_000).nullable(),
+        limit: z.number().int().positive().max(1_000_000).nullable(),
+        offer: z.string().min(2).max(200),
+      })
+    )
     .min(1)
     .max(6),
   terms: z.string().max(1000).optional(),
@@ -28,7 +34,11 @@ export async function createOfferEventAction(input: z.input<typeof eventSchema>)
   if (!parsed.success) return { error: "Please fill in the name, times and every offer." }
   try {
     await offerService.create(
-      { ...parsed.data, startsAt: new Date(parsed.data.startsAt), endsAt: new Date(parsed.data.endsAt) },
+      {
+        ...parsed.data,
+        startsAt: new Date(parsed.data.startsAt),
+        endsAt: new Date(parsed.data.endsAt),
+      },
       session.userId
     )
     revalidatePath("/admin/referrals")
@@ -77,10 +87,16 @@ export async function deleteOfferEventAction(id: string): Promise<Result> {
 }
 
 /** Reception/doctor marks a patient's event offer as given (or undoes it). */
-export async function markOfferGivenAction(patientOfferId: string, given: boolean): Promise<Result> {
+export async function markOfferGivenAction(
+  patientOfferId: string,
+  given: boolean
+): Promise<Result> {
   const session = await requireRole(["ADMIN", "RECEPTIONIST", "DOCTOR"]).catch(() => null)
   if (!session) return { error: "Unauthorized" }
-  const row = await prisma.patientOffer.findUnique({ where: { id: patientOfferId }, select: { patientId: true } })
+  const row = await prisma.patientOffer.findUnique({
+    where: { id: patientOfferId },
+    select: { patientId: true },
+  })
   if (!row || !(await canSeePatient(session, row.patientId))) return { error: "Offer not found." }
   await offerService.markGiven(patientOfferId, given, session.userId)
   revalidatePath(`/patients/${row.patientId}`, "layout")

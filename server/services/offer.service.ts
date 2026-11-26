@@ -6,67 +6,170 @@ import type { Prisma } from "@prisma/client"
 
 export type OfferSource = "BOOKING" | "INTAKE" | "DESK" | "WHATSAPP"
 
-/** Events that may be live around `at` (cheap: a handful of rows). */
-async function candidateEvents(at: Date) {
-  const rows = await prisma.offerEvent.findMany({
+type Db = Prisma.TransactionClient | typeof prisma
+
+const last10 = (m: string) => m.replace(/\D/g, "").slice(-10)
+
+/** Active events whose window covers `at` (cheap: a handful of rows). */
+async function candidateEvents(db: Db, at: Date) {
+  const rows = await db.offerEvent.findMany({
     where: { isActive: true, startsAt: { lte: at }, endsAt: { gt: at } },
     orderBy: { startsAt: "asc" },
   })
   return rows.map((r) => ({ ...r, tiers: parseTiers(r.tiers) }))
 }
 
+/** Places taken per event, grouped by tier, oldest first. */
+async function claimTimes(db: Db, eventIds: string[]): Promise<Map<string, Date[][]>> {
+  const out = new Map<string, Date[][]>()
+  if (eventIds.length === 0) return out
+  const rows = await db.offerClaim.findMany({
+    where: { eventId: { in: eventIds } },
+    select: { eventId: true, tierIndex: true, at: true },
+    orderBy: { at: "asc" },
+  })
+  for (const r of rows) {
+    const byTier = out.get(r.eventId) ?? []
+    ;(byTier[r.tierIndex] ??= []).push(r.at)
+    out.set(r.eventId, byTier)
+  }
+  return out
+}
+
+export type Claimant = {
+  name: string
+  mobile: string
+  source: OfferSource
+  /** Online booking not yet confirmed. */
+  requestId?: string
+  /** Patient record, when it exists. */
+  patientId?: string
+}
+
 export const offerService = {
   /**
-   * The offer live at `at` (default now), with its event. A promotion must never
+   * The offer live now, with its event and places left. A promotion must never
    * break booking: any failure means "no offer".
    */
   async live(at = new Date()) {
     try {
-      return liveOffer(await candidateEvents(at), at)
+      const events = await candidateEvents(prisma, at)
+      const claims = await claimTimes(
+        prisma,
+        events.map((e) => e.id)
+      )
+      return liveOffer(events, at, (e) => claims.get(e.id) ?? [])
     } catch (err) {
       console.error("[offers] live lookup failed:", err)
       return null
     }
   },
 
-  /** Offers for many past moments at once (e.g. the booking-request inbox). */
-  async offersFor(times: Date[]): Promise<(string | null)[]> {
-    if (times.length === 0) return []
-    const min = new Date(Math.min(...times.map((t) => t.getTime())))
-    const rows = await prisma.offerEvent
-      .findMany({ where: { isActive: true, endsAt: { gt: min } } })
-      .catch(() => []) // never break the appointments page over a promotion
-    const events = rows.map((r) => ({ ...r, tiers: parseTiers(r.tiers) }))
-    return times.map((t) => {
-      const hit = liveOffer(events, t)
-      return hit ? `${hit.event.name}: ${hit.tier.offer}` : null
-    })
+  /**
+   * Takes this person's place in the live event and logs it (the event's
+   * booking log). One place per person per event: a second booking or a later
+   * registration links to the same entry. Locked per event so "first 100" is
+   * exact even when two people submit in the same second. Never throws.
+   */
+  async claim(c: Claimant): Promise<{ claimId: string; eventName: string; offer: string } | null> {
+    const mobile = last10(c.mobile)
+    if (mobile.length !== 10) return null
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const now = new Date()
+        for (const e of await candidateEvents(tx, now)) {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"offer:" + e.id}))`
+
+          let row = await tx.offerClaim.findFirst({ where: { eventId: e.id, mobile } })
+          if (row) {
+            // Already in this event: just link what we now know about them.
+            if ((c.requestId && !row.requestId) || (c.patientId && !row.patientId))
+              row = await tx.offerClaim.update({
+                where: { id: row.id },
+                data: {
+                  ...(c.requestId && !row.requestId && { requestId: c.requestId }),
+                  ...(c.patientId && !row.patientId && { patientId: c.patientId }),
+                },
+              })
+          } else {
+            const hit = tierAt(e, now, (await claimTimes(tx, [e.id])).get(e.id) ?? [])
+            if (!hit) continue
+            row = await tx.offerClaim.create({
+              data: {
+                eventId: e.id,
+                tierIndex: hit.index,
+                offer: hit.offer,
+                at: now,
+                source: c.source,
+                name: c.name.trim().slice(0, 200),
+                mobile,
+                requestId: c.requestId,
+                patientId: c.patientId,
+              },
+            })
+          }
+          if (row.patientId)
+            await tx.patientOffer.upsert({
+              where: { patientId_eventId: { patientId: row.patientId, eventId: e.id } },
+              create: {
+                patientId: row.patientId,
+                eventId: e.id,
+                offer: row.offer,
+                qualifiedAt: row.at,
+                source: row.source,
+              },
+              update: {},
+            })
+          return { claimId: row.id, eventName: e.name, offer: row.offer }
+        }
+        return null
+      })
+    } catch (err) {
+      console.error("[offers] claim failed:", err)
+      return null
+    }
   },
 
   /**
-   * Tags a patient with the offer live at `at` (when they booked/registered).
-   * First qualification per event wins. Never throws into the caller's flow.
+   * Reception confirmed an online booking: attach the patient to the place the
+   * booking took (at submit time) and record the offer they're owed.
    */
-  async qualify(patientId: string, at: Date, source: OfferSource) {
+  async attachPatient(requestId: string, patientId: string) {
     try {
-      const hit = await offerService.live(at)
-      if (!hit) return null
-      await prisma.patientOffer.upsert({
-        where: { patientId_eventId: { patientId, eventId: hit.event.id } },
-        create: {
-          patientId,
-          eventId: hit.event.id,
-          offer: hit.tier.offer,
-          qualifiedAt: at,
-          source,
-        },
-        update: {},
-      })
-      return hit
+      const row = await prisma.offerClaim.findUnique({ where: { requestId } })
+      if (!row) return
+      await prisma.$transaction([
+        prisma.offerClaim.update({ where: { id: row.id }, data: { patientId } }),
+        prisma.patientOffer.upsert({
+          where: { patientId_eventId: { patientId, eventId: row.eventId } },
+          create: { patientId, eventId: row.eventId, offer: row.offer, qualifiedAt: row.at, source: row.source },
+          update: {},
+        }),
+      ])
     } catch (err) {
-      console.error("[offers] qualify failed:", err)
-      return null
+      console.error("[offers] attachPatient failed:", err)
     }
+  },
+
+  /** The offer each online booking request took, for the request inbox. */
+  async offersForRequests(requestIds: string[]): Promise<Map<string, string>> {
+    const out = new Map<string, string>()
+    if (requestIds.length === 0) return out
+    const rows = await prisma.offerClaim
+      .findMany({
+        where: { requestId: { in: requestIds } },
+        select: { requestId: true, offer: true, event: { select: { name: true } } },
+      })
+      .catch(() => []) // never break the appointments page over a promotion
+    for (const r of rows) if (r.requestId) out.set(r.requestId, `${r.event.name}: ${r.offer}`)
+    return out
+  },
+
+  /** A claim's offer, for the booking thank-you page. */
+  async claimById(id: string) {
+    return prisma.offerClaim
+      .findUnique({ where: { id }, select: { offer: true, event: { select: { name: true } } } })
+      .catch(() => null)
   },
 
   async listEvents() {
@@ -74,36 +177,11 @@ export const offerService = {
       orderBy: { startsAt: "desc" },
       take: 20,
       include: {
-        patientOffers: {
-          orderBy: { qualifiedAt: "asc" },
-          include: {
-            patient: { select: { id: true, fullName: true, patientId: true, mobile: true } },
-            givenBy: { select: { name: true } },
-          },
-        },
+        claims: { orderBy: { at: "asc" } },
+        patientOffers: { select: { id: true, patientId: true, givenAt: true, givenBy: { select: { name: true } } } },
       },
     })
     return rows.map((r) => ({ ...r, tiers: parseTiers(r.tiers) }))
-  },
-
-  /** Booking requests made during an event that reception hasn't confirmed yet. */
-  async pendingRequests(event: {
-    startsAt: Date
-    endsAt: Date
-    tiers: OfferTier[]
-    isActive: boolean
-  }) {
-    const rows = await prisma.appointmentRequest.findMany({
-      where: { status: "PENDING", createdAt: { gte: event.startsAt, lt: event.endsAt } },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, fullName: true, mobile: true, createdAt: true },
-    })
-    return rows
-      .map((r) => ({
-        ...r,
-        offer: tierAt({ ...event, isActive: true }, r.createdAt)?.offer ?? null,
-      }))
-      .filter((r) => r.offer)
   },
 
   async create(

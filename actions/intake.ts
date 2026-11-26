@@ -163,7 +163,12 @@ export async function submitIntakeAction(
       },
     })
 
-    await offerService.qualify(patient.id, patient.createdAt, "INTAKE")
+    await offerService.claim({
+      name: patient.fullName,
+      mobile: patient.mobile,
+      source: "INTAKE",
+      patientId: patient.id,
+    })
 
     // Link a referral if a valid ?ref= code was carried through. Non-blocking;
     // invalid codes are ignored.

@@ -181,8 +181,13 @@ export const chatbotService = {
         needsStaff: step.handoff,
       },
     })
-    if (step.handoff && step.node === "book_confirm" && patient)
-      await offerService.qualify(patient.id, new Date(), "WHATSAPP")
+    if (step.handoff && step.node === "book_confirm")
+      await offerService.claim({
+        name: String((step.data as FlowData).name ?? "WhatsApp booking"),
+        mobile: fromPhone,
+        source: "WHATSAPP",
+        patientId: patient?.id,
+      })
 
     // Send the bot's reply(ies) and log them to the inbox thread. Non-fatal.
     const { whatsappInboxService } = await import("@/server/services/whatsapp/inbox.service")

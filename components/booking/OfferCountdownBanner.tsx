@@ -15,12 +15,15 @@ export function OfferCountdownBanner({
   endsAt,
   nextOffer,
   terms,
+  limit = null,
 }: {
   eventName: string
   offer: string
   endsAt: string // ISO
   nextOffer: string | null
   terms: string | null
+  /** "First N patients" offers: patients see the total only, never places left. */
+  limit?: number | null
 }) {
   const router = useRouter()
   const [left, setLeft] = useState(() => new Date(endsAt).getTime() - Date.now())
@@ -59,6 +62,11 @@ export function OfferCountdownBanner({
             <span className="text-[#F5CE6B]">{offer}</span>
           </span>
         </p>
+        {limit != null && (
+          <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#E2B04A]/20 px-2.5 py-1 text-xs font-semibold text-[#F5CE6B]">
+            🔥 For the first {limit} patients only
+          </p>
+        )}
         {!short && <p className="mt-1 text-xs text-white/70">Offer ends at {until}.</p>}
       </div>
       <div className="flex items-center gap-2 border-t border-white/10 bg-black/20 px-5 py-2 text-xs text-white/75">
