@@ -13,7 +13,12 @@ import { toWaPhone } from "@/lib/whatsapp/provider"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -46,13 +51,15 @@ function WhatsAppIcon({ className }: { className?: string }) {
 function WaText({ text }: { text: string }) {
   return (
     <>
-      {text.split(/(\*[^*\n]+\*)/g).map((part, i) =>
-        part.startsWith("*") && part.endsWith("*") && part.length > 2 ? (
-          <strong key={i}>{part.slice(1, -1)}</strong>
-        ) : (
-          <Fragment key={i}>{part}</Fragment>
-        )
-      )}
+      {text
+        .split(/(\*[^*\n]+\*)/g)
+        .map((part, i) =>
+          part.startsWith("*") && part.endsWith("*") && part.length > 2 ? (
+            <strong key={i}>{part.slice(1, -1)}</strong>
+          ) : (
+            <Fragment key={i}>{part}</Fragment>
+          )
+        )}
     </>
   )
 }
@@ -63,7 +70,10 @@ function WhatsAppPreview({ info, viaTemplate }: { info: WhatsAppSendInfo; viaTem
   return (
     <div className="rounded-lg p-3" style={{ backgroundColor: "#EFEAE2" }}>
       <div className="ml-auto max-w-[92%] overflow-hidden rounded-lg rounded-tr-none bg-white shadow-sm">
-        <div className="m-1 flex items-center gap-3 rounded-md p-2.5" style={{ backgroundColor: "#F5F6F6" }}>
+        <div
+          className="m-1 flex items-center gap-3 rounded-md p-2.5"
+          style={{ backgroundColor: "#F5F6F6" }}
+        >
           <span className="flex h-9 w-8 shrink-0 items-center justify-center rounded-sm bg-[#E53935] text-[9px] font-bold text-white">
             PDF
           </span>
@@ -72,7 +82,7 @@ function WhatsAppPreview({ info, viaTemplate }: { info: WhatsAppSendInfo; viaTem
             <p className="text-xs text-[#667781]">PDF document</p>
           </div>
         </div>
-        <p className="whitespace-pre-line px-2.5 pt-1 text-[13px] leading-snug text-[#111B21]">
+        <p className="px-2.5 pt-1 text-[13px] leading-snug whitespace-pre-line text-[#111B21]">
           <WaText text={info.caption} />
         </p>
         {viaTemplate && (
@@ -119,7 +129,14 @@ function downloadFile(file: File) {
 }
 
 export function ShareActions({
-  type, id, patientName, patientMobile, patientEmail, docNo, branchName, compact,
+  type,
+  id,
+  patientName,
+  patientMobile,
+  patientEmail,
+  docNo,
+  branchName,
+  compact,
 }: Props) {
   const [waOpen, setWaOpen] = useState(false)
   const [waInfo, setWaInfo] = useState<WhatsAppSendInfo | null>(null)
@@ -225,7 +242,7 @@ export function ShareActions({
   const btnBase = compact ? "h-8 w-8 p-0" : "h-9 px-3"
 
   return (
-    <div className="flex items-center gap-2 no-print">
+    <div className="no-print flex items-center gap-2">
       <Button
         type="button"
         variant="outline"
@@ -264,14 +281,15 @@ export function ShareActions({
           </DialogHeader>
 
           {!waInfo && !waError && (
-            <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+            <div className="text-muted-foreground flex items-center justify-center gap-2 py-10 text-sm">
               <Loader2 className="h-4 w-4 animate-spin" /> Preparing preview…
             </div>
           )}
           {waError && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{waError}</p>}
 
           {waInfo && (
-            <div className="space-y-3">
+            // min-w-0: a grid item defaults to its content width and would overflow the dialog
+            <div className="min-w-0 space-y-3">
               <WhatsAppPreview info={waInfo} viaTemplate={!waInfo.windowOpen} />
 
               {blocker ? (
@@ -292,17 +310,26 @@ export function ShareActions({
                     className="mt-0.5"
                   />
                   <span>
-                    {patientName} has agreed to receive messages from Ur&apos;s Toothfully on
-                    WhatsApp. (Saved as their WhatsApp consent.)
+                    <strong>{patientName}</strong> has agreed to receive messages from Ur&apos;s
+                    Toothfully on WhatsApp. (Saved as their WhatsApp consent.)
                   </span>
                 </label>
               )}
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button type="button" variant="outline" onClick={shareFromDevice} disabled={deviceBusy || sending}>
-              {deviceBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
+          <DialogFooter className="flex-wrap gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={shareFromDevice}
+              disabled={deviceBusy || sending}
+            >
+              {deviceBusy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Share2 className="mr-2 h-4 w-4" />
+              )}
               Share from this device
             </Button>
             <Button
@@ -312,9 +339,15 @@ export function ShareActions({
               className="bg-[#25D366] text-white hover:bg-[#1EBE5A]"
             >
               {sending ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending…</>
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending…
+                </>
               ) : (
-                <><Send className="mr-2 h-4 w-4" />Send from clinic WhatsApp</>
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Send from clinic WhatsApp
+                </>
               )}
             </Button>
           </DialogFooter>
@@ -348,8 +381,10 @@ export function ShareActions({
             </div>
             <div className="space-y-1.5">
               <Label>Message</Label>
-              <p className="text-xs whitespace-pre-line rounded-md border p-2.5 max-h-40 overflow-y-auto"
-                 style={{ color: BRAND_COLORS.secondaryText, borderColor: BRAND_COLORS.borderLight }}>
+              <p
+                className="max-h-40 overflow-y-auto rounded-md border p-2.5 text-xs whitespace-pre-line"
+                style={{ color: BRAND_COLORS.secondaryText, borderColor: BRAND_COLORS.borderLight }}
+              >
                 {message}
               </p>
             </div>
@@ -367,7 +402,10 @@ export function ShareActions({
               style={{ backgroundColor: BRAND_COLORS.primaryTeal }}
             >
               {emailBusy ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending…</>
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending…
+                </>
               ) : (
                 "Send Email"
               )}
