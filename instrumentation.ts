@@ -11,5 +11,7 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return
   if (!process.env.TZ) process.env.TZ = process.env.APP_TIMEZONE ?? "Asia/Kolkata"
   // Vercel runs the crons in vercel.json; on Railway the always-on server runs them itself.
-  if (process.env.FLY_APP_NAME || process.env.RAILWAY_ENVIRONMENT) (await import("./lib/scheduler")).startScheduler()
+  // Always-on hosts (VPS, Fly, Railway) run the jobs themselves; Vercel uses vercel.json crons.
+  if (process.env.RUN_SCHEDULER === "on" || process.env.FLY_APP_NAME || process.env.RAILWAY_ENVIRONMENT)
+    (await import("./lib/scheduler")).startScheduler()
 }
