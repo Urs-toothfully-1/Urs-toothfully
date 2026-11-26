@@ -111,7 +111,8 @@ const NAME_ERR = "⚠️ Please type a valid full name (letters only), e.g. *Ram
 
 function validateName(v: string): Validated {
   const t = v.trim().replace(/\s+/g, " ")
-  if (!NAME_RE.test(t) || NOT_A_NAME.has(t.toLowerCase())) return { err: NAME_ERR }
+  if (!NAME_RE.test(t) || NOT_A_NAME.has(t.toLowerCase()) || isGreeting(t.toLowerCase()))
+    return { err: NAME_ERR }
   if ((t.match(/\p{L}/gu) ?? []).length < 2) return { err: NAME_ERR }
   return { ok: t }
 }
@@ -546,7 +547,13 @@ export const FLOW: Record<string, FlowNode> = {
   },
 }
 
-const RESET_WORDS = ["hi", "hello", "hey", "start", "restart"]
+/**
+ * Greetings restart the chat. Patients type them many ways ("Hii", "hlo",
+ * "Good morning!"), and an exact-word list answered those with "Sorry…".
+ */
+const GREETING_RE =
+  /^(h+i+e*|h+e+y+|h+e*l+o+w*|hy+|hai+|namast[ae]y?|namaskar|good\s*(morning|afternoon|evening)|start|restart)[\s!.]*$/
+export const isGreeting = (low: string) => GREETING_RE.test(low)
 const HIST_MAX = 20
 
 function availableOptions(node: FlowNode, data: FlowData): Option[] {
@@ -624,7 +631,7 @@ export function stepFlow(
   }
 
   // Global navigation — works on every step, including the name step.
-  if (!replyId && RESET_WORDS.includes(low)) return render("root", {})
+  if (!replyId && isGreeting(low)) return render("root", {})
   if (replyId === "back" || (!replyId && low === "back")) return goBack()
   if (replyId === "menu" || (!replyId && ["menu", "main menu", "0"].includes(low))) {
     return currentNode === "patient_menu"
@@ -700,6 +707,12 @@ if (typeof module !== "undefined" && require.main === module) {
   ok(s.node === "patient_menu" && s.messages[0].footer === FOOTER, "patient_menu has footer")
   s = stepFlow(s.node, s.data, "📅 Book appointment", "book")
   ok(s.node === "book_day" && s.messages[0].ui?.kind === "list", "book → day list")
+
+  // Any common greeting restarts from the welcome menu, even mid-flow
+  for (const g of ["Hii", "hiii", "Hlo", "hello!", "Hey", "Good morning", "namaste"])
+    ok(stepFlow(s.node, s.data, g).node === "root", `greeting "${g}" restarts`)
+  for (const w of ["his teeth", "hilsa", "hindi"])
+    ok(!isGreeting(w.toLowerCase()), `"${w}" is not a greeting`)
 
   // Free text on a choice step is rejected (the reported bug)
   const bad = stepFlow(s.node, s.data, "Saturday 5 PM")
