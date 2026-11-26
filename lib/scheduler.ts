@@ -50,6 +50,9 @@ export function dueJobs(now: Date, lastRun: Map<string, string>) {
 const g = globalThis as { __toothfullyScheduler?: boolean }
 
 export function startScheduler() {
+  // While Vercel still serves the domain its crons run the jobs — keep Railway's
+  // off (SCHEDULER=off) until the switch, or the 21:00 messages go out twice.
+  if (process.env.SCHEDULER === "off") return console.log("[scheduler] off (SCHEDULER=off)")
   const secret = process.env.CRON_SECRET || process.env.WHATSAPP_CRON_SECRET
   if (!secret) return console.warn("[scheduler] CRON_SECRET not set — scheduled jobs are OFF")
   if (g.__toothfullyScheduler) return
