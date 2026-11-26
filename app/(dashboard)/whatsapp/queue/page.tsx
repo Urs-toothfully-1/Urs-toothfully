@@ -52,6 +52,8 @@ export default async function WhatsAppQueuePage({
 
   const templateOptions = templates
     .filter((t) => t.status === "APPROVED" || t.status === "DRAFT" || t.status === "PENDING")
+    // PDF templates need a document, so they're sent only from a document's WhatsApp button.
+    .filter((t) => t.headerType !== "DOCUMENT")
     .map((t) => ({
       id: t.id,
       displayName: t.displayName,

@@ -22,7 +22,8 @@ export default async function PotentialClientsPage({ searchParams }: Props) {
   const [data, templates, treatments] = await Promise.all([
     potentialClientService.list({ search: sp.q, status, optIn, due, page: Number(sp.page) || 1 }),
     prisma.whatsAppTemplate.findMany({
-      where: { status: "APPROVED", isEnabled: true },
+      // PDF templates need a document, so they're sent only from a document's WhatsApp button.
+      where: { status: "APPROVED", isEnabled: true, OR: [{ headerType: null }, { headerType: { not: "DOCUMENT" } }] },
       orderBy: { displayName: "asc" },
       select: { id: true, displayName: true, body: true, variables: true, category: true },
     }),

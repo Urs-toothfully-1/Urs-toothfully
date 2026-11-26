@@ -33,6 +33,7 @@ export const WHATSAPP_TRIGGERS = {
   REFERRAL_RECORDED_REFEREE: "REFERRAL_RECORDED_REFEREE",
   REFERRAL_POINTS_REFERRER: "REFERRAL_POINTS_REFERRER",
   REFERRAL_POINTS_REFEREE: "REFERRAL_POINTS_REFEREE",
+  DOCUMENT_SHARE: "DOCUMENT_SHARE",
 } as const
 
 export type WhatsAppTriggerKey = (typeof WHATSAPP_TRIGGERS)[keyof typeof WHATSAPP_TRIGGERS]
@@ -53,6 +54,8 @@ export interface DefaultTemplateDef {
   footerText?: string
   /** Static text heading shown in bold above the body. */
   headerText?: string
+  /** DOCUMENT: a PDF is attached at send time (prescription, receipt, estimate). */
+  headerType?: "DOCUMENT"
   buttons?: TemplateButton[]
   /**
    * Newer version of an existing template. Created without the trigger; the daily
@@ -305,6 +308,18 @@ export const DEFAULT_UTILITY_TEMPLATES: DefaultTemplateDef[] = [
     variables: ["New Patient Name", "Points", "Balance"],
     body: "Hi {{1}}, thank you for your first visit to Ur's Toothfully! {{2}} referral reward points have been added to your account. Your balance is now {{3}} points.",
     footerText: FOOTER,
+  },
+  {
+    name: "document_share",
+    displayName: "Document (PDF) for patient",
+    triggerKey: WHATSAPP_TRIGGERS.DOCUMENT_SHARE,
+    variables: ["Patient Name", "Document", "Reference No"],
+    headerType: "DOCUMENT",
+    body:
+      "Dear {{1}},\n\nPlease find your *{{2}}* from *Ur's Toothfully* attached above (Ref: {{3}}).\n\n" +
+      "Have a question about it? Simply reply to this message or tap *Call clinic* below. We're happy to help.",
+    footerText: FOOTER,
+    buttons: CLINIC_BUTTONS,
   },
   {
     name: "daily_summary",

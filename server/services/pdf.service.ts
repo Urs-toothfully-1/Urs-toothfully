@@ -4,8 +4,32 @@ import { existsSync } from "fs"
 import { createHash } from "crypto"
 import type { Browser } from "puppeteer-core"
 import { prisma } from "@/lib/prisma"
+import type { AppSession } from "@/lib/auth"
+import { canSeePatient } from "@/server/services/patient-scope.service"
 
 export type DocumentType = "estimate" | "receipt" | "prescription"
+
+/**
+ * Why this user may not see the document, or null if they may: estimates need
+ * the prices permission, receipts the payments permission, and the patient must
+ * be in the user's scope. Shared by the PDF download and every share channel.
+ */
+export async function documentAccessError(
+  session: AppSession,
+  type: DocumentType,
+  id: string
+): Promise<string | null> {
+  if ((type === "estimate" && !session.perms.prices) || (type === "receipt" && !session.perms.payments))
+    return "Forbidden"
+  if (session.perms.allPatients) return null
+  const owner =
+    type === "estimate"
+      ? await prisma.estimate.findUnique({ where: { id }, select: { patientId: true } })
+      : type === "receipt"
+        ? await prisma.receipt.findUnique({ where: { id }, select: { patientId: true } })
+        : await prisma.prescriptionRecord.findUnique({ where: { id }, select: { patientId: true } })
+  return owner && (await canSeePatient(session, owner.patientId)) ? null : "Forbidden"
+}
 
 /**
  * How long a rendered PDF is kept. Documents are almost always shared within
@@ -56,7 +80,7 @@ async function launchBrowser(): Promise<Browser> {
   if (!executablePath) {
     throw new Error(
       "No local Chrome/Edge found for PDF generation. " +
-      "Set PUPPETEER_EXECUTABLE_PATH to a Chrome executable."
+        "Set PUPPETEER_EXECUTABLE_PATH to a Chrome executable."
     )
   }
   return puppeteer.launch({
@@ -70,7 +94,9 @@ async function launchBrowser(): Promise<Browser> {
 async function getBrowser(): Promise<Browser> {
   if (!browserPromise) {
     browserPromise = launchBrowser()
-    browserPromise.catch(() => { browserPromise = null })
+    browserPromise.catch(() => {
+      browserPromise = null
+    })
   }
   return browserPromise
 }
@@ -111,7 +137,14 @@ export async function generateDocumentPdf(opts: {
   if (type === "estimate") {
     const est = await prisma.estimate.findUnique({
       where: { id, isDeleted: false },
-      select: { id: true, estimateNo: true, patientId: true, updatedAt: true, status: true, total: true },
+      select: {
+        id: true,
+        estimateNo: true,
+        patientId: true,
+        updatedAt: true,
+        status: true,
+        total: true,
+      },
     })
     if (!est) throw new Error("Estimate not found")
     printPath = `/print/estimate/${est.id}`
@@ -136,7 +169,10 @@ export async function generateDocumentPdf(opts: {
     const rx = await prisma.prescriptionRecord.findUnique({
       where: { id },
       select: {
-        id: true, visitId: true, patientId: true, prescriptionData: true,
+        id: true,
+        visitId: true,
+        patientId: true,
+        prescriptionData: true,
         patient: { select: { patientId: true } },
       },
     })

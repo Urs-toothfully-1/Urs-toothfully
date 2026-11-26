@@ -182,7 +182,7 @@ export const templateService = {
         status: "DRAFT",
         body: def.body,
         footerText: def.footerText,
-        headerType: def.headerText ? "TEXT" : undefined,
+        headerType: def.headerType ?? (def.headerText ? "TEXT" : undefined),
         headerText: def.headerText,
         buttons: def.buttons ? (def.buttons as unknown as Prisma.InputJsonValue) : undefined,
         variables: def.variables,

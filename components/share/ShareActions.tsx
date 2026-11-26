@@ -1,17 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import { toast } from "sonner"
-import { sendDocumentEmailAction } from "@/actions/share"
+import {
+  getWhatsAppSendInfoAction,
+  sendDocumentEmailAction,
+  sendDocumentWhatsAppAction,
+  type WhatsAppSendInfo,
+} from "@/actions/share"
 import { buildShareMessage } from "@/lib/share-templates"
 import { toWaPhone } from "@/lib/whatsapp/provider"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, Mail } from "lucide-react"
+import { CheckCheck, ExternalLink, Loader2, Mail, Phone, Send, Share2 } from "lucide-react"
 import { BRAND_COLORS } from "@/lib/constants"
 import type { DocumentType } from "@/server/services/pdf.service"
 
@@ -33,6 +39,62 @@ function WhatsAppIcon({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.297-.497.1-.198.05-.371-.025-.52-.074-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
     </svg>
+  )
+}
+
+/** Renders WhatsApp's *bold* markup and line breaks for the preview bubble. */
+function WaText({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(\*[^*\n]+\*)/g).map((part, i) =>
+        part.startsWith("*") && part.endsWith("*") && part.length > 2 ? (
+          <strong key={i}>{part.slice(1, -1)}</strong>
+        ) : (
+          <Fragment key={i}>{part}</Fragment>
+        )
+      )}
+    </>
+  )
+}
+
+/** How the message will look on the patient's phone. */
+function WhatsAppPreview({ info, viaTemplate }: { info: WhatsAppSendInfo; viaTemplate: boolean }) {
+  const time = new Date().toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })
+  return (
+    <div className="rounded-lg p-3" style={{ backgroundColor: "#EFEAE2" }}>
+      <div className="ml-auto max-w-[92%] overflow-hidden rounded-lg rounded-tr-none bg-white shadow-sm">
+        <div className="m-1 flex items-center gap-3 rounded-md p-2.5" style={{ backgroundColor: "#F5F6F6" }}>
+          <span className="flex h-9 w-8 shrink-0 items-center justify-center rounded-sm bg-[#E53935] text-[9px] font-bold text-white">
+            PDF
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-[#111B21]">{info.fileName}</p>
+            <p className="text-xs text-[#667781]">PDF document</p>
+          </div>
+        </div>
+        <p className="whitespace-pre-line px-2.5 pt-1 text-[13px] leading-snug text-[#111B21]">
+          <WaText text={info.caption} />
+        </p>
+        {viaTemplate && (
+          <p className="px-2.5 pt-1.5 text-[11px] text-[#667781]">
+            Ur&apos;s Toothfully — Full Mouth Rehabilitation &amp; Implant Centre
+          </p>
+        )}
+        <p className="flex items-center justify-end gap-1 px-2.5 pb-1.5 text-[11px] text-[#667781]">
+          {time} <CheckCheck className="h-3.5 w-3.5 text-[#53BDEB]" />
+        </p>
+        {viaTemplate && (
+          <div className="divide-y border-t text-sm font-medium text-[#00A5F4]">
+            <p className="flex items-center justify-center gap-1.5 py-2">
+              <Phone className="h-3.5 w-3.5" /> Call clinic
+            </p>
+            <p className="flex items-center justify-center gap-1.5 py-2">
+              <ExternalLink className="h-3.5 w-3.5" /> Visit website
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -59,15 +121,61 @@ function downloadFile(file: File) {
 export function ShareActions({
   type, id, patientName, patientMobile, patientEmail, docNo, branchName, compact,
 }: Props) {
-  const [waBusy, setWaBusy] = useState(false)
+  const [waOpen, setWaOpen] = useState(false)
+  const [waInfo, setWaInfo] = useState<WhatsAppSendInfo | null>(null)
+  const [waError, setWaError] = useState<string | null>(null)
+  const [consent, setConsent] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [deviceBusy, setDeviceBusy] = useState(false)
   const [emailOpen, setEmailOpen] = useState(false)
   const [emailBusy, setEmailBusy] = useState(false)
   const [toEmail, setToEmail] = useState(patientEmail ?? "")
 
   const message = buildShareMessage(type, { patientName, docNo, branchName })
 
-  async function handleWhatsApp() {
-    setWaBusy(true)
+  async function openWhatsApp() {
+    setWaOpen(true)
+    setWaInfo(null)
+    setWaError(null)
+    setConsent(false)
+    const res = await getWhatsAppSendInfoAction({ type, id })
+    if ("error" in res) setWaError(res.error)
+    else setWaInfo(res)
+  }
+
+  // What blocks a send from the clinic number, in the order staff can fix it.
+  const blocker = !waInfo
+    ? null
+    : !waInfo.configured
+      ? "The clinic WhatsApp number isn't connected yet. Use “Share from this device”."
+      : !waInfo.sendingEnabled
+        ? "WhatsApp sending is switched off (emergency stop in WhatsApp settings)."
+        : !waInfo.phoneValid
+          ? `${patientName}'s mobile number (${patientMobile}) isn't valid for WhatsApp.`
+          : !waInfo.windowOpen && !waInfo.templateApproved
+            ? "The PDF message template is waiting for Meta approval (usually a few minutes to a few hours). Use “Share from this device” until then."
+            : null
+  const canSend = Boolean(waInfo && !blocker && (waInfo.hasConsent || consent))
+
+  async function sendFromClinic() {
+    setSending(true)
+    try {
+      const res = await sendDocumentWhatsAppAction({ type, id, confirmConsent: consent })
+      if (res.success) {
+        toast.success(`Sent to ${patientName} on WhatsApp`, {
+          description: "Delivery and read ticks appear in WhatsApp → Logs.",
+        })
+        setWaOpen(false)
+      } else {
+        toast.error(res.error ?? "WhatsApp send failed")
+      }
+    } finally {
+      setSending(false)
+    }
+  }
+
+  async function shareFromDevice() {
+    setDeviceBusy(true)
     try {
       const file = await fetchPdfFile(type, id, docNo)
 
@@ -75,6 +183,7 @@ export function ShareActions({
       if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({ files: [file], text: message })
+          setWaOpen(false)
           return
         } catch (err) {
           if (err instanceof DOMException && err.name === "AbortError") return // user cancelled
@@ -90,10 +199,11 @@ export function ShareActions({
         "noopener"
       )
       toast.info("PDF downloaded — attach it in the WhatsApp chat that just opened.")
+      setWaOpen(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "WhatsApp share failed")
     } finally {
-      setWaBusy(false)
+      setDeviceBusy(false)
     }
   }
 
@@ -119,12 +229,11 @@ export function ShareActions({
       <Button
         type="button"
         variant="outline"
-        onClick={handleWhatsApp}
-        disabled={waBusy}
+        onClick={openWhatsApp}
         className={`${btnBase} border-[#25D366] text-[#128C4A] hover:bg-[#25D366]/10`}
         title={`Send to ${patientMobile} on WhatsApp`}
       >
-        {waBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <WhatsAppIcon className="h-4 w-4" />}
+        <WhatsAppIcon className="h-4 w-4" />
         {!compact && <span className="ml-1.5 text-sm font-medium">WhatsApp</span>}
       </Button>
 
@@ -139,6 +248,78 @@ export function ShareActions({
         <Mail className="h-4 w-4" />
         {!compact && <span className="ml-1.5 text-sm font-medium">Email</span>}
       </Button>
+
+      <Dialog open={waOpen} onOpenChange={setWaOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#25D366] text-white">
+                <WhatsAppIcon className="h-4 w-4" />
+              </span>
+              Send {type} on WhatsApp
+            </DialogTitle>
+            <DialogDescription>
+              To {patientName} · {patientMobile}
+            </DialogDescription>
+          </DialogHeader>
+
+          {!waInfo && !waError && (
+            <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Preparing preview…
+            </div>
+          )}
+          {waError && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{waError}</p>}
+
+          {waInfo && (
+            <div className="space-y-3">
+              <WhatsAppPreview info={waInfo} viaTemplate={!waInfo.windowOpen} />
+
+              {blocker ? (
+                <p className="rounded-md bg-amber-50 p-2.5 text-xs text-amber-800">{blocker}</p>
+              ) : (
+                <p className="rounded-md bg-emerald-50 p-2.5 text-xs text-emerald-800">
+                  {waInfo.windowOpen
+                    ? "Sent from the clinic number. Free — the patient messaged the clinic in the last 24 hours."
+                    : "Sent from the clinic number as an approved WhatsApp message."}
+                </p>
+              )}
+
+              {!blocker && !waInfo.hasConsent && (
+                <label className="flex items-start gap-2.5 rounded-md border p-2.5 text-xs leading-snug">
+                  <Checkbox
+                    checked={consent}
+                    onCheckedChange={(v) => setConsent(v === true)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    {patientName} has agreed to receive messages from Ur&apos;s Toothfully on
+                    WhatsApp. (Saved as their WhatsApp consent.)
+                  </span>
+                </label>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button type="button" variant="outline" onClick={shareFromDevice} disabled={deviceBusy || sending}>
+              {deviceBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Share2 className="mr-2 h-4 w-4" />}
+              Share from this device
+            </Button>
+            <Button
+              type="button"
+              onClick={sendFromClinic}
+              disabled={!canSend || sending}
+              className="bg-[#25D366] text-white hover:bg-[#1EBE5A]"
+            >
+              {sending ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending…</>
+              ) : (
+                <><Send className="mr-2 h-4 w-4" />Send from clinic WhatsApp</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
         <DialogContent className="max-w-md">

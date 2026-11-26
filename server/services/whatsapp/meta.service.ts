@@ -75,6 +75,62 @@ function graphErrorMessage(data: Record<string, unknown>): string {
   return err?.error_data?.details || err?.message || "Unknown Graph API error"
 }
 
+function sendFailure(data: Record<string, unknown>): MetaSendResult {
+  const errObj = data.error as { code?: number } | undefined
+  return {
+    success: false,
+    error: graphErrorMessage(data),
+    permanent: errObj?.code !== undefined && PERMANENT_ERROR_CODES.has(errObj.code),
+  }
+}
+
+/** One-page PDF Meta shows reviewers as the example for a DOCUMENT-header template. */
+function samplePdf(): Buffer {
+  const stream = "BT /F1 18 Tf 72 760 Td (Ur's Toothfully - sample document) Tj ET"
+  const objs = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ]
+  let out = "%PDF-1.4\n"
+  const offsets: number[] = []
+  objs.forEach((o, i) => {
+    offsets.push(out.length)
+    out += `${i + 1} 0 obj\n${o}\nendobj\n`
+  })
+  const xref = out.length
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`
+  out += offsets.map((o) => `${String(o).padStart(10, "0")} 00000 n \n`).join("")
+  out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
+  return Buffer.from(out, "latin1")
+}
+
+/**
+ * Uploads an example file with Meta's Resumable Upload API and returns the
+ * handle that template creation needs for a media header.
+ */
+async function uploadExampleHandle(config: MetaConfig, file: Buffer, fileName: string): Promise<string> {
+  const dbg = await graphFetch(config, `debug_token?input_token=${config.accessToken}`)
+  const appId = (dbg.data.data as { app_id?: string } | undefined)?.app_id
+  if (!appId) throw new Error("Could not read the Meta app id from the access token.")
+  const start = await graphFetch(
+    config,
+    `${appId}/uploads?file_name=${encodeURIComponent(fileName)}&file_length=${file.length}&file_type=application/pdf`,
+    { method: "POST" }
+  )
+  if (!start.ok) throw new Error(graphErrorMessage(start.data))
+  const res = await fetch(`${GRAPH_BASE}/${config.version}/${String(start.data.id)}`, {
+    method: "POST",
+    headers: { Authorization: `OAuth ${config.accessToken}`, file_offset: "0" },
+    body: new Uint8Array(file),
+  })
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
+  if (!res.ok || !data.h) throw new Error(graphErrorMessage(data))
+  return String(data.h)
+}
+
 // Graph error codes that will never succeed on retry
 const PERMANENT_ERROR_CODES = new Set([
   100, 131026, 131047, 131051, 132000, 132001, 132005, 132007, 132012, 132015, 132016, 133010,
@@ -97,6 +153,8 @@ export const metaService = {
     templateName: string
     language: string
     bodyValues: string[]
+    /** Media id + file name for a DOCUMENT-header template. */
+    headerDocument?: { id: string; filename: string }
   }): Promise<MetaSendResult> {
     let config: MetaConfig
     try {
@@ -109,10 +167,15 @@ export const metaService = {
       }
     }
 
-    const components =
-      opts.bodyValues.length > 0
-        ? [{ type: "body", parameters: opts.bodyValues.map((text) => ({ type: "text", text })) }]
-        : undefined
+    const parts: Array<Record<string, unknown>> = []
+    if (opts.headerDocument)
+      parts.push({
+        type: "header",
+        parameters: [{ type: "document", document: opts.headerDocument }],
+      })
+    if (opts.bodyValues.length > 0)
+      parts.push({ type: "body", parameters: opts.bodyValues.map((text) => ({ type: "text", text })) })
+    const components = parts.length > 0 ? parts : undefined
 
     try {
       const { ok, data } = await graphFetch(config, `${config.phoneNumberId}/messages`, {
@@ -192,6 +255,51 @@ export const metaService = {
         error: err instanceof Error ? err.message : "Network error",
         permanent: false,
       }
+    }
+  },
+
+  /** Uploads a PDF to Meta for sending; returns the media id (Meta keeps it 30 days). */
+  async uploadMedia(file: Buffer, fileName: string): Promise<string> {
+    const config = await loadConfig()
+    const form = new FormData()
+    form.append("messaging_product", "whatsapp")
+    form.append("type", "application/pdf")
+    form.append("file", new Blob([new Uint8Array(file)], { type: "application/pdf" }), fileName)
+    const res = await fetch(`${GRAPH_BASE}/${config.version}/${config.phoneNumberId}/media`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${config.accessToken}` },
+      body: form,
+    })
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    if (!res.ok || !data.id) throw new Error(graphErrorMessage(data))
+    return String(data.id)
+  },
+
+  /**
+   * Sends an uploaded PDF as a session message with a caption — free, but only
+   * inside the 24-hour window after the patient last messaged the clinic.
+   */
+  async sendDocumentMessage(
+    to: string,
+    doc: { id: string; filename: string; caption: string }
+  ): Promise<MetaSendResult> {
+    try {
+      const config = await loadConfig()
+      const { ok, data } = await graphFetch(config, `${config.phoneNumberId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to,
+          type: "document",
+          document: { id: doc.id, filename: doc.filename, caption: doc.caption.slice(0, 1024) },
+        }),
+      })
+      if (!ok) return sendFailure(data)
+      const messages = data.messages as Array<{ id?: string }> | undefined
+      return { success: true, metaMessageId: messages?.[0]?.id }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : "Network error" }
     }
   },
 
@@ -409,6 +517,9 @@ export const metaService = {
     const components: Array<Record<string, unknown>> = []
     if (template.headerType === "TEXT" && template.headerText) {
       components.push({ type: "HEADER", format: "TEXT", text: template.headerText })
+    } else if (template.headerType === "DOCUMENT") {
+      const handle = await uploadExampleHandle(config, samplePdf(), "sample.pdf")
+      components.push({ type: "HEADER", format: "DOCUMENT", example: { header_handle: [handle] } })
     }
     const bodyComponent: Record<string, unknown> = { type: "BODY", text: template.body }
     const variables = (template.variables as string[] | null) ?? []
